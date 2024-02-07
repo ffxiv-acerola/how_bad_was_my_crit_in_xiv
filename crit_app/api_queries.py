@@ -1,5 +1,5 @@
 """
-API queries made to FFLogs (and eventually etro).
+API queries made to FFLogs and Etro.
 """
 
 from urllib.parse import urlparse, parse_qs
@@ -8,7 +8,8 @@ import time
 
 import requests
 
-from crit_app.config import FFLOGS_TOKEN
+# from crit_app.config import FFLOGS_TOKEN
+from config import FFLOGS_TOKEN
 
 # API config
 url = "https://www.fflogs.com/api/v2/client"

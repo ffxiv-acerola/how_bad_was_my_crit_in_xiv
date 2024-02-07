@@ -33,13 +33,13 @@ def make_rotation_pdf_figure(rotation_obj, rotation_dps):
     ]
     x_min, x_max = x[0], x[-1]
 
-    fig = px.line()
+    fig = px.line(template="plotly_dark")
 
     fig.add_scatter(
         x=rotation_obj.rotation_dps_support,
         y=rotation_obj.rotation_dps_distribution,
         name="DPS distribution",
-        marker={"color": px.colors.qualitative.Plotly[0]},
+        marker={"color": "#009670"},
     )
 
     x = rotation_dps
@@ -52,7 +52,7 @@ def make_rotation_pdf_figure(rotation_obj, rotation_dps):
         y=[y],
         mode="markers",
         name="Actual DPS",
-        marker={"size": 14, "color": px.colors.qualitative.Plotly[0]},
+        marker={"size": 14, "color": "#009670"},
         hovertext=f"Percentile = {get_dmg_percentile(x, rotation_obj.rotation_dps_distribution, rotation_obj.rotation_dps_support):.1f}%",
     )
 
@@ -95,7 +95,7 @@ def make_rotation_percentile_table(rotation_obj, rotation_percentile):
     style_rotation_percentile = [
         {
             "if": {"filter_query": "{{Percentile}} = {}".format(rotation_percentile)},
-            "backgroundColor": "#a3cfbb",
+            "backgroundColor": "#009670",
         }
     ]
     percentile_format = FormatTemplate.percentage(1)
@@ -116,6 +116,14 @@ def make_rotation_percentile_table(rotation_obj, rotation_percentile):
             columns=columns,
             cell_selectable=False,
             style_data_conditional=style_rotation_percentile,
+            style_header={
+                'backgroundColor': 'rgb(48, 48, 48)',
+                'color': 'white'
+            },
+            style_data={
+                'backgroundColor': 'rgb(50, 50, 50)',
+                'color': 'white'
+            },
         )
     ]
     return rotation_percentile_table
@@ -133,7 +141,7 @@ def make_action_pdfs_figure(rotation_obj, action_dps):
     Returns:
     Plotly figure with action DPS distributions plotted
     """
-    fig = px.line()
+    fig = px.line(template="plotly_dark")
 
     # Attempt at auto setting x and y limits
     max_y = []
@@ -244,6 +252,14 @@ def make_action_table(rotation_obj, action_df, t):
             data=action_summary_df.to_dict("records"),
             columns=columns,
             cell_selectable=False,
+            style_header={
+                'backgroundColor': 'rgb(48, 48, 48)',
+                'color': 'white'
+            },
+            style_data={
+                'backgroundColor': 'rgb(50, 50, 50)',
+                'color': 'white'
+            },
         )
     ]
     return action_summary_table
