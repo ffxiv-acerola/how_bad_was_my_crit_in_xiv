@@ -160,3 +160,5 @@ cython_debug/
 #.idea/
 
 crit_app/config.py
+data/*
+.vscode/

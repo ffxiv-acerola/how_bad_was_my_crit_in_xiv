@@ -25,7 +25,8 @@ from api_queries import (
     get_encounter_job_info,
     damage_events,
 )
-from crit_app.config import DB_URI, BLOB_URI, ETRO_TOKEN, DRY_RUN
+from job_data.job_warnings import job_warnings
+from config import DB_URI, BLOB_URI, ETRO_TOKEN, DRY_RUN
 
 
 dash.register_page(
@@ -501,7 +502,7 @@ def initialize_action_card(action_figure=None, action_summary_table=None):
 
 
 def initialize_results(
-    player_name=None, crit_text=None, rotation_card=[], action_card=[], analysis_url=None, results_hidden=True
+    player_name=None, crit_text=None, job_alert=[], rotation_card=[], action_card=[], analysis_url=None, results_hidden=True
 ):
     if player_name is not None:
         player_name = f"{player_name}, your crit was..."
@@ -525,6 +526,8 @@ def initialize_results(
                                     ),
                                 ]
                             ),
+                            html.Br(),
+                            dbc.Row(html.Div(children=job_alert, id="job-alert-id")),
                             html.Br(),
                             dbc.Row(
                                 [
@@ -747,12 +750,12 @@ def layout(analysis_id=None):
                 etro_url = f"https://etro.gg/gearset/{analysis_details['etro_id']}"
             else:
                 etro_url = None
-            # mind = job_object.mind
-            mind_pre_bonus = analysis_details["main_stat_pre_bonus"]
-            strength_pre_bonus = analysis_details["secondary_stat_pre_bonus"]
-            # strength = job_object.strength
+
+            # FIXME: generalize to main/secondary stat
+            main_stat_pre_bonus = analysis_details["main_stat_pre_bonus"]
+            secondary_stat_pre_bonus = analysis_details["secondary_stat_pre_bonus"]
             determination = job_object.det
-            spell_speed = job_object.dot_speed_stat
+            speed_stat = job_object.dot_speed_stat
             crit = job_object.crit_stat
             direct_hit = job_object.dh_stat
             weapon_damage = job_object.weapon_damage
@@ -801,6 +804,7 @@ def layout(analysis_id=None):
             # This will technically fail if you have two characters with the same name on the same job
             character = analysis_details["player_name"]
             player_id = encounter_df[encounter_df["player_name"] == character].iloc[0]["player_id"]
+            player_job_no_space = encounter_df[encounter_df["player_id"] == player_id]["job"].iloc[0]
             job_radio_value = player_id
 
             # add space to job name
@@ -810,10 +814,6 @@ def layout(analysis_id=None):
                 .str.strip()
             )
             job_radio_options = show_job_options(encounter_df.to_dict("records"))
-
-            ### Percentile and crit text results
-            crit_text = rotation_percentile_text_map(rotation_percentile)
-            crit_text += f" Your DPS corresponded to the {rotation_percentile:0.1%} percentile of the DPS distribution. Scroll down to see a detailed analysis of your rotation. Please note that DPS is reported and not rDPS (or any of the derived DPS metrics) and that this percentile has no relation to percentiles reported on FFLogs."
 
             ### make rotation card results
             rotation_fig = make_rotation_pdf_figure(job_object, rotation_dps)
@@ -845,13 +845,27 @@ def layout(analysis_id=None):
             crit_text = rotation_percentile_text_map(rotation_percentile)
             crit_text += f" Your DPS corresponded to the {rotation_percentile:0.1%} percentile of the DPS distribution. Scroll down to see a detailed analysis of your rotation. Please note that DPS is reported and not rDPS (or any of the derived DPS metrics) and that this percentile has no relation to percentiles reported on FFLogs."
 
+            # Give warning if not all variance in a job is supported (AST, BRD, DNC)
+            if player_job_no_space in job_warnings.keys():
+                alert_child = dbc.Alert(
+                            [
+                                html.I(className="bi bi-exclamation-triangle-fill me-2"),
+                                job_warnings[player_job_no_space],
+                            ],
+                            color="warning",
+                            className="d-flex align-items-center",
+                        )
+            else:
+                alert_child = []
+
             ### Make all the divs
+            # FIXME: generalize for different roles and main/secondary stat
             job_build = initialize_job_build(
                 etro_url,
-                mind_pre_bonus,
-                strength_pre_bonus,
+                main_stat_pre_bonus,
+                secondary_stat_pre_bonus,
                 determination,
-                spell_speed,
+                speed_stat,
                 crit,
                 direct_hit,
                 weapon_damage,
@@ -871,7 +885,7 @@ def layout(analysis_id=None):
             )
             action_card = initialize_action_card(action_graph, action_summary_table)
             result_card = initialize_results(
-                character, crit_text, rotation_card, action_card, analysis_url, False
+                character, crit_text, alert_child, rotation_card, action_card, analysis_url, False
             )
 
             access_db_row = (analysis_id, datetime.datetime.now())
@@ -889,7 +903,7 @@ def layout(analysis_id=None):
                 ]
             )
 
-
+# FIXME: MND / STR -> main/secondary
 @callback(
     Output("etro-url-feedback", "children"),
     Output("etro-url", "valid"),
@@ -1148,17 +1162,7 @@ def show_job_options(job_information):
             " " + char if char.isupper() else char.strip() for char in d["job"]
         ).strip()
         label_text = f"{job_name_space} ({d['player_name']})"
-        if job_name_space != "Astrologian":
-            radio_items.append({"label": label_text, "value": d["player_id"]})
-        else:
-            radio_items.append(
-                {
-                    "label": label_text + " [Job unsupported]",
-                    "value": d["player_id"],
-                    "disabled": True,
-                    "label_id": "invalid-radio",
-                }
-            )
+        radio_items.append({"label": label_text, "value": d["player_id"]})
     return radio_items
 
 
@@ -1221,7 +1225,6 @@ def process_fflogs_url(n_clicks, url, current_job_selection):
     # This is fixed by just clearing the value. How dumb.
     print(encounter_id, start_time, job_information)
 
-    # FIXME: get player ID and server from r
     db_rows = [
         (
             report_id,
@@ -1322,17 +1325,12 @@ def copy_analysis_link(n, selected):
         return "No selections"
     return selected
 
-# This is where all the computation happens
+# FIXME: MND/STR/SPS -> Main/secondary/speed
 @callback(
     Output("url", "href"),
     Output("compute-dmg-button", "children", allow_duplicate=True),
     Output("compute-dmg-button", "disabled", allow_duplicate=True),
-    # Output("results-div", "hidden"),
     Output("crit-result-text", "children"),
-    # Output("rotation-pdf-fig-div", "children"),
-    # Output("rotation-percentile-div", "children"),
-    # Output("action-pdf-fig-div", "children"),
-    # Output("action-summary-table-div", "children"),
     Input("compute-dmg-button", "n_clicks"),
     State("MND", "value"),
     State("STR", "value"),
@@ -1347,7 +1345,6 @@ def copy_analysis_link(n, selected):
     State("valid-jobs", "value"),
     State("fflogs-url", "value"),
     State("etro-url", "value"),
-    # prevent_initial_call="initial_duplicate",
     prevent_initial_call=True,
 )
 def analyze_and_register_rotation(
@@ -1386,12 +1383,6 @@ def analyze_and_register_rotation(
     mind = int(mind_pre_bonus * main_stat_multiplier)
     strength = int(strength_pre_bonus * main_stat_multiplier)
 
-    # Actual value for these attributes don't values matter, except tenacity
-    intelligence = 100
-    vit = 100
-    dexterity = 100
-    sks = 400
-    ten = 400
     medication_amt = int(medication_amt)
     # Predefined values from: https://www.fflogs.com/reports/NJz2cbM4mZd1hajC#fight=12&type=damage-done
     # which is useful for debugging
@@ -1477,25 +1468,34 @@ def analyze_and_register_rotation(
             action_df = create_action_df(actions, ch, dh, job_no_space, medication_amt)
             rotation_df = create_rotation_df(action_df)
 
-            # TODO: eventually switch around by job type
+            # FIXME: eventually switch around by job type
             main_stat_type = "mind"
             secondary_stat_type = "strength"
+
+            # FIXME: Parameterize pet attributes
+            if job_no_space == "Astrologian":
+                pet_attack_power = mind_pre_bonus
+                pet_job_attribute = 115
+                pet_trait = 134
+            else:
+                pet_attack_power = None
+                pet_job_attribute = None
+                pet_trait = None
+
             job_obj = Healer(
-                mind,
-                intelligence,
-                vit,
-                strength,
-                dexterity,
-                determination,
-                sks,
-                sps,
-                ten,
-                ch,
-                dh,
-                wd,
-                delay,
+                mind=mind,
+                strength=strength,
+                det=determination,
+                spell_speed=sps,
+                crit_stat=ch,
+                dh_stat=dh,
+                weapon_damage=wd,
+                delay=delay,
+                pet_attack_power=pet_attack_power,
+                pet_job_attribute=pet_job_attribute,
+                pet_trait=pet_trait
             )
-            job_obj.attach_rotation(rotation_df, t, convolve_all=True, delta=100)
+            job_obj.attach_rotation(rotation_df, t)
             job_obj.action_moments = [None] * len(job_obj.action_moments)
 
             analysis_id = str(uuid4())

@@ -17,6 +17,7 @@ action_potencies = pd.read_csv("dps_potencies.csv")
 int_ids = np.asarray(list(abilities.keys()), dtype=int).tolist()
 abilities = dict(zip(int_ids, abilities.values()))
 
+# FIXME: move to file
 crit_buffs = {
     "Chain Stratagem": 0.1,
     "Battle Litany": 0.1,
@@ -49,6 +50,7 @@ abbreviations = {
     "Divination": "DIV",
     "Card3": "Card3",
     "Card6": "Card6",
+    "Harmony of Mind": "HoM",
     "Medicated": "Pot",
     "No Mercy": "NM",
     "Damage Down": "DD",  # oof
@@ -215,8 +217,8 @@ def create_action_df(
             short_b = list(map(abbreviations.get, b))
             name[idx] = name[idx] + "-" + "_".join(sorted(short_b))
 
-        # FFlogs is nice enough to give us the overal damage multiplier
-        multiplier[idx] = np.array([multiplier[idx]])
+        # FFlogs is nice enough to give us the overall damage multiplier
+        multiplier[idx] = multiplier[idx]
         p[idx] = r.get_p(crit_hit_rate_mod[idx], direct_hit_rate_mod[idx])
 
     # Assemble the action dataframe
@@ -224,7 +226,7 @@ def create_action_df(
     actions_df["buff_names"] = buffs
     actions_df["multiplier"] = multiplier
     actions_df["action_name"] = name
-    actions_df["p"] = p
+    actions_df[["p_n", "p_c", "p_d", "p_cd"]] = np.array(p)
     actions_df["main_stat_add"] = main_stat_adjust
     actions_df["l_c"] = r.crit_dmg_multiplier()
     return actions_df
@@ -251,7 +253,10 @@ def create_rotation_df(actions_df, action_potencies=action_potencies):
             "action_name",
             "base_action",
             "n",
-            "p",
+            "p_n",
+            "p_c",
+            "p_d",
+            "p_cd",
             "buffs",
             "l_c",
             "main_stat_add",
@@ -274,6 +279,9 @@ def get_dmg_percentile(dps, dmg_distribution, dmg_distribution_support):
     returns
     percentile (as a percent)
     """
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use('agg')
     dx = dmg_distribution_support[1] - dmg_distribution_support[0]
     F = np.cumsum(dmg_distribution) * dx
     return F[(np.abs(dmg_distribution_support - dps)).argmin()] * 100

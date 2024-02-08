@@ -3,7 +3,13 @@ Create database and tables for saving analyzed rotations so they do not need to 
 """
 
 import sqlite3
-from crit_app.config import DB_URI
+from config import DB_URI, BLOB_URI
+
+if not (DB_URI / "../").exists():
+    (DB_URI / "../").mkdir(parents=True)
+
+if not (BLOB_URI).exists():
+    (BLOB_URI).mkdir(parents=True)
 
 con = sqlite3.connect(DB_URI)
 cur = con.cursor()
