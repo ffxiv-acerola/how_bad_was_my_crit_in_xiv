@@ -80,7 +80,7 @@ ten_hit_fig = px.line(
 )
 
 fifteen_hit_fig = px.line(
-    data_frame=ten_hit_df,
+    data_frame=fifteen_hit_df,
     x="x",
     y="y",
     template="plotly_dark",
