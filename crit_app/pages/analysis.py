@@ -802,7 +802,7 @@ def process_fflogs_url(n_clicks, url, role):
             k["player_server"],
             k["player_id"],
             k["job"],
-            "healer",
+            k["role"],
         )
         for k in job_information
     ]
