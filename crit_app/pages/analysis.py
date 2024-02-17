@@ -25,7 +25,15 @@ from api_queries import (
     get_encounter_job_info,
     damage_events,
 )
+from cards import (
+    initialize_job_build,
+    initialize_fflogs_card,
+    initialize_rotation_card,
+    initialize_action_card,
+    initialize_results,
+)
 from job_data.job_warnings import job_warnings
+from job_data.roles import role_stat_dict
 from config import DB_URI, BLOB_URI, ETRO_TOKEN, DRY_RUN
 
 
@@ -34,574 +42,6 @@ dash.register_page(
     path_template="/analysis/<analysis_id>",
     path="/",
 )
-
-
-def initialize_job_build(
-    etro_url=None,
-    mind=None,
-    strength=None,
-    determination=None,
-    spell_speed=None,
-    crit=None,
-    direct_hit=None,
-    weapon_damage=None,
-    delay=None,
-    party_bonus=1.05,
-    medication_amt=262,
-):
-    """
-    Create the job build div, optionally setting initial values for them.
-    Initial values are set when an `analysis_id` is present in the URL.
-    Callback decorators require an input to trigger them, which isn't possible
-    to automatically trigger them just once.
-    There doesn't seem to be a way to set/edit values without a callback except when
-    the element is created.
-    """
-    job_build = html.Div(
-        dbc.Card(
-            dbc.CardBody(
-                [
-                    html.H2("Enter job build"),
-                    html.P(
-                        "A job build must be fully entered before a log can be analyzed. A build from an Etro URL can be loaded in or values can be manually entered."
-                    ),
-                    html.Div(
-                        [
-                            dbc.Form(
-                                dbc.Row(
-                                    [
-                                        dbc.Label("Etro build URL", width=2),
-                                        dbc.Col(
-                                            [
-                                                dbc.Input(
-                                                    value=etro_url,
-                                                    type="text",
-                                                    placeholder="Enter Etro job build URL",
-                                                    id="etro-url",
-                                                ),
-                                                dbc.FormFeedback(
-                                                    type="invalid",
-                                                    id="etro-url-feedback",
-                                                ),
-                                            ],
-                                            className="me-3",
-                                        ),
-                                        dbc.Col(
-                                            [
-                                                dbc.Button(
-                                                    "Submit",
-                                                    color="primary",
-                                                    id="etro-url-button",
-                                                ),
-                                            ],
-                                            width=1,
-                                        ),
-                                    ],
-                                    className="g-2",
-                                    style={"padding-bottom": "15px"},
-                                )
-                            ),
-                            dbc.Row(id="etro-build-name-div"),
-                            dbc.Row(
-                                [
-                                    dbc.Label("MND:", width=1),
-                                    dbc.Col(
-                                        [
-                                            dbc.Input(
-                                                value=mind,
-                                                type="number",
-                                                placeholder="Mind",
-                                                id="MND",
-                                                min=100,
-                                                max=4000,
-                                                step=1,
-                                            ),
-                                            dbc.FormFeedback(
-                                                "Please enter a number.",
-                                                type="invalid",
-                                                id="MND-feedback",
-                                            ),
-                                        ],
-                                        width=2,
-                                    ),
-                                    dbc.Label(
-                                        [
-                                            html.Span(
-                                                "STR",
-                                                id="str-tooltip",
-                                                style={
-                                                    "textDecoration": "underline",
-                                                    "textDecorationStyle": "dotted",
-                                                    "cursor": "pointer",
-                                                },
-                                            ),
-                                            dbc.Tooltip(
-                                                "Strength, used for auto-attacks",
-                                                target="str-tooltip",
-                                            ),
-                                        ],
-                                        width=1,
-                                    ),
-                                    dbc.Col(
-                                        [
-                                            dbc.Input(
-                                                value=strength,
-                                                type="number",
-                                                placeholder="Strength",
-                                                id="STR",
-                                                # min=100,
-                                                # max=4000,
-                                                # step=1,
-                                            ),
-                                            dbc.FormFeedback(
-                                                "Please enter non-zero number.",
-                                                type="invalid",
-                                                id="STR-feedback",
-                                            ),
-                                        ],
-                                        width=2,
-                                    ),
-                                    dbc.Label("DET:", width=1),
-                                    dbc.Col(
-                                        dbc.Input(
-                                            value=determination,
-                                            type="number",
-                                            placeholder="Determination",
-                                            id="DET",
-                                            min=100,
-                                            max=4000,
-                                            step=1,
-                                        ),
-                                        width=2,
-                                    ),
-                                    dbc.Label(
-                                        [
-                                            html.Span(
-                                                "SPS",
-                                                id="sps-tooltip",
-                                                style={
-                                                    "textDecoration": "underline",
-                                                    "textDecorationStyle": "dotted",
-                                                    "cursor": "pointer",
-                                                },
-                                            ),
-                                            dbc.Tooltip(
-                                                "Your Spell Speed stat, not your GCD.",
-                                                target="sps-tooltip",
-                                            ),
-                                            dbc.FormFeedback(
-                                                "Please enter your Spell Speed, not GCD.",
-                                                type="invalid",
-                                                id="SPS-feedback",
-                                            ),
-                                        ],
-                                        width=1,
-                                    ),
-                                    dbc.Col(
-                                        dbc.Input(
-                                            value=spell_speed,
-                                            type="number",
-                                            placeholder="Spell Speed",
-                                            id="SPS",
-                                        ),
-                                        width=2,
-                                    ),
-                                ],
-                                justify="evenly",
-                                style={"padding-bottom": "15px"},
-                            ),
-                            dbc.Row(
-                                [
-                                    dbc.Label("CRT:", width=1),
-                                    dbc.Col(
-                                        dbc.Input(
-                                            value=crit,
-                                            type="number",
-                                            placeholder="Critical Hit",
-                                            id="CRT",
-                                            min=100,
-                                            max=4000,
-                                            step=1,
-                                        ),
-                                        width=2,
-                                    ),
-                                    dbc.Label("DH:", width=1),
-                                    dbc.Col(
-                                        dbc.Input(
-                                            value=direct_hit,
-                                            type="number",
-                                            placeholder="Direct Hit Rate",
-                                            id="DH",
-                                            min=100,
-                                            max=4000,
-                                            step=1,
-                                        ),
-                                        width=2,
-                                    ),
-                                    dbc.Label("WD:", width=1),
-                                    dbc.Col(
-                                        dbc.Input(
-                                            value=weapon_damage,
-                                            type="number",
-                                            placeholder="Weapon Damage",
-                                            id="WD",
-                                            min=50,
-                                            max=200,
-                                            step=1,
-                                        ),
-                                        width=2,
-                                    ),
-                                    dbc.Label(
-                                        [
-                                            html.Span(
-                                                "DEL",
-                                                id="del-tooltip",
-                                                style={
-                                                    "textDecoration": "underline",
-                                                    "textDecorationStyle": "dotted",
-                                                    "cursor": "pointer",
-                                                },
-                                            ),
-                                            dbc.Tooltip(
-                                                "Delay, under weapon stats, for auto-attacks. "
-                                                "Should be a value like 3.44.",
-                                                target="del-tooltip",
-                                            ),
-                                        ],
-                                        width=1,
-                                    ),
-                                    dbc.Col(
-                                        dbc.Input(
-                                            value=delay,
-                                            type="number",
-                                            placeholder="Delay",
-                                            id="DEL",
-                                        ),
-                                        width=2,
-                                    ),
-                                ],
-                                justify="evenly",
-                                style={"padding-bottom": "15px"},
-                            ),
-                            dbc.Row(id="party-bonus-warning"),
-                            dbc.Row(
-                                [
-                                    dbc.Col(
-                                        html.Div(
-                                            [
-                                                dbc.Label(
-                                                    [
-                                                        html.Span(
-                                                            r"Add % bonus to main stat",
-                                                            id="bonus-tooltip",
-                                                            style={
-                                                                "textDecoration": "underline",
-                                                                "textDecorationStyle": "dotted",
-                                                                "cursor": "pointer",
-                                                            },
-                                                        ),
-                                                        dbc.Tooltip(
-                                                            r"The % bonus added to main stat for each unique job present. For most cases, this should be 5%. If a job like Phys Ranged is missing, this value should be 4%.",
-                                                            target="bonus-tooltip",
-                                                        ),
-                                                    ],
-                                                    # width=1,
-                                                ),
-                                                dcc.Slider(
-                                                    1.00,
-                                                    1.05,
-                                                    step=0.01,
-                                                    value=party_bonus,
-                                                    marks={
-                                                        1.00: "0%",
-                                                        1.01: "1%",
-                                                        1.02: "2%",
-                                                        1.03: "3%",
-                                                        1.04: "4%",
-                                                        1.05: "5%",
-                                                    },
-                                                    id="main-stat-slider",
-                                                ),
-                                            ]
-                                        ),
-                                        width=4,
-                                    ),
-                                    dbc.Col(
-                                        [
-                                            dbc.Label(
-                                                [
-                                                    html.Span(
-                                                        "Tincture grade",
-                                                        id="tincture-tooltip",
-                                                        style={
-                                                            "textDecoration": "underline",
-                                                            "textDecorationStyle": "dotted",
-                                                            "cursor": "pointer",
-                                                        },
-                                                    ),
-                                                    dbc.Tooltip(
-                                                        "If no tincture was used, "
-                                                        "keep the default value selected.",
-                                                        target="tincture-tooltip",
-                                                    ),
-                                                ],
-                                            ),
-                                            dbc.Select(
-                                                name="Tincture grade",
-                                                id="tincture-grade",
-                                                options=[
-                                                    {
-                                                        "label": "Grade 8 Tincture (+262)",
-                                                        "value": 262,
-                                                    },
-                                                    {
-                                                        "label": "Grade 7 Tincture (+223)",
-                                                        "value": 223,
-                                                    },
-                                                ],
-                                                value=medication_amt,
-                                            ),
-                                        ]
-                                    ),
-                                ]
-                            ),
-                        ]
-                    ),
-                ]
-            )
-        )
-    )
-    return job_build
-
-
-def initialize_fflogs_card(
-    fflogs_url=None,
-    encounter_info=[],
-    job_radio_options=[],
-    job_radio_value=None,
-    analyze_hidden=True,
-):
-    fflogs_card = html.Div(
-        dbc.Card(
-            [
-                dbc.CardBody(
-                    [
-                        html.H2("Enter log to Analyze"),
-                        dbc.Form(
-                            dbc.Row(
-                                [
-                                    dbc.Label("Log URL", width=1),
-                                    dbc.Col(
-                                        [
-                                            dbc.Input(
-                                                value=fflogs_url,
-                                                type="text",
-                                                placeholder="Enter FFLogs URL",
-                                                id="fflogs-url",
-                                            ),
-                                            dbc.FormFeedback(
-                                                type="invalid", id="fflogs-url-feedback"
-                                            ),
-                                        ],
-                                        className="me-3",
-                                    ),
-                                    dbc.Col(
-                                        [
-                                            dbc.Button(
-                                                "Submit",
-                                                color="primary",
-                                                id="fflogs-url-state",
-                                            ),
-                                        ],
-                                        width=1,
-                                    ),
-                                ],
-                                className="g-2",
-                                style={"padding-bottom": "15px"},
-                            )
-                        ),
-                        html.H3(children=encounter_info, id="read-fflogs-url"),
-                        dbc.Label("Please select a job:", id="select-job"),
-                        dbc.RadioItems(
-                            value=job_radio_value,
-                            options=job_radio_options,
-                            id="valid-jobs",
-                        ),
-                        html.Br(),
-                        html.Div(
-                            [
-                                dbc.Button(
-                                    "Analyze rotation",
-                                    color="primary",
-                                    id="compute-dmg-button",
-                                )
-                            ],
-                            id="compute-dmg-div",
-                            hidden=analyze_hidden,
-                        ),
-                    ]
-                )
-            ]
-        ),
-        id="fflogs-card",
-    )
-    return fflogs_card
-
-
-def initialize_rotation_card(rotation_figure=None, rotation_percentile_table=None):
-    rotation_dmg_pdf_card = dbc.Card(
-        dbc.CardBody(
-            [
-                html.H2("Rotation DPS distribution"),
-                html.P(
-                    "The DPS distribution and your DPS is plotted below. Your DPS and corresponding percentile is shown in green along with select percentiles."
-                ),
-                html.P("The DPS distribution is also summarized by its first three moments: mean, standard deviation, and skewness."),
-                html.Div(
-                    dbc.Row(
-                        [
-                            dbc.Col(
-                                html.Div(
-                                    children=rotation_figure, id="rotation-pdf-fig-div"
-                                ),
-                                width=9,
-                            ),
-                            dbc.Col(
-                                html.Div(
-                                    children=rotation_percentile_table,
-                                    id="rotation-percentile-div",
-                                ),
-                                width=3,
-                                align="center",
-                            ),
-                        ]
-                    )
-                ),
-            ],
-            className="mb-3",
-        ),
-    )
-    return rotation_dmg_pdf_card
-
-
-def initialize_action_card(action_figure=None, action_summary_table=None):
-    action_dmg_pdf_card = dbc.Card(
-        dbc.CardBody(
-            [
-                html.H2("Action DPS distributions"),
-                html.P(
-                    "The DPS distribution for each action is shown below. The table below shows the expected, average DPS, your actual DPS, and the corresponding percentile."
-                ),
-                html.Div(children=action_figure, id="action-pdf-fig-div"),
-                html.Div(children=action_summary_table, id="action-summary-table-div"),
-            ],
-            className="mb-3",
-        ),
-    )
-    return action_dmg_pdf_card
-
-
-def initialize_results(
-    player_name=None, crit_text=None, job_alert=[], rotation_card=[], action_card=[], analysis_url=None, results_hidden=True
-):
-    if player_name is not None:
-        player_name = f"{player_name}, your crit was..."
-    else:
-        player_name = "Your crit was..."
-    crit_results = html.Div(
-        dbc.Card(
-            dbc.CardBody(
-                [
-                    html.H2(player_name),
-                    html.Div(
-                        [
-                            dbc.Row(
-                                [
-                                    html.P(children=crit_text, id="crit-result-text"),
-                                    html.Br(),
-                                    html.A( 
-                                        "Click here for an explanation on the consequences of this.",
-                                        href="#",
-                                        id="result-interpretation-open",
-                                    ),
-                                ]
-                            ),
-                            html.Br(),
-                            dbc.Row(html.Div(children=job_alert, id="job-alert-id")),
-                            html.Br(),
-                            dbc.Row(
-                                [
-                                    dbc.Col(
-                                        dbc.Label("Copy analysis link"), align="center", width=2
-                                    ),
-                                    dbc.Col(
-                                        dbc.Input(
-                                            value=analysis_url,
-                                            disabled=True,
-                                            id="analysis-link",
-                                        ),
-                                        width=9,
-                                        align="center",
-                                    ),
-                                    dbc.Col(
-                                        dcc.Clipboard(
-                                            id="clipboard", style={"display": "inline-block"}
-                                        ),
-                                        align="center",
-                                        width=1,
-                                    ),
-                                ]
-                            ),
-                            html.Br(),
-                            dbc.Modal(
-                                [
-                                    dbc.ModalHeader(
-                                        dbc.ModalTitle(
-                                            "Consequences of raw DPS and its percentiles for this analysis"
-                                        )
-                                    ),
-                                    dbc.ModalBody(
-                                        html.P(
-                                            [
-                                                "The percentile reported is the percentile of the damage distribution, which depends on the rotation, kill time, party composition, job build, etc. Percentiles from FFLogs are more complicated because DPS percentiles are computed across kills with many different damage distributions. This can be due to different rotations (including GCDs lost to healing, raising, movement, chadding, etc), different job builds, non-BiS gear, party compositions, and kill times. Percentiles from FFLogs are also only computed for derived DPS metrics like ",
-                                                html.A(
-                                                    "rDPS and aDPS.",
-                                                    href="https://www.fflogs.com/help/rdps",
-                                                    target="_blank",
-                                                ),
-                                                html.Br(),
-                                                html.Br(),
-                                                'This analysis is affected by party composition and any external buffs present because raw DPS is used. Party compositions with many buffs will naturally have higher damage distributions across all jobs compared to a party composition few buffs. For "rDPS jobs" like Scholar or Astrologian, party contributions to their buffs can lead to a significant difference between DPS and rDPS, and are not captured by this analysis. For "aDPS jobs" like White Mage and Sage, raw DPS is aDPS and can indicate how well a person played into raid buffs for a run.',
-                                            ]
-                                        )
-                                    ),
-                                    dbc.ModalFooter(
-                                        dbc.Button(
-                                            "Close",
-                                            id="result-interpretation-close",
-                                            className="ms-auto",
-                                            n_clicks=0,
-                                        )
-                                    ),
-                                ],
-                                id="result-interpretation-modal",
-                                is_open=False,
-                                size="lg",
-                            ),
-                        ],
-                        id="crit-result-div",
-                    ),
-                    # html.Br(),
-                    rotation_card,
-                    html.Br(),
-                    action_card,
-                ]
-            )
-        ),
-        id="results-div",
-        hidden=results_hidden,
-    )
-    return crit_results
 
 
 def read_report_table():
@@ -653,7 +93,8 @@ def update_encounter_table(db_rows):
         db_rows,
     )
     # Drop any duplicate records
-    cur.execute("""
+    cur.execute(
+        """
     delete from encounter 
      where rowid not in (
         select min(rowid)
@@ -691,7 +132,7 @@ def update_access_table(db_row):
 
 
 def layout(analysis_id=None):
-    """ 
+    """
     Display a previously-analyzed rotation by its analysis ID.
 
     If no analysis ID exists, display blank everything.
@@ -719,15 +160,15 @@ def layout(analysis_id=None):
 
         # Message to display if something goes wrong.
         error_children = [
-                html.H2("404 Not Found"),
-                html.P(
-                    [
-                        "The link entered does not exist. ",
-                        html.A("Click here", href="/"),
-                        " to return home and analyze a rotation."
-                    ]
-                )
-            ]
+            html.H2("404 Not Found"),
+            html.P(
+                [
+                    "The link entered does not exist. ",
+                    html.A("Click here", href="/"),
+                    " to return home and analyze a rotation.",
+                ]
+            ),
+        ]
 
         # redirect to 404 if no analysis page exists
         if len(analysis_details) == 0:
@@ -742,11 +183,15 @@ def layout(analysis_id=None):
                 with open(BLOB_URI / f"rotation-obj-{analysis_id}.pkl", "rb") as outp:
                     job_object = pickle.load(outp)
             except Exception as e:
-                error_children.append(html.P(f"The following error was encountered: {str(e)}"))
+                error_children.append(
+                    html.P(f"The following error was encountered: {str(e)}")
+                )
                 return html.Div(error_children)
 
             # Set job build values
-            if (analysis_details["etro_id"] is not None) and (analysis_details["etro_id"] != ""):
+            if (analysis_details["etro_id"] is not None) and (
+                analysis_details["etro_id"] != ""
+            ):
                 etro_url = f"https://etro.gg/gearset/{analysis_details['etro_id']}"
             else:
                 etro_url = None
@@ -803,8 +248,12 @@ def layout(analysis_id=None):
 
             # This will technically fail if you have two characters with the same name on the same job
             character = analysis_details["player_name"]
-            player_id = encounter_df[encounter_df["player_name"] == character].iloc[0]["player_id"]
-            player_job_no_space = encounter_df[encounter_df["player_id"] == player_id]["job"].iloc[0]
+            player_id = encounter_df[encounter_df["player_name"] == character].iloc[0][
+                "player_id"
+            ]
+            player_job_no_space = encounter_df[encounter_df["player_id"] == player_id][
+                "job"
+            ].iloc[0]
             job_radio_value = player_id
 
             # add space to job name
@@ -848,13 +297,13 @@ def layout(analysis_id=None):
             # Give warning if not all variance in a job is supported (AST, BRD, DNC)
             if player_job_no_space in job_warnings.keys():
                 alert_child = dbc.Alert(
-                            [
-                                html.I(className="bi bi-exclamation-triangle-fill me-2"),
-                                job_warnings[player_job_no_space],
-                            ],
-                            color="warning",
-                            className="d-flex align-items-center",
-                        )
+                    [
+                        html.I(className="bi bi-exclamation-triangle-fill me-2"),
+                        job_warnings[player_job_no_space],
+                    ],
+                    color="warning",
+                    className="d-flex align-items-center",
+                )
             else:
                 alert_child = []
 
@@ -885,7 +334,13 @@ def layout(analysis_id=None):
             )
             action_card = initialize_action_card(action_graph, action_summary_table)
             result_card = initialize_results(
-                character, crit_text, alert_child, rotation_card, action_card, analysis_url, False
+                character,
+                crit_text,
+                alert_child,
+                rotation_card,
+                action_card,
+                analysis_url,
+                False,
             )
 
             access_db_row = (analysis_id, datetime.datetime.now())
@@ -903,16 +358,40 @@ def layout(analysis_id=None):
                 ]
             )
 
-# FIXME: MND / STR -> main/secondary
+
+@callback(
+    Output("main-stat-label", "children"),
+    Output("main-stat", "placeholder"),
+    Output("secondary-stat-label", "children"),
+    Output("secondary-stat", "placeholder"),
+    Output("speed-tooltip", "children"),
+    Output("speed-stat", "placeholder"),
+    Input("role-select", "value"),
+)
+def fill_role_stat_labels(role):
+    if role == "Unsupported":
+        raise PreventUpdate
+
+    return (
+        role_stat_dict[role]["main_stat"]["label"],
+        role_stat_dict[role]["main_stat"]["placeholder"],
+        role_stat_dict[role]["secondary_stat"]["label"],
+        role_stat_dict[role]["secondary_stat"]["placeholder"],
+        role_stat_dict[role]["speed_stat"]["label"],
+        role_stat_dict[role]["speed_stat"]["placeholder"],
+    )
+
+
 @callback(
     Output("etro-url-feedback", "children"),
     Output("etro-url", "valid"),
     Output("etro-url", "invalid"),
     Output("etro-build-name-div", "children"),
-    Output("MND", "value"),
-    Output("STR", "value"),
+    Output("role-select", "value"),
+    Output("main-stat", "value"),
+    Output("secondary-stat", "value"),
     Output("DET", "value"),
-    Output("SPS", "value"),
+    Output("speed-stat", "value"),
     Output("CRT", "value"),
     Output("DH", "value"),
     Output("WD", "value"),
@@ -922,8 +401,10 @@ def layout(analysis_id=None):
     Input("etro-url-button", "n_clicks"),
     State("main-stat-slider", "value"),
     State("etro-url", "value"),
+    State("role-select", "value"),
+    prevent_initial_call=True,
 )
-def process_etro_url(n_clicks, party_bonus, url):
+def process_etro_url(n_clicks, party_bonus, url, default_role):
     """
     Get the report/fight ID from an fflogs URL, then determine the encounter ID, start time, and jobs present.
     """
@@ -940,6 +421,7 @@ def process_etro_url(n_clicks, party_bonus, url):
             False,
             True,
             [],
+            default_role,
             [],
             [],
             [],
@@ -961,6 +443,7 @@ def process_etro_url(n_clicks, party_bonus, url):
             False,
             True,
             [],
+            default_role,
             [],
             [],
             [],
@@ -988,13 +471,27 @@ def process_etro_url(n_clicks, party_bonus, url):
     build_name = build_result["name"]
     build_children = [html.H4(f"Build name: {build_name} ({job_abbreviated})")]
 
-    if job_abbreviated not in ["WHM", "AST", "SGE", "SCH"]:
-        feedback = "Etro build is not for a healer job."
+    if job_abbreviated in ["WHM", "AST", "SGE", "SCH"]:
+        build_role = "Healer"
+        main_stat_str = "MND"
+        secondary_stat_str = "STR"
+        speed_stat_str = "SPS"
+    elif job_abbreviated in ["WAR", "PLD", "DRK", "GNB"]:
+        build_role = "Tank"
+        main_stat_str = "STR"
+        secondary_stat_str = "TEN"
+        speed_stat_str = "SKS"
+    else:
+        build_role = "Unsupported"
+
+    if build_role == "Unsupported":
+        feedback = f"{job_abbreviated} is currently not supported."
         return (
             feedback,
             False,
             True,
             [],
+            build_role,
             [],
             [],
             [],
@@ -1014,22 +511,25 @@ def process_etro_url(n_clicks, party_bonus, url):
         key = item.pop("name")
         total_params[key] = item
 
-    mind = total_params["MND"]["value"]
+    primary_stat = total_params[main_stat_str]["value"]
     dh = total_params["DH"]["value"]
     ch = total_params["CRT"]["value"]
     determination = total_params["DET"]["value"]
-    sps = total_params["SPS"]["value"]
+    speed = total_params[speed_stat_str]["value"]
     wd = total_params["Weapon Damage"]["value"]
     etro_party_bonus = build_result["partyBonus"]
 
-    if job_abbreviated == "SCH":
-        strength = 350
-    if job_abbreviated == "WHM":
-        strength = 214
-    if job_abbreviated == "SGE":
-        strength = 233
-    if job_abbreviated == "AST":
-        strength = 194
+    if build_role == "Healer":
+        if job_abbreviated == "SCH":
+            secondary_stat = 350
+        if job_abbreviated == "WHM":
+            secondary_stat = 214
+        if job_abbreviated == "SGE":
+            secondary_stat = 233
+        if job_abbreviated == "AST":
+            secondary_stat = 194
+    elif build_role == "Tank":
+        secondary_stat = total_params[secondary_stat_str]["value"]
 
     weapon_id = build_result["weapon"]
     weapon_action = ["equipment", "read"]
@@ -1038,7 +538,7 @@ def process_etro_url(n_clicks, party_bonus, url):
     weapon_result = client.action(schema, weapon_action, params=weapon_params)
     delay = weapon_result["delay"] / 1000
 
-    print(mind, dh, ch, determination, sps, wd, delay, etro_party_bonus)
+    print(primary_stat, dh, ch, determination, speed, wd, delay, etro_party_bonus)
 
     if etro_party_bonus > 1.0:
         bonus_fmt = etro_party_bonus - 1
@@ -1055,10 +555,11 @@ def process_etro_url(n_clicks, party_bonus, url):
             True,
             False,
             build_children,
-            mind,
-            strength,
+            build_role,
+            primary_stat,
+            secondary_stat,
             determination,
-            sps,
+            speed,
             ch,
             dh,
             wd,
@@ -1071,10 +572,11 @@ def process_etro_url(n_clicks, party_bonus, url):
         True,
         False,
         build_children,
-        mind,
-        strength,
+        build_role,
+        primary_stat,
+        secondary_stat,
         determination,
-        sps,
+        speed,
         ch,
         dh,
         wd,
@@ -1086,10 +588,10 @@ def process_etro_url(n_clicks, party_bonus, url):
 
 @callback(
     Output("fflogs-card", "hidden"),
-    Input("MND", "value"),
-    Input("STR", "value"),
+    Input("main-stat", "value"),
+    Input("secondary-stat", "value"),
     Input("DET", "value"),
-    Input("SPS", "value"),
+    Input("speed-stat", "value"),
     Input("CRT", "value"),
     Input("DH", "value"),
     Input("WD", "value"),
@@ -1097,10 +599,10 @@ def process_etro_url(n_clicks, party_bonus, url):
     Input("results-div", "hidden"),
 )
 def job_build_defined(
-    mind,
-    strength,
+    main_stat,
+    secondary_stat,
     determination,
-    spell_speed,
+    speed,
     crit,
     direct_hit,
     weapon_damage,
@@ -1110,13 +612,14 @@ def job_build_defined(
     """
     Check if any job build elements are missing, hide everything else if they are.
     """
+    # TODO: will need to handle None secondary stat for roles without them.
     job_build_missing = any(
         elem is None
         for elem in [
-            mind,
-            strength,
+            main_stat,
+            secondary_stat,
             determination,
-            spell_speed,
+            speed,
             crit,
             direct_hit,
             weapon_damage,
@@ -1126,17 +629,13 @@ def job_build_defined(
     return job_build_missing
 
 
-@callback(Output("STR", "valid"), Output("STR", "invalid"), Input("STR", "value"))
-def validate_str(strength):
-    if (strength is None) or (strength > 10):
-        return True, False
-    else:
-        return False, True
-
-
-@callback(Output("SPS", "valid"), Output("SPS", "invalid"), Input("SPS", "value"))
+@callback(
+    Output("speed-stat", "valid"),
+    Output("speed-stat", "invalid"),
+    Input("speed-stat", "value"),
+)
 def validate_sps(spell_speed):
-    if (spell_speed is None) or (spell_speed > 3):
+    if (spell_speed == []) or (spell_speed is None) or (spell_speed > 3):
         return True, False
     else:
         return False, True
@@ -1150,11 +649,15 @@ def validate_del(delay):
         return False, True
 
 
-def show_job_options(job_information):
+def show_job_options(job_information, role):
     """
     Show which jobs are available to analyze with radio buttons.
     """
-    radio_items = []
+    tank_radio_items = []
+    healer_radio_items = []
+    melee_radio_items = []
+    physical_ranged_radio_items = []
+    magical_ranged_radio_items = []
 
     for d in job_information:
         # Add space to job name
@@ -1162,24 +665,80 @@ def show_job_options(job_information):
             " " + char if char.isupper() else char.strip() for char in d["job"]
         ).strip()
         label_text = f"{job_name_space} ({d['player_name']})"
-        radio_items.append({"label": label_text, "value": d["player_id"]})
-    return radio_items
+
+        if d["role"] == "Tank":
+            tank_radio_items.append(
+                {
+                    "label": label_text,
+                    "value": d["player_id"],
+                    "disabled": "Tank" != role,
+                }
+            )
+        elif d["role"] == "Healer":
+            healer_radio_items.append(
+                {
+                    "label": label_text,
+                    "value": d["player_id"],
+                    "disabled": "Healer" != role,
+                }
+            )
+        elif d["role"] == "Melee":
+            melee_radio_items.append(
+                {
+                    "label": label_text + " [Unsupported]",
+                    "value": d["player_id"],
+                    "disabled": "Melee" != role,
+                }
+            )
+        elif d["role"] == "Physical Ranged":
+            physical_ranged_radio_items.append(
+                {
+                    "label": label_text + " [Unsupported]",
+                    "value": d["player_id"],
+                    "disabled": "Physical Ranged" != role,
+                }
+            )
+        elif d["role"] == "Magical Ranged":
+            magical_ranged_radio_items.append(
+                {
+                    "label": label_text + " [Unsupported]",
+                    "value": d["player_id"],
+                    "disabled": "Magical Ranged" != role,
+                }
+            )
+
+    return (
+        tank_radio_items,
+        healer_radio_items,
+        melee_radio_items,
+        physical_ranged_radio_items,
+        magical_ranged_radio_items,
+    )
 
 
 @callback(
     Output("fflogs-url-feedback", "children"),
     Output("read-fflogs-url", "children"),
     Output("select-job", "children"),
-    Output("valid-jobs", "options"),
-    Output("valid-jobs", "value"),
+    Output("tank-jobs", "options"),
+    Output("tank-jobs", "value"),
+    Output("healer-jobs", "options"),
+    Output("healer-jobs", "value"),
+    Output("melee-jobs", "options"),
+    Output("melee-jobs", "value"),
+    Output("physical-ranged-jobs", "options"),
+    Output("physical-ranged-jobs", "value"),
+    Output("magical-ranged-jobs", "options"),
+    Output("magical-ranged-jobs", "value"),
     Output("fflogs-url", "valid"),
     Output("fflogs-url", "invalid"),
+    Output("encounter-info", "hidden"),
     Input("fflogs-url-state", "n_clicks"),
     State("fflogs-url", "value"),
-    State("valid-jobs", "value"),
+    State("role-select", "value"),
     prevent_initial_call=True,
 )
-def process_fflogs_url(n_clicks, url, current_job_selection):
+def process_fflogs_url(n_clicks, url, role):
     """
     Get the report/fight ID from an fflogs URL, then determine the encounter ID, start time, and jobs present.
     """
@@ -1190,15 +749,15 @@ def process_fflogs_url(n_clicks, url, current_job_selection):
 
     report_id, fight_id, error_code = parse_fflogs_url(url)
     if error_code == 1:
-        return "This link isn't FFLogs...", [], [], [], radio_value, False, True
+        return "This link isn't FFLogs...", [], [], [], radio_value, False, True, True
 
     if error_code == 2:
         feedback_text = "Please enter a log linked to a specific kill."
-        return feedback_text, [], [], [], radio_value, False, True
+        return feedback_text, [], [], [], radio_value, False, True, True
 
     if error_code == 3:
         feedback_text = "Invalid report ID."
-        return feedback_text, [], [], [], radio_value, False, True
+        return feedback_text, [], [], [], radio_value, False, True, True
 
     (
         encounter_id,
@@ -1206,6 +765,7 @@ def process_fflogs_url(n_clicks, url, current_job_selection):
         job_information,
         kill_time,
         encounter_name,
+        start_time,
         r,
     ) = get_encounter_job_info(report_id, int(fight_id))
 
@@ -1214,9 +774,15 @@ def process_fflogs_url(n_clicks, url, current_job_selection):
 
     if encounter_id not in [88, 89, 90, 91, 92]:
         feedback_text = "Sorry, only fights from Anabeiseos are currently supported."
-        return feedback_text, [], [], [], radio_value, False, True
+        return feedback_text, [], [], [], radio_value, False, True, True
 
-    radio_items = show_job_options(job_information)
+    (
+        tank_radio_items,
+        healer_radio_items,
+        melee_radio_items,
+        physical_ranged_radio_items,
+        magical_ranged_radio_items,
+    ) = show_job_options(job_information, role)
 
     # Clear the value if one already existed.
     # If the selected value from a prior log is a value in the current log,
@@ -1247,28 +813,63 @@ def process_fflogs_url(n_clicks, url, current_job_selection):
         [],
         f"{encounter_name} ({fight_time_str})",
         "Please select a job:",
-        radio_items,
+        tank_radio_items,
+        radio_value,
+        healer_radio_items,
+        radio_value,
+        melee_radio_items,
+        radio_value,
+        physical_ranged_radio_items,
+        radio_value,
+        magical_ranged_radio_items,
         radio_value,
         True,
+        False,
         False,
     )
 
 
 @callback(
     Output("compute-dmg-div", "hidden"),
-    Input("valid-jobs", "options"),
-    Input("valid-jobs", "value"),
-    State("valid-jobs", "value"),
+    Input("healer-jobs", "options"),
+    Input("tank-jobs", "options"),
+    Input("melee-jobs", "options"),
+    Input("physical-ranged-jobs", "options"),
+    Input("magical-ranged-jobs", "options"),
+    Input("healer-jobs", "value"),
+    Input("tank-jobs", "value"),
+    Input("melee-jobs", "value"),
+    Input("physical-ranged-jobs", "value"),
+    Input("magical-ranged-jobs", "value"),
 )
-def display_compute_button(job_list, selected_job, c):
+def display_compute_button(
+    healers,
+    tanks,
+    melees,
+    phys_ranged,
+    magic_ranged,
+    selected_job,
+    healer_value,
+    tank_value,
+    phys_ranged_value,
+    magic_ranged_value,
+):
     """
     Display button to compute DPS distributions once a job is selected. Otherwise, no button is shown.
     """
-    if job_list is None or selected_job is None:
+    job_list = healers + tanks + melees + phys_ranged + magic_ranged
+
+    selected_job = [
+        x
+        for x in [healer_value, tank_value, phys_ranged_value, magic_ranged_value]
+        if x is not None
+    ]
+    if job_list is None or (selected_job == []) or (job_list == []):
         raise PreventUpdate
 
     # Get just the job names
     job_list = [x["value"] for x in job_list]
+    selected_job = selected_job[0]
     if selected_job not in job_list:
         hide_button = True
         return hide_button
@@ -1312,6 +913,7 @@ def disable_analyze_button(n_clicks):
     else:
         return [dbc.Spinner(size="sm"), " Analyzing your log..."], True
 
+
 @callback(
     Output("clipboard", "content"),
     Input("clipboard", "n_clicks"),
@@ -1325,6 +927,7 @@ def copy_analysis_link(n, selected):
         return "No selections"
     return selected
 
+
 # FIXME: MND/STR/SPS -> Main/secondary/speed
 @callback(
     Output("url", "href"),
@@ -1332,19 +935,23 @@ def copy_analysis_link(n, selected):
     Output("compute-dmg-button", "disabled", allow_duplicate=True),
     Output("crit-result-text", "children"),
     Input("compute-dmg-button", "n_clicks"),
-    State("MND", "value"),
-    State("STR", "value"),
+    State("main-stat", "value"),
+    State("secondary-stat", "value"),
     State("DET", "value"),
-    State("SPS", "value"),
+    State("speed-stat", "value"),
     State("CRT", "value"),
     State("DH", "value"),
     State("WD", "value"),
     State("DEL", "value"),
     State("main-stat-slider", "value"),
     State("tincture-grade", "value"),
-    State("valid-jobs", "value"),
     State("fflogs-url", "value"),
     State("etro-url", "value"),
+    Input("healer-jobs", "value"),
+    Input("tank-jobs", "value"),
+    Input("melee-jobs", "value"),
+    Input("physical-ranged-jobs", "value"),
+    Input("magical-ranged-jobs", "value"),
     prevent_initial_call=True,
 )
 def analyze_and_register_rotation(
@@ -1359,24 +966,32 @@ def analyze_and_register_rotation(
     delay,
     main_stat_multiplier,
     medication_amt,
-    job_player,
     fflogs_url,
     etro_url,
+    healer_jobs,
+    tank_jobs,
+    melee_jobs,
+    phys_ranged_jobs,
+    magical_jobs
 ):
     updated_url = dash.no_update
+
+    job_player = [healer_jobs + tank_jobs + melee_jobs + phys_ranged_jobs + magical_jobs]
+    job_player = [x for x in job_player if x is not None][0]
 
     if n_clicks is None:
         raise PreventUpdate
         # return updated_url, ["Analyze rotation"], False, True, [], [], [], [], []
     report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
     encounter_df = read_encounter_table()
-    encounter_comparison_columns = [
-        "report_id", "fight_id", "player_id"
-    ]
+    encounter_comparison_columns = ["report_id", "fight_id", "player_id"]
 
     player_info = encounter_df.loc[
-                (encounter_df[encounter_comparison_columns] == (report_id, fight_id, job_player)).all(axis=1)
-            ].iloc[0]
+        (
+            encounter_df[encounter_comparison_columns]
+            == (report_id, fight_id, job_player)
+        ).all(axis=1)
+    ].iloc[0]
 
     player = player_info["player_name"]
     job_no_space = player_info["job"]
@@ -1407,7 +1022,7 @@ def analyze_and_register_rotation(
             gearset_id = None
 
         # Check if the rotation has been analyzed before
-        
+
         prior_reports = read_report_table()
         comparison_columns = [
             "report_id",
@@ -1493,7 +1108,7 @@ def analyze_and_register_rotation(
                 delay=delay,
                 pet_attack_power=pet_attack_power,
                 pet_job_attribute=pet_job_attribute,
-                pet_trait=pet_trait
+                pet_trait=pet_trait,
             )
             job_obj.attach_rotation(rotation_df, t)
             job_obj.action_moments = [None] * len(job_obj.action_moments)

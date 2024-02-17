@@ -10,6 +10,7 @@ import requests
 
 # from crit_app.config import FFLOGS_TOKEN
 from config import FFLOGS_TOKEN
+from job_data.roles import role_mapping
 
 # API config
 url = "https://www.fflogs.com/api/v2/client"
@@ -95,18 +96,19 @@ def get_encounter_job_info(code: str, fight_id: int):
     # Encounter info and whether kill happened
     encounter_info = r["data"]["reportData"]["report"]["fights"][0]
     encounter_id = encounter_info["encounterID"]
-    # kill = encounter_info['kill']
-    # TODO: Might need to keep longitudinal record of action potencies, which would involve start time
     start_time = encounter_info["startTime"]
 
     # Job info, only use healers for now
     healers = r["data"]["reportData"]["report"]["playerDetails"]["data"][
         "playerDetails"
     ]["healers"]
-    # tanks = json.loads(r.text)['data']['reportData']['report']['playerDetails']['data']['playerDetails']['dps']
-    # dps = json.loads(r.text)['data']['reportData']['report']['playerDetails']['data']['playerDetails']['tanks']
+    tanks = r["data"]["reportData"]["report"]["playerDetails"]["data"]["playerDetails"][
+        "tanks"
+    ]
+    dps = r["data"]["reportData"]["report"]["playerDetails"]["data"]["playerDetails"][
+        "dps"
+    ]
 
-    healer_jobs = {x["icon"]: x["name"] for x in healers}
     # simple filter and remapping
     healer_jobs = [
         {
@@ -114,17 +116,39 @@ def get_encounter_job_info(code: str, fight_id: int):
             "player_name": x["name"],
             "player_server": x["server"],
             "player_id": x["id"],
+            "role": "Healer"
         }
         for x in healers
     ]
-    # tank_jobs = {x['icon']: x['name'] for x in tanks}
-    # dps_jobs = {x['icon']: x['name'] for x in dps}
+    tank_jobs = [
+        {
+            "job": x["icon"],
+            "player_name": x["name"],
+            "player_server": x["server"],
+            "player_id": x["id"],
+            "role": "Tank"
+        }
+        for x in tanks
+    ]
+
+    dps_jobs = [
+        {
+            "job": x["icon"],
+            "player_name": x["name"],
+            "player_server": x["server"],
+            "player_id": x["id"],
+            "role": role_mapping[x["icon"]]
+        }
+        for x in dps
+    ]
+
+    jobs = healer_jobs + tank_jobs + dps_jobs
 
     fight_time = r["data"]["reportData"]["report"]["table"]["data"]["totalTime"]
 
     fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
 
-    return encounter_id, start_time, healer_jobs, fight_time / 1000, fight_name, r
+    return encounter_id, start_time, jobs, fight_time / 1000, fight_name, start_time, r
 
 
 def damage_events(fight_code, fight_id, job, start_time=0, end_time=int(time.time())):
