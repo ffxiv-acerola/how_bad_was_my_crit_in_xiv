@@ -24,6 +24,7 @@ create table if not exists encounter(
     player_name TEXT NOT NULL,
     player_server TEXT NOT NULL,
     player_id INTEGER NOT NULL,
+    pet_ids TEXT,
     job TEXT NOT NULL,
     job_type TEXT NOT NULL
 )

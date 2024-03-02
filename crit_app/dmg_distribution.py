@@ -113,6 +113,8 @@ def estimate_radiant_finale_strength(elapsed_time):
     else:
         return "Radiant Finale 3"
 
+def when_was_darkside_up():
+    pass
 
 def create_action_df(
     actions, crit_stat, dh_stat, job, medication_amt=262, medicated_buff_offset=0.05
@@ -279,9 +281,6 @@ def get_dmg_percentile(dps, dmg_distribution, dmg_distribution_support):
     returns
     percentile (as a percent)
     """
-    import matplotlib.pyplot as plt
-    import matplotlib
-    matplotlib.use('agg')
     dx = dmg_distribution_support[1] - dmg_distribution_support[0]
     F = np.cumsum(dmg_distribution) * dx
     return F[(np.abs(dmg_distribution_support - dps)).argmin()] * 100

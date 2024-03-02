@@ -2,6 +2,7 @@ import sqlite3
 import datetime
 import pickle
 from uuid import uuid4
+from ast import literal_eval
 
 from ffxiv_stats.jobs import Healer
 
@@ -63,6 +64,9 @@ def read_encounter_table():
 
     cur.close()
     con.close()
+    player_df["pet_ids"] = player_df["pet_ids"].apply(
+        lambda x: literal_eval(x) if x is not None else x
+    )
     return player_df
 
 
@@ -88,7 +92,7 @@ def update_encounter_table(db_rows):
     cur.executemany(
         """
     insert into encounter 
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         db_rows,
     )
@@ -801,6 +805,7 @@ def process_fflogs_url(n_clicks, url, role):
             k["player_name"],
             k["player_server"],
             k["player_id"],
+            k["pet_ids"],
             k["job"],
             k["role"],
         )
@@ -972,11 +977,13 @@ def analyze_and_register_rotation(
     tank_jobs,
     melee_jobs,
     phys_ranged_jobs,
-    magical_jobs
+    magical_jobs,
 ):
     updated_url = dash.no_update
 
-    job_player = [healer_jobs + tank_jobs + melee_jobs + phys_ranged_jobs + magical_jobs]
+    job_player = [
+        healer_jobs + tank_jobs + melee_jobs + phys_ranged_jobs + magical_jobs
+    ]
     job_player = [x for x in job_player if x is not None][0]
 
     if n_clicks is None:
