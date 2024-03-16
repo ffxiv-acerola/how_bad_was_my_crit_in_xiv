@@ -1,0 +1,40 @@
+Job,ability_id,ability_name,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,valid_start,valid_end
+DarkKnight,3617,Hard Slash,170,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,3623,Syphon Strike,120,direct,53,260,,,,,1684818000000,1733119200000
+DarkKnight,3632,Soul Eater,120,direct,64,340,,,,,1684818000000,1733119200000
+DarkKnight,7392,Bloodspiller,500,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,3621,Unleash,120,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,16468,Stalwart Soul,100,direct,28,140,,,,,1684818000000,1733119200000
+DarkKnight,7391,Quietus,200,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,16470,Edge of Shadow,460,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,16469,Flood of Shadow,160,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,3643,Carve and Spit,510,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,3641,Abyssal Drain,240,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,17905,Plunge,150,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,25757,Shadowbringer,600,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,3624,Unmend,150,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,1000749,Salted Earth,50,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,25756,Salt and Darkness,500,direct,,,,,,,1684818000000,1733119200000
+DarkKnight,25881,Shadowbringer (Pet),500,pet,,,,,,,1684818000000,1733119200000
+DarkKnight,17904,Abyssal Drain (Pet),350,pet,,,,,,,1684818000000,1733119200000
+DarkKnight,17905,Plunge (Pet),350,pet,,,,,,,1684818000000,1733119200000
+DarkKnight,17909,Bloodspiller (Pet),350,pet,,,,,,,1684818000000,1733119200000
+DarkKnight,17908,Edge of Shadow (Pet),350,pet,,,,,,,1684818000000,1733119200000
+DarkKnight,17915,Carve and Spit (Pet),350,pet,,,,,,,1684818000000,1733119200000
+Warrior,31,Heavy Swing,200,direct,,,,,,,1684818000000,1733119200000
+Warrior,37,Maim,150,direct,50,300,,,,,1684818000000,1733119200000
+Warrior,42,Storm's Path,160,direct,63,440,,,,,1684818000000,1733119200000
+Warrior,45,Storm's Eye,160,direct,63,440,,,,,1684818000000,1733119200000
+Warrior,3549,Fell Cleave,520,direct,,,,,,,1684818000000,1733119200000
+Warrior,16465,Inner Chaos,660,direct,,,,,,,1684818000000,1733119200000
+Warrior,25753,Primal Rend,700,direct,,,,,,,1684818000000,1733119200000
+Warrior,7387,Upheavel,400,direct,,,,,,,1684818000000,1733119200000
+Warrior,7386,Onslaught,150,direct,,,,,,,1684818000000,1733119200000
+Warrior,1000089,Vengeance,55,direct,,,,,,,1684818000000,1733119200000
+Warrior,7,attack,90,auto,,,,,,,1684818000000,1733119200000
+Warrior,41,Overpower,110,direct,,,,,,,1684818000000,1733119200000
+Warrior,16462,Mythril Tempest,100,direct,33,150,,,,,1684818000000,1733119200000
+Warrior,3550,Decimate,200,direct,,,,,,,1684818000000,1733119200000
+Warrior,16463,Chaotic Cyclone,320,direct,,,,,,,1684818000000,1733119200000
+Warrior,25752,Orogeny,150,direct,,,,,,,1684818000000,1733119200000
+Warrior,46,Tomahawk,150,direct,,,,,,,1684818000000,1733119200000
