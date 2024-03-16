@@ -28,15 +28,21 @@
 
 ### Buffs/actions by ID
 
-* buffs by ID
-    * Map ast/radiant finale to damage, append -3, -6, etc to ID
-    * Damage buffs for ground effects
-    * Ground effect multiplier
-    * Move to csv/dataframe so there can be more info like valid start/end
+<!-- * buffs by ID -->
+    <!-- * Map ast/radiant finale to damage, append -3, -6, etc to ID -->
+    <!-- * Damage buffs for ground effects -->
+    <!-- * Ground effect multiplier -->
+    <!-- * Move to csv/dataframe so there can be more info like valid start/end -->
 
-* actions
-    * change action name to buff ID
+    <!-- * Potency be affected by buffs like Meikyo or Requiescat -->
+<!-- * actions
+    * change action name to buff ID -->
 
 ### Data
 
-* 6.4 and 6.5 potencies
+* 6.4 potency for PLD
+    * Figure out timezone of timestamp (VPN action?)
+* move leftover dmg_distribution to damage_analysis.py
+    * Probably switch mean to 50%
+    * I think I can also not have to use numerical integration...
+* Start planning potency table management.

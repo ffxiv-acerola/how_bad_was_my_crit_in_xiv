@@ -2,7 +2,6 @@
 Functions for processing results of API queries and computing damage distributions.
 """
 
-import json
 from functools import reduce
 
 import pandas as pd
@@ -10,61 +9,29 @@ import numpy as np
 from ffxiv_stats import Rate
 
 ### Data ###
-# Ability IDs
-with open("abilities.json", "r") as f:
-    abilities = json.load(f)
 
 action_potencies = pd.read_csv("dps_potencies.csv")
-int_ids = np.asarray(list(abilities.keys()), dtype=int).tolist()
-abilities = dict(zip(int_ids, abilities.values()))
 
-# FIXME: move to file
-crit_buffs = {
-    "Chain Stratagem": 0.1,
-    "Battle Litany": 0.1,
-    "The Wanderer's Minuet": 0.02,
-    "Devilment": 0.2,
+base_path = "/home/craig/ffxiv_repos/how_bad_was_my_crit_in_xiv/dev/job_data/"
+damage_buff_df = pd.read_csv(base_path + "damage_buffs.csv")
+ch_buff_table = pd.read_csv(
+    base_path + "critical_hit_rate_buffs.csv", dtype={"buff_id": str}
+)
+dh_buff_table = pd.read_csv(
+    base_path + "direct_hit_rate_buffs.csv", dtype={"buff_id": str}
+)
+action_potencies = pd.read_csv(base_path + "potencies.csv")
+
+ranged_cards = damage_buff_df[
+    damage_buff_df["buff_name"].isin(["The Bole", "The Spire", "The Ewer"])
+]["buff_id"].tolist()
+melee_cards = damage_buff_df[
+    damage_buff_df["buff_name"].isin(["The Arrow", "The Balance", "The Spear"])
+]["buff_id"].tolist()
+
+guaranteed_hit_via_buff = {
+    "1001177": {"affected_actions": [3549, 3550], "hit_type": 3}
 }
-
-dh_buffs = {"Battle Voice": 0.2, "Devilment": 0.2}
-
-abbreviations = {
-    "Mug": "Mug",
-    "Vulnerability Up": "Mug",
-    "Arcane Circle": "AC",
-    "Battle Litany": "BL",
-    "Brotherhood": "BH",
-    "Left Eye": "LH",
-    "Battle Voice": "BV",
-    "Radiant Finale": "RF",
-    "Radiant Finale 1": "RF1",
-    "Radiant Finale 2": "RF2",
-    "Radiant Finale 3": "RF3",
-    "The Wanderer's Minuet": "WM",
-    "Mage's Ballad": "MB",
-    "Army's Paeon": "AP",
-    "Technical Finish": "TF",
-    "Devilment": "DV",
-    "Embolden": "EM",
-    "Searing Light": "SL",
-    "Chain Stratagem": "CS",
-    "Divination": "DIV",
-    "Card3": "Card3",
-    "Card6": "Card6",
-    "Harmony of Mind": "HoM",
-    "Medicated": "Pot",
-    "No Mercy": "NM",
-    "Damage Down": "DD",  # oof
-    "Weakness": "WK",  # ooof
-    "Brink of Death": "BD",  # oooof
-    "Surging Tempest": "ST",
-    "Inner Release": "IR",
-}
-
-ranged_cards = ["The Bole", "The Spire", "The Ewer"]
-melee_cards = ["The Balance", "The Spear", "The Arrow"]
-
-guaranteed_hit_via_buff = {1001177: {"affected_actions": [3549, 3550], "hit_type": 3}}
 
 guaranteed_hit_via_action = {
     16465: {"hit_type": 3},
@@ -74,7 +41,7 @@ guaranteed_hit_via_action = {
 }
 
 
-def ast_card_buff(job, card_name):
+def ast_card_buff(job, card_id):
     """
     Get the buff strength of a card given  the job and card tuple.
     """
@@ -102,16 +69,13 @@ def ast_card_buff(job, card_name):
         "Paladin",
     ]
 
-    ranged_cards = ["The Bole", "The Spire", "The Ewer"]
-    melee_cards = ["The Balance", "The Spear", "The Arrow"]
-
-    if (job in ranged_jobs and card_name in ranged_cards) or (
-        job in melee_jobs and card_name in melee_cards
+    if (job in ranged_jobs and card_id in ranged_cards) or (
+        job in melee_jobs and card_id in melee_cards
     ):
         card_strength = 6
     else:
         card_strength = 3
-    return f"Card{card_strength}", 1 + card_strength / 100
+    return f"card{card_strength}", 1 + card_strength / 100
 
 
 def estimate_radiant_finale_strength(elapsed_time):
@@ -121,13 +85,76 @@ def estimate_radiant_finale_strength(elapsed_time):
     Values over 100s assume 3 songs have been played and it's the full 6% buff.
     """
     if elapsed_time < 100:
-        return "Radiant Finale 1"
+        return "RadiantFinale1"
     else:
-        return "Radiant Finale 3"
+        return "RadiantFinale3"
 
 
-def ground_effect_multiplier():
-    pass
+def estimate_ground_effect_multiplier(actions_df, ground_effect_id):
+    """
+    Estimate the multiplier for ground effects, as FFLogs does not seem to supply this.
+
+    This currently does not account for multipliers which are fight-specific (de)buffs, like Damage Down.
+    """
+    # Check if the multiplier already exists for other actions
+    # Unhashable string column of buffs, which allow duplicates to be dropped
+    # Buffs are always ordered the same way
+    actions_df["str_buffs"] = actions_df["buffs"].astype(str)
+
+    # Sort of buff fact table, grouped by buff and associated multiplier
+    test = actions_df.drop_duplicates(subset=["str_buffs", "multiplier"]).sort_values(
+        ["str_buffs", "multiplier"]
+    )[["str_buffs", "buffs", "multiplier"]]
+
+    # Ground effects have a null multiplier, but can be imputed if
+    # there exists the same set of buffs for a non ground effect
+    test["multiplier"] = test.groupby("str_buffs")["multiplier"].ffill()
+    test = test.drop_duplicates(subset=["str_buffs"])
+
+    buff_stregnths = (
+        damage_buff_df.drop_duplicates(subset=["buff_id", "buff_strength"])
+        .set_index("buff_id")["buff_strength"]
+        .to_dict()
+    )
+
+    # TODO: Could probably improve this by looking for the closest set of buffs with a multiplier
+    # and then just make a small change to that
+    remainder = test[test["multiplier"].isna()]
+    remainder.loc[:, "multiplier"] = (
+        remainder["buffs"]
+        .apply(lambda x: list(map(buff_stregnths.get, x)))
+        .apply(lambda x: np.prod([y for y in x if y is not None]))
+    )
+    multiplier_table = pd.concat([test[~test["multiplier"].isna()], remainder])
+
+    # Apply multiplier to ground effect ticks
+    ground_ticks_actions = actions_df[actions_df["abilityGameID"] == ground_effect_id]
+    ground_ticks_actions = ground_ticks_actions.merge(
+        multiplier_table[["str_buffs", "multiplier"]], on="str_buffs"
+    )
+    # If for whatever reason a multiplier already existed,
+    # use that first instead of the derived one
+    # combine_first is basically coalesce
+    ground_ticks_actions["multiplier"] = ground_ticks_actions[
+        "multiplier_x"
+    ].combine_first(ground_ticks_actions["multiplier_y"])
+    ground_ticks_actions.drop(columns=["multiplier_y", "multiplier_x"], inplace=True)
+
+    # Recombine,
+    # drop temporary scratch columns,
+    # Re sort values
+    actions_df = (
+        pd.concat(
+            [
+                actions_df[actions_df["abilityGameID"] != ground_effect_id],
+                ground_ticks_actions,
+            ]
+        )
+        .drop(columns=["str_buffs"])
+        .sort_values("elapsed_time")
+    )
+
+    return actions_df
 
 
 def guaranteed_hit_type_buff(
@@ -141,7 +168,8 @@ def guaranteed_hit_type_buff(
     determination=None,
 ):
     """
-    
+    Check if an action is guaranteed critical and/or direct damage.
+    If so, and hit-type buffs are present, also compute its damage buff.
     """
     hit_type = 0
     r = Rate(ch_stat, dh_stat)
@@ -175,7 +203,7 @@ def guaranteed_hit_type_buff(
 
 def when_was_darkside_not_up(action_df, player_id):
     """
-    Find time intervals when Darkside is not up. 
+    Find time intervals when Darkside is not up.
     """
     # A bit of preprocessing, filter to Darkside buff giving actions, keep ability name and time.
     darkside_df = action_df[
@@ -187,9 +215,9 @@ def when_was_darkside_not_up(action_df, player_id):
 
     # Set up initial values of darkside timer value for when we loop through the DF
     darkside_df["darkside_cd_prior"] = 0  # darkside timer value before DS extended
-    darkside_df[
-        "darkside_cd_prior_falloff"
-    ] = 0  # darkside timer value is before DS was extended and if the value could be negative
+    darkside_df["darkside_cd_prior_falloff"] = (
+        0  # darkside timer value is before DS was extended and if the value could be negative
+    )
     darkside_df["darkside_cd_post"] = 30  # darkside timer value after DS extended
 
     # Why are we looping through?
@@ -243,8 +271,12 @@ def apply_darkside_buff(action_df, no_darkside_times, player_id, pet_id):
         - Living shadow does not get Darkside
 
     """
-    from buffs import damage_buffs
 
+    # This is a fun little function which allows an arbitrary
+    # number of between conditions to be applied.
+    # This gets used to apply the Darkside buff,
+    # where the number of "between" conditions where DS is not up
+    # might be variable.
     def disjunction(*conditions):
         return reduce(np.logical_or, conditions)
 
@@ -262,6 +294,10 @@ def apply_darkside_buff(action_df, no_darkside_times, player_id, pet_id):
         "darkside_buff",
     ] *= 1.1
 
+    ### Salted earth snapshotting ###
+    # The general strategy is group salted earth ticks by usage every 90s
+    # If the first tick of a group (application) has Darkside,
+    # all subsequent ticks snapshot Darkside too.
     salted_earth = action_df[action_df["ability_name"] == "Salted Earth (tick)"].copy()
     salted_earth["multiplier"] = 1
     # Time since last SE eick
@@ -294,10 +330,9 @@ def apply_darkside_buff(action_df, no_darkside_times, player_id, pet_id):
         "darkside_buff"
     ].transform("max")
 
-    salted_earth["multiplier"] = salted_earth["buff_names"].apply(
-        lambda x: np.product([damage_buffs[k] for k in x if k in damage_buffs.keys()])
-    )
-
+    ### End salted earth snapshotting ###
+    # Now multiply out the darkside buff to the multiplier field,
+    # Remove darkside buff column
     action_df.loc[
         action_df["ability_name"] == "Salted Earth (tick)",
         ["darkside_buff", "multiplier"],
@@ -307,16 +342,30 @@ def apply_darkside_buff(action_df, no_darkside_times, player_id, pet_id):
     return action_df.drop(columns=["darkside_buff"])
 
 
-def apply_drk_things(action_df, player_id, pet_id):
-    no_darkside_times = when_was_darkside_not_up(action_df, player_id)
+def apply_drk_things(actions_df, player_id, pet_id, salted_earth_id=1000749):
+    """
+    Apply DRK-specific transformations to the actions dataframe including:
+    * Estimate damage multiplier for Salted Earth.
+    * Figure out when Darkside is up.
+    * Apply Darkside to actions affected by Darkside.
+    """
+    # Get multiplier for Salted Earth, before Darkside is applied
+    actions_df = estimate_ground_effect_multiplier(actions_df, salted_earth_id)
 
-    action_df = apply_darkside_buff(action_df, no_darkside_times, player_id, pet_id)
+    # Find when Darkside is not up
+    no_darkside_times = when_was_darkside_not_up(actions_df, player_id)
 
-    return action_df
+    # Apply darkside buff, which will correctly:
+    #   - Snapshot to Salted Earth
+    #   - Not apply to Living Shadow
+    actions_df = apply_darkside_buff(actions_df, no_darkside_times, player_id, pet_id)
+    return actions_df
 
 
 def create_action_df(
     actions,
+    ability_name_mapping,
+    unix_start_time,
     crit_stat,
     dh_stat,
     determination,
@@ -330,6 +379,9 @@ def create_action_df(
     Turn the actions response from FFLogs API into a dataframe of actions.
     This serves as the precursor to the rotation dataframe, which is grouped by unique action and counted.
     """
+
+    # These columns are almost always here, there can be some additional columns
+    # which are checked for, depending if certain actions are used
     action_df_columns = [
         "timestamp",
         "elapsed_time",
@@ -342,18 +394,29 @@ def create_action_df(
         "amount",
         "tick",
         "multiplier",
+        "bonusPercent",
     ]
 
+    # Whether to include damage from pets by their source ID
     source_id_filters = [player_id]
     if pet_ids is not None:
         source_id_filters += pet_ids
 
+    # Unpaired actions have a cast begin but the damage does not go out
+    # These will be filtered out later, but are included because unpaired
+    # actions can still grant job gauge like Darkside
     actions_df = pd.DataFrame(actions)
-    if "unpaired" in actions_df.columns:
-        action_df_columns += ["unpaired"]
-    # Only include player ID and any of their associated pet IDs
     actions_df = actions_df[actions_df["sourceID"].isin(source_id_filters)]
 
+    if "unpaired" in actions_df.columns:
+        action_df_columns.append("unpaired")
+    # Only include player ID and any of their associated pet IDs
+
+    if "bonusPercent" not in actions_df.columns:
+        actions_df["bonusPercent"] = pd.NA
+        actions_df["bonusPercent"] = actions_df["bonusPercent"].astype("Int64")
+
+    # Damage over time/ground effect ticks
     if "tick" in actions_df.columns:
         dots_present = True
         damage_condition = (actions_df["type"] == "calculateddamage") | (
@@ -367,19 +430,24 @@ def create_action_df(
     # Only keep the "prepares action" or dot ticks
     actions_df = actions_df[damage_condition]
 
-    # Buffs column won't show up if nothing is present, so make one with nans
+    # Buffs column won't show up if no buffs are present, so make one with nans
+    # Only really happens in a striking dummy scenario
     if "buffs" not in pd.DataFrame(actions).columns:
-        actions_df["buffs"] = np.NaN
+        actions_df["buffs"] = pd.NA
         actions_df["buffs"] = actions_df["buffs"].astype("object")
 
-    actions_df["ability_name"] = actions_df["abilityGameID"].replace(abilities)
+    actions_df["ability_name"] = actions_df["abilityGameID"].map(ability_name_mapping)
+    # Time in seconds relative to the first second
     actions_df["elapsed_time"] = (
         actions_df["timestamp"] - actions_df["timestamp"].iloc[0]
     ) / 1000
+    # Create proper
+    actions_df["timestamp"] = actions_df["timestamp"] + unix_start_time
 
     # Filter/rename columns
     actions_df = actions_df[action_df_columns]
-    actions_df.loc[:, "buff_names"] = actions_df["buffs"]
+    # # TODO: remove? I don't think buff names are needed anymore
+    # actions_df.loc[:, "buff_names"] = actions_df["buffs"]
 
     # Add (tick) to a dot tick so the base ability name for
     # application and ticks are distinct - e.g., Dia and Dia (tick)
@@ -388,13 +456,10 @@ def create_action_df(
             actions_df["ability_name"] + " (tick)"
         )
 
-    # Split up buffs
-    # I forgot why I replaced nan with -11, but it's probably important
-    buffs = [
-        str(x)[:-1].split(".") for x in actions_df["buff_names"].replace({np.NaN: -11})
-    ]
-    buffs = [list(map(int, x)) for x in buffs]
-    buffs = [[abilities[b] for b in k] for k in buffs]
+    actions_df["buffs"] = actions_df["buffs"].apply(
+        lambda x: x[:-1].split(".") if not pd.isna(x) else ""
+    )
+    actions_df = actions_df.reset_index(drop=True)
 
     # Start to handle hit type buffs + medication
     r = Rate(crit_stat, dh_stat)
@@ -402,37 +467,60 @@ def create_action_df(
     multiplier = actions_df["multiplier"].tolist()
     name = actions_df["ability_name"].tolist()
 
-    main_stat_adjust = [0] * len(buffs)
-    crit_hit_rate_mod = [0] * len(buffs)
-    direct_hit_rate_mod = [0] * len(buffs)
-    p = [0] * len(buffs)
+    buff_id = actions_df["buffs"].tolist()
 
-    # Loop over buffs/pots to create adjustments to rates/main stat
-    # This is probably able to be done more efficiently with broadcasting/lambda functions
-    # But it's fast enough and far from the most computationally expensive step
-    for idx, b in enumerate(buffs):
-        # Check if hit type buff acts upon guaranteed hit type
+    main_stat_adjust = [0] * len(actions_df)
+    crit_hit_rate_mod = [0] * len(actions_df)
+    direct_hit_rate_mod = [0] * len(actions_df)
+    p = [0] * len(actions_df)
+
+    medication = damage_buff_df[damage_buff_df["buff_name"] == "Medicated"]
+    medication_id = medication["buff_id"].iloc[0]
+    medication_multiplier = medication["buff_strength"].iloc[0]
+
+    radiant_finale_id = damage_buff_df[damage_buff_df["buff_name"] == "Radiant Finale"][
+        "buff_id"
+    ].iloc[0]
+
+    # TODO: Eventually start filtering by timestamp
+    critical_hit_buff_ids = ch_buff_table.set_index("buff_id")["rate_buff"].to_dict()
+    direct_hit_buff_ids = dh_buff_table.set_index("buff_id")["rate_buff"].to_dict()
+
+    # Loop actions to create adjustments to hit type rates rates/main stat
+    # There are enough conditionals/looping over array columns that vectorization isn't feasible.
+    for idx, row in actions_df.iterrows():
+        b = row["buffs"]
+
+        # Loop through buffs and do various things depending on the buff
         for b_idx, s in enumerate(b):
-            if s in crit_buffs.keys():
-                crit_hit_rate_mod[idx] += crit_buffs[s]
+            # Adjust critical/direct hit rate according to hit-type buffs
+            if s in critical_hit_buff_ids.keys():
+                crit_hit_rate_mod[idx] += critical_hit_buff_ids[s]
+            if s in direct_hit_buff_ids.keys():
+                direct_hit_rate_mod[idx] += direct_hit_buff_ids[s]
 
-            elif s in dh_buffs.keys():
-                direct_hit_rate_mod[idx] += dh_buffs[s]
-
-            elif s == "Medicated":
+            # Medication is treated as a 5% damage bonus.
+            # ffxiv_stats directly alters the main stat, so it must be divided out
+            # Ground effects have multipliers of nan, and are unaffected either way.
+            if s == medication_id:
                 main_stat_adjust[idx] += medication_amt
-                multiplier[idx] /= 1 + medicated_buff_offset
+                multiplier[idx] /= medication_multiplier
 
-            if s == "Radiant Finale":
-                buffs[idx][b_idx] = estimate_radiant_finale_strength(
+            # Radiant Finale has the same ID regardless of strength
+            # A new ID is created for each buff strength.
+            # Different Radiant Finale strengths will lead to different
+            # 1-hit damage distributions.
+            if s == radiant_finale_id:
+                buff_id[idx][b_idx] = estimate_radiant_finale_strength(
                     actions_df.iloc[idx]["elapsed_time"]
                 )
 
+            # All AST cards are lumped as either 6% buff or 3% buff.
             if s in ranged_cards + melee_cards:
-                buffs[idx][b_idx] = ast_card_buff(job, b)[0]
-            # TODO: need to handle auto CH/DH
+                buff_id[idx][b_idx] = ast_card_buff(job, s)[0]
 
-        row = actions_df.iloc[idx]
+        # Check if action has a guaranteed hit type, potentially under a hit type buff.
+        # Get the hit type and new damage multiplier if hit type buffs were present.
         multiplier[idx], hit_type = guaranteed_hit_type_buff(
             row["abilityGameID"],
             b,
@@ -443,43 +531,38 @@ def create_action_df(
             direct_hit_rate_mod[idx],
             determination,
         )
-        # TODO: handle pets
-
         # Create a unique action name based on the action + all buffs present
-        if None not in b:
-            short_b = list(map(abbreviations.get, b))
-            name[idx] = name[idx] + "-" + "_".join(sorted(short_b))
+        if b != "":
+            name[idx] = name[idx] + "-" + "_".join(sorted(buff_id[idx]))
 
-        # FFlogs is nice enough to give us the overall damage multiplier
-        multiplier[idx] = multiplier[idx]
-        # Hit type overrides hit type buff additions
+        # Probability of each hit type, accounting for hit type buffs or
+        # guaranteed hit types.
+        # Hit type ignores hit type buff additions if they are present
         p[idx] = r.get_p(
             round(crit_hit_rate_mod[idx], 2),
             round(direct_hit_rate_mod[idx], 2),
             guaranteed_hit_type=hit_type,
         )
 
-    # Assemble the action dataframe
+    # Assemble the action dataframe with updated values
     # Later we can groupby/count to create a rotation dataframe
-    actions_df["buff_names"] = buffs
     actions_df["multiplier"] = multiplier
     actions_df["action_name"] = name
-    actions_df[["p_n", "p_c", "p_d", "p_cd"]] = np.array(p)
+    actions_df[["p_n", "p_c", "p_d", "p_cd"]] = pd.DataFrame(np.array(p))
     actions_df["main_stat_add"] = main_stat_adjust
     actions_df["l_c"] = r.crit_dmg_multiplier()
 
-    # Job specific things
+    # Job specific transformations
     if job == "DarkKnight":
         actions_df = apply_drk_things(actions_df, player_id, pet_ids[0])
 
     # Unpaired didn't have damage go off, filter these out.
     # This column wont exist if there aren't any unpaired actions though.
-    # FIXME: need to include these for Darkside tracking...
     if "unpaired" in actions_df.columns:
-        actions_df = actions_df[~actions_df["unpaired"]]
+        actions_df = actions_df[actions_df["unpaired"] != True]
 
     actions_df.drop(columns=["unpaired"], inplace=True)
-    return actions_df
+    return actions_df.reset_index(drop=True)
 
 
 def create_rotation_df(actions_df, action_potencies=action_potencies):
@@ -492,13 +575,35 @@ def create_rotation_df(actions_df, action_potencies=action_potencies):
 
     # Get potencies and rename columns
     rotation_df = (
-        actions_df.merge(value_counts, on="action_name")
+        actions_df.drop(columns=["buffs"])
+        .merge(value_counts, on="action_name")
         .merge(action_potencies, left_on="abilityGameID", right_on="ability_id")
         .drop_duplicates(subset=["action_name", "n"])
         .sort_values("n", ascending=False)
         .rename(columns={"multiplier": "buffs", "ability_name_x": "base_action"})
         .reset_index(drop=True)
-    )[
+    )
+    # FIXME: Filter so it's on relevant patch
+    # Probably something like:
+    # Have a potency record for each patch
+    # filter, where timestamp between valid_start and valid_end
+
+    # Assign potency based on whether combo, positional, or combo + positional was satisfied
+    rotation_df["potency"] = rotation_df["base_potency"]
+    # Combo bonus
+    rotation_df.loc[
+        rotation_df["bonusPercent"] == rotation_df["combo_bonus"], "potency"
+    ] = rotation_df["combo_potency"]
+    # Positional bonus
+    rotation_df.loc[
+        rotation_df["bonusPercent"] == rotation_df["positional_bonus"], "potency"
+    ] = rotation_df["positional_potency"]
+    # Combo bonus and positional bonus
+    rotation_df.loc[
+        rotation_df["bonusPercent"] == rotation_df["combo_positional_bonus"], "potency"
+    ] = rotation_df["combo_positional_potency"]
+
+    rotation_df = rotation_df[
         [
             "action_name",
             "base_action",
@@ -514,7 +619,9 @@ def create_rotation_df(actions_df, action_potencies=action_potencies):
             "damage_type",
         ]
     ]
-    return rotation_df.sort_values("action_name")
+    return rotation_df.sort_values(
+        ["base_action", "damage_type", "n"], ascending=[True, True, False]
+    )
 
 
 def get_dmg_percentile(dps, dmg_distribution, dmg_distribution_support):
