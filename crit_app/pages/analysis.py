@@ -34,7 +34,6 @@ from api_queries import (
     parse_etro_url,
     parse_fflogs_url,
     get_encounter_job_info,
-    damage_events,
     headers,
 )
 from cards import (
