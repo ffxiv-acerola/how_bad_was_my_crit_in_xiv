@@ -4,7 +4,7 @@ import pickle
 from uuid import uuid4
 from ast import literal_eval
 
-from ffxiv_stats.jobs import Healer
+from ffxiv_stats.jobs import Healer, Tank
 
 import dash
 from dash import Input, Output, State, dcc, html, callback
@@ -13,7 +13,17 @@ import dash_bootstrap_components as dbc
 import coreapi
 import pandas as pd
 
-from dmg_distribution import create_action_df, create_rotation_df, get_dmg_percentile
+from dmg_distribution import get_dmg_percentile
+from rotation import RotationTable
+from job_data.data import (
+    damage_buff_table,
+    critical_hit_rate_table,
+    direct_hit_rate_table,
+    guaranteed_hits_by_action_table,
+    guaranteed_hits_by_buff_table,
+    potency_table
+)
+
 from figures import (
     make_rotation_pdf_figure,
     make_rotation_percentile_table,
@@ -25,6 +35,7 @@ from api_queries import (
     parse_fflogs_url,
     get_encounter_job_info,
     damage_events,
+    headers,
 )
 from cards import (
     initialize_job_build,
@@ -241,7 +252,7 @@ def layout(analysis_id=None):
             encounter_df = encounter_df[
                 (encounter_df["report_id"] == report_id)
                 & (encounter_df["fight_id"] == fight_id)
-            ].drop_duplicates()
+            ].drop_duplicates(subset=["report_id", "fight_id", "player_id"])
 
             boss_name = analysis_details["encounter_name"]
             fight_duration = encounter_df.iloc[0]["kill_time"]
@@ -266,7 +277,25 @@ def layout(analysis_id=None):
                 .str.replace(r"(\w)([A-Z])", r"\1 \2", regex=True)
                 .str.strip()
             )
-            job_radio_options = show_job_options(encounter_df.to_dict("records"))
+            role = encounter_df[encounter_df["player_id"] == job_radio_value]["role"].iloc[0]
+            # show_job_options(job_information, role)
+            job_radio_options = show_job_options(encounter_df.to_dict("records"), role)
+            job_radio_options_dict = {
+                "Tank": job_radio_options[0],
+                "Healer": job_radio_options[1],
+                "Melee": job_radio_options[2],
+                "Physical Ranged": job_radio_options[3],
+                "Magical Ranged": job_radio_options[4],
+            }
+            job_radio_value_dict = {
+                "Tank": None,
+                "Healer": None,
+                "Melee": None,
+                "Physical Ranged": None,
+                "Magical Ranged": None
+            }
+
+            job_radio_value_dict[role] = player_id
 
             ### make rotation card results
             rotation_fig = make_rotation_pdf_figure(job_object, rotation_dps)
@@ -312,9 +341,9 @@ def layout(analysis_id=None):
                 alert_child = []
 
             ### Make all the divs
-            # FIXME: generalize for different roles and main/secondary stat
             job_build = initialize_job_build(
                 etro_url,
+                role,
                 main_stat_pre_bonus,
                 secondary_stat_pre_bonus,
                 determination,
@@ -329,8 +358,9 @@ def layout(analysis_id=None):
             fflogs_card = initialize_fflogs_card(
                 fflogs_url,
                 encounter_info,
-                job_radio_options,
-                job_radio_value,
+                job_radio_options_dict,
+                job_radio_value_dict,
+                False,
                 False,
             )
             rotation_card = initialize_rotation_card(
@@ -903,20 +933,20 @@ def rotation_percentile_text_map(rotation_percentile):
         return "Personally blessed by Yoshi-P himself."
 
 
-@callback(
-    Output("compute-dmg-button", "children"),
-    Output("compute-dmg-button", "disabled"),
-    Input("compute-dmg-button", "n_clicks"),
-    prevent_initial_call=True,
-)
-def disable_analyze_button(n_clicks):
-    """
-    Return a disabled, spiny button when the log/rotation is being analyzed.
-    """
-    if n_clicks is None:
-        return ["Analyze rotation"], False
-    else:
-        return [dbc.Spinner(size="sm"), " Analyzing your log..."], True
+# @callback(
+#     Output("compute-dmg-button", "children"),
+#     Output("compute-dmg-button", "disabled"),
+#     Input("compute-dmg-button", "n_clicks"),
+#     prevent_initial_call=True,
+# )
+# def disable_analyze_button(n_clicks):
+#     """
+#     Return a disabled, spiny button when the log/rotation is being analyzed.
+#     """
+#     if n_clicks is None:
+#         return ["Analyze rotation"], False
+#     else:
+#         return [dbc.Spinner(size="sm"), " Analyzing your log..."], True
 
 
 @callback(
@@ -961,10 +991,10 @@ def copy_analysis_link(n, selected):
 )
 def analyze_and_register_rotation(
     n_clicks,
-    mind_pre_bonus,
-    strength_pre_bonus,
+    main_stat_pre_bonus,
+    secondary_stat_pre_bonus,
     determination,
-    sps,
+    speed_stat,
     ch,
     dh,
     wd,
@@ -973,22 +1003,24 @@ def analyze_and_register_rotation(
     medication_amt,
     fflogs_url,
     etro_url,
-    healer_jobs,
-    tank_jobs,
-    melee_jobs,
-    phys_ranged_jobs,
-    magical_jobs,
+    healer_jobs=None,
+    tank_jobs=None,
+    melee_jobs=None,
+    phys_ranged_jobs=None,
+    magical_jobs=None,
 ):
     updated_url = dash.no_update
 
     job_player = [
-        healer_jobs + tank_jobs + melee_jobs + phys_ranged_jobs + magical_jobs
+        healer_jobs, tank_jobs, melee_jobs, phys_ranged_jobs, magical_jobs
     ]
-    job_player = [x for x in job_player if x is not None][0]
+
 
     if n_clicks is None:
         raise PreventUpdate
         # return updated_url, ["Analyze rotation"], False, True, [], [], [], [], []
+    
+    job_player = [x for x in job_player if x is not None][0]
     report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
     encounter_df = read_encounter_table()
     encounter_comparison_columns = ["report_id", "fight_id", "player_id"]
@@ -1002,8 +1034,15 @@ def analyze_and_register_rotation(
 
     player = player_info["player_name"]
     job_no_space = player_info["job"]
-    mind = int(mind_pre_bonus * main_stat_multiplier)
-    strength = int(strength_pre_bonus * main_stat_multiplier)
+    role = player_info["role"]
+    main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
+    secondary_stat_type = role_stat_dict[role]["secondary_stat"]["placeholder"].lower()
+
+    main_stat = int(main_stat_pre_bonus * main_stat_multiplier)
+
+    secondary_stat = int(secondary_stat_pre_bonus)
+    if secondary_stat_type in ("mind", "strength", "dexterity", "intelligence", "vitality"):
+         secondary_stat = int(secondary_stat * main_stat_multiplier)
 
     medication_amt = int(medication_amt)
     # Predefined values from: https://www.fflogs.com/reports/NJz2cbM4mZd1hajC#fight=12&type=damage-done
@@ -1052,10 +1091,10 @@ def analyze_and_register_rotation(
             fight_id,
             job_no_space,
             player,
-            mind,
-            strength,
+            main_stat,
+            secondary_stat,
             determination,
-            sps,
+            speed_stat,
             ch,
             dh,
             wd,
@@ -1084,39 +1123,91 @@ def analyze_and_register_rotation(
 
         # FIXME: only analyze and write results, redirect to display results
         if len(prior_analysis) == 0:
-            actions, t, encounter_name = damage_events(
-                report_id, fight_id, job_no_space
+            # actions, t, encounter_name = damage_events(
+            #     report_id, fight_id, job_no_space
+            # )
+            # action_df = create_action_df(actions, ch, dh, job_no_space, medication_amt)
+            # rotation_df = create_rotation_df(action_df)
+            pet_ids = player_info["pet_ids"]
+            rotation = RotationTable(
+                headers,
+                report_id,
+                fight_id,
+                job_no_space,
+                int(player_info["player_id"]),
+                ch,
+                dh,
+                determination,
+                medication_amt,
+                damage_buff_table,
+                critical_hit_rate_table,
+                direct_hit_rate_table,
+                guaranteed_hits_by_action_table,
+                guaranteed_hits_by_buff_table,
+                potency_table,
+                pet_ids
             )
-            action_df = create_action_df(actions, ch, dh, job_no_space, medication_amt)
-            rotation_df = create_rotation_df(action_df)
 
-            # FIXME: eventually switch around by job type
-            main_stat_type = "mind"
-            secondary_stat_type = "strength"
+            action_df = rotation.actions_df
+            rotation_df = rotation.rotation_df
+            t = rotation.fight_time
+            encounter_name = rotation.fight_name
+
+            role = player_info["role"]
+            main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
+            secondary_stat_type = role_stat_dict[role]["secondary_stat"]["placeholder"].lower()
 
             # FIXME: Parameterize pet attributes
             if job_no_space == "Astrologian":
-                pet_attack_power = mind_pre_bonus
+                pet_attack_power = main_stat_pre_bonus
                 pet_job_attribute = 115
                 pet_trait = 134
+                pet_atk_mod = 195
+            if job_no_space == "DarkKnight":
+                pet_attack_power = main_stat_pre_bonus
+                pet_job_attribute = 100
+                pet_trait = 100
+                pet_atk_mod = 195
             else:
                 pet_attack_power = None
                 pet_job_attribute = None
                 pet_trait = None
+                pet_atk_mod = None
 
-            job_obj = Healer(
-                mind=mind,
-                strength=strength,
-                det=determination,
-                spell_speed=sps,
-                crit_stat=ch,
-                dh_stat=dh,
-                weapon_damage=wd,
-                delay=delay,
-                pet_attack_power=pet_attack_power,
-                pet_job_attribute=pet_job_attribute,
-                pet_trait=pet_trait,
-            )
+
+            if role == "Healer":
+                job_obj = Healer(
+                    mind=main_stat,
+                    strength=secondary_stat,
+                    det=determination,
+                    spell_speed=speed_stat,
+                    crit_stat=ch,
+                    dh_stat=dh,
+                    weapon_damage=wd,
+                    delay=delay,
+                    pet_attack_power=pet_attack_power,
+                    pet_job_attribute=pet_job_attribute,
+                    pet_trait=pet_trait,
+                )
+
+            elif role == "Tank":
+                job_obj = Tank(
+                    strength=main_stat,
+                    det=determination,
+                    skill_speed=speed_stat,
+                    tenacity=secondary_stat,
+                    crit_stat=ch,
+                    dh_stat=dh,
+                    weapon_damage=wd,
+                    delay=delay,
+                    job=job_no_space,
+                    pet_attack_power=pet_attack_power,
+                    pet_atk_mod=pet_atk_mod,
+                    pet_job_attribute=pet_job_attribute,
+                    pet_trait=pet_trait,
+                    level=90
+                )
+
             job_obj.attach_rotation(rotation_df, t)
             job_obj.action_moments = [None] * len(job_obj.action_moments)
 
@@ -1135,14 +1226,14 @@ def analyze_and_register_rotation(
                     t,
                     job_no_space,
                     player,
-                    mind_pre_bonus,
-                    mind,
+                    main_stat_pre_bonus,
+                    main_stat,
                     main_stat_type,
-                    strength_pre_bonus,
-                    strength,
+                    secondary_stat_pre_bonus,
+                    secondary_stat,
                     secondary_stat_type,
                     determination,
-                    sps,
+                    speed_stat,
                     ch,
                     dh,
                     wd,

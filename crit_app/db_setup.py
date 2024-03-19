@@ -6,7 +6,7 @@ import sqlite3
 from config import DB_URI, BLOB_URI
 
 if not (DB_URI / "../").exists():
-    (DB_URI / "../").resolve().mkdir(parents=True)
+    (DB_URI / "../").resolve().mkdir(parents=True, exist_ok=True)
 
 if not (BLOB_URI).exists():
     (BLOB_URI).resolve().mkdir(parents=True)
@@ -26,7 +26,7 @@ create table if not exists encounter(
     player_id INTEGER NOT NULL,
     pet_ids TEXT,
     job TEXT NOT NULL,
-    job_type TEXT NOT NULL
+    role TEXT NOT NULL
 )
 """
 

@@ -153,6 +153,7 @@ def make_action_pdfs_figure(rotation_obj, action_dps):
     max_density = rotation_obj.rotation_dps_distribution.max()
 
     for idx, (k, v) in enumerate(rotation_obj.unique_actions_distribution.items()):
+        color_idx = idx % len(px.colors.qualitative.Plotly)
         fig.add_trace(
             go.Scatter(
                 x=v["support"],
@@ -161,7 +162,7 @@ def make_action_pdfs_figure(rotation_obj, action_dps):
                 mode="lines",
                 legendgroup="Action name",
                 legendgrouptitle_text="Action Name",
-                marker={"color": px.colors.qualitative.Plotly[idx]},
+                marker={"color": px.colors.qualitative.Plotly[color_idx]},
             )
         )
 
@@ -175,7 +176,7 @@ def make_action_pdfs_figure(rotation_obj, action_dps):
             mode="markers",
             legendgroup="Actual DPS",
             legendgrouptitle_text="Actual DPS",
-            marker={"color": px.colors.qualitative.Plotly[idx], "size": 11},
+            marker={"color": px.colors.qualitative.Plotly[color_idx], "size": 11},
             hovertext=f"Percentile = {get_dmg_percentile(x, v['dps_distribution'], v['support']):.1f}%",
         )
 
@@ -184,7 +185,7 @@ def make_action_pdfs_figure(rotation_obj, action_dps):
         truncated_x = v["support"][v["dps_distribution"] > max_density * 5e-6]
         x_min.append(truncated_x[0])
         x_max.append(truncated_x[-1])
-        colors[k] = px.colors.qualitative.Plotly[idx]
+        colors[k] = px.colors.qualitative.Plotly[color_idx]
 
     fig.update_layout(
         title="DPS distribution by unique action",
