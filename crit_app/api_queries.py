@@ -108,16 +108,18 @@ def get_encounter_job_info(code: str, fight_id: int):
             pet_ids = json.dumps([y["id"] for y in x["pets"]])
         else:
             pet_ids = None
-        jobs.append(
-            {
-                "job": x["icon"],
-                "player_name": x["name"],
-                "player_server": server_info[x["name"]],
-                "player_id": x["id"],
-                "pet_ids": pet_ids,
-                "role": role_mapping[x["icon"]],
-            }
-        )
+        # Only add players (not limit break)
+        if x["name"] != "Limit Break":
+            jobs.append(
+                {
+                    "job": x["icon"],
+                    "player_name": x["name"],
+                    "player_server": server_info[x["name"]],
+                    "player_id": x["id"],
+                    "pet_ids": pet_ids,
+                    "role": role_mapping[x["icon"]],
+                }
+            )
 
     fight_time = r["data"]["reportData"]["report"]["table"]["data"]["totalTime"]
 
