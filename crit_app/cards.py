@@ -8,6 +8,7 @@ from dash import html, dcc
 
 def initialize_job_build(
     etro_url=None,
+    role="Healer",
     main_stat=None,
     secondary_stat=None,
     determination=None,
@@ -62,7 +63,7 @@ def initialize_job_build(
         [
             dbc.Label("Role", width=12, md=2),
             dbc.Col(
-                [dbc.Select(["Healer", "Tank"], "Healer", id="role-select")],
+                [dbc.Select(["Healer", "Tank"], role, id="role-select")],
                 width=12,
                 md=5,
             ),
@@ -333,10 +334,24 @@ def initialize_job_build(
 def initialize_fflogs_card(
     fflogs_url=None,
     encounter_info=[],
-    job_radio_options=[],
-    job_radio_value=None,
+    job_radio_options_dict = {
+        "Tank": [],
+        "Healer": [],
+        "Melee": [],
+        "Physical Ranged": [],
+        "Magical Ranged": [],
+    },
+    job_radio_value_dict = {
+        "Tank": None,
+        "Healer": None,
+        "Melee": None,
+        "Physical Ranged": None,
+        "Magical Ranged": None,
+    },
+    encounter_hidden=True,
     analyze_hidden=True,
 ):
+
     fflogs_url = dbc.Row(
         [
             dbc.Label("Log URL", width=12, md=2),
@@ -373,32 +388,32 @@ def initialize_fflogs_card(
             html.H3("Select a job", id="select-job"),
             dbc.Label("Tanks:"),
             dbc.RadioItems(
-                value=job_radio_value,
-                options=job_radio_options,
+                value=job_radio_value_dict["Tank"],
+                options=job_radio_options_dict["Tank"],
                 id="tank-jobs",
             ),
             dbc.Label("Healers:"),
             dbc.RadioItems(
-                value=job_radio_value,
-                options=job_radio_options,
+                value=job_radio_value_dict["Healer"],
+                options=job_radio_options_dict["Healer"],
                 id="healer-jobs",
             ),
             dbc.Label("Melee:"),
             dbc.RadioItems(
-                value=job_radio_value,
-                options=job_radio_options,
+                value=job_radio_value_dict["Melee"],
+                options=job_radio_options_dict["Melee"],
                 id="melee-jobs",
             ),
             dbc.Label("Physical Ranged:"),
             dbc.RadioItems(
-                value=job_radio_value,
-                options=job_radio_options,
+                value=job_radio_value_dict["Physical Ranged"],
+                options=job_radio_options_dict["Physical Ranged"],
                 id="physical-ranged-jobs",
             ),
             dbc.Label("Magical Ranged:"),
             dbc.RadioItems(
-                value=job_radio_value,
-                options=job_radio_options,
+                value=job_radio_value_dict["Magical Ranged"],
+                options=job_radio_options_dict["Magical Ranged"],
                 id="magical-ranged-jobs",
             ),
         ]
@@ -412,7 +427,7 @@ def initialize_fflogs_card(
                     dbc.Form(
                         [
                             fflogs_url,
-                            html.Div(encounter_info, id="encounter-info", hidden=True),
+                            html.Div(encounter_info, id="encounter-info", hidden=encounter_hidden),
                         ]
                     ),
                     html.Br(),
@@ -453,14 +468,14 @@ def initialize_rotation_card(rotation_figure=None, rotation_percentile_table=Non
                                 html.Div(
                                     children=rotation_figure, id="rotation-pdf-fig-div"
                                 ),
-                                width=9,
+                                width=12,
+                                md=9,
                             ),
                             dbc.Col(
                                 html.Div(
                                     children=rotation_percentile_table,
                                     id="rotation-percentile-div",
                                 ),
-                                width=3,
                                 align="center",
                             ),
                         ]

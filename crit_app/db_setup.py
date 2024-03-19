@@ -5,11 +5,11 @@ Create database and tables for saving analyzed rotations so they do not need to 
 import sqlite3
 from config import DB_URI, BLOB_URI
 
-if not (DB_URI / "../").resolve().exists():
-    (DB_URI / "../").resolve().mkdir(parents=True)
+if not (DB_URI / "../").exists():
+    (DB_URI / "../").resolve().mkdir(parents=True, exist_ok=True)
 
 if not (BLOB_URI).exists():
-    (BLOB_URI).mkdir(parents=True)
+    (BLOB_URI).resolve().mkdir(parents=True)
 
 con = sqlite3.connect(DB_URI)
 cur = con.cursor()
@@ -24,8 +24,9 @@ create table if not exists encounter(
     player_name TEXT NOT NULL,
     player_server TEXT NOT NULL,
     player_id INTEGER NOT NULL,
+    pet_ids TEXT,
     job TEXT NOT NULL,
-    job_type TEXT NOT NULL
+    role TEXT NOT NULL
 )
 """
 
