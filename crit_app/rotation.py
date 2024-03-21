@@ -942,23 +942,6 @@ class RotationTable(ActionTable):
 
 if __name__ == "__main__":
     job = "DarkKnight"
-    # test = RotationTable(1, 1, 1, "DarkKnight", 1, 1, 1, 1, 1)
-    # ActionTable(
-    #     headers,
-    #     "gbkzXDBTFAQqjxpL",
-    #     34,
-    #     "Warrior",
-    #     3,
-    #     2534,
-    #     940,
-    #     2079,
-    #     254,
-    #     damage_buff_table,
-    #     critical_hit_rate_table,
-    #     direct_hit_rate_table,
-    #     guaranteed_hits_by_action_table,
-    #     guaranteed_hits_by_buff_table,
-    # )
 
     RotationTable(
         headers,
@@ -979,22 +962,4 @@ if __name__ == "__main__":
         pet_ids=[15],
     )
 
-    # RotationTable(
-    #     headers,
-    #     "M2ZKgJtTqnNjYxCQ",
-    #     54,
-    #     "Paladin",
-    #     118,
-    #     2576,
-    #     940,
-    #     2182,
-    #     254,
-    #     damage_buff_table,
-    #     critical_hit_rate_table,
-    #     direct_hit_rate_table,
-    #     guaranteed_hits_by_action_table,
-    #     guaranteed_hits_by_buff_table,
-    #     potency_table,
-    #     pet_ids=[15],
-    # )
-    # RotationTable(job)
+
