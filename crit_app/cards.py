@@ -334,14 +334,14 @@ def initialize_job_build(
 def initialize_fflogs_card(
     fflogs_url=None,
     encounter_info=[],
-    job_radio_options_dict = {
+    job_radio_options_dict={
         "Tank": [],
         "Healer": [],
         "Melee": [],
         "Physical Ranged": [],
         "Magical Ranged": [],
     },
-    job_radio_value_dict = {
+    job_radio_value_dict={
         "Tank": None,
         "Healer": None,
         "Melee": None,
@@ -351,7 +351,6 @@ def initialize_fflogs_card(
     encounter_hidden=True,
     analyze_hidden=True,
 ):
-
     fflogs_url = dbc.Row(
         [
             dbc.Label("Log URL", width=12, md=2),
@@ -385,7 +384,21 @@ def initialize_fflogs_card(
     encounter_info = dbc.Row(
         [
             html.H3(children=encounter_info, id="read-fflogs-url"),
-            html.H3("Select a job", id="select-job"),
+            html.H4(
+                [
+                    html.Span("Job selection:", id="role-tooltip"),
+                    dbc.Tooltip(
+                        "If a supported role is greyed out, select the correct role above, enter the correct stats, and then click the Submit button for the FFLogs URL again.",
+                        target="role-tooltip",
+                    ),
+                ],
+                id="select-job",
+                style={
+                    "textDecoration": "underline",
+                    "textDecorationStyle": "dotted",
+                    "cursor": "pointer",
+                },
+            ),
             dbc.Label("Tanks:"),
             dbc.RadioItems(
                 value=job_radio_value_dict["Tank"],
@@ -427,7 +440,11 @@ def initialize_fflogs_card(
                     dbc.Form(
                         [
                             fflogs_url,
-                            html.Div(encounter_info, id="encounter-info", hidden=encounter_hidden),
+                            html.Div(
+                                encounter_info,
+                                id="encounter-info",
+                                hidden=encounter_hidden,
+                            ),
                         ]
                     ),
                     html.Br(),
@@ -488,15 +505,47 @@ def initialize_rotation_card(rotation_figure=None, rotation_percentile_table=Non
     return rotation_dmg_pdf_card
 
 
-def initialize_action_card(action_figure=None, action_summary_table=None):
+def initialize_action_card(
+    action_figure=None, action_summary_table=None, action_options=[], action_values=[]
+):
     action_dmg_pdf_card = dbc.Card(
         dbc.CardBody(
             [
                 html.H2("Action DPS distributions"),
                 html.P(
-                    "The DPS distribution for each action is shown below. The table below shows the expected, average DPS, your actual DPS, and the corresponding percentile."
+                    "The DPS distribution for each action is shown below. Hover over the graph to see the controls and change the view, or use the dropdown below to remove/add actions."
+                ),
+                html.P(
+                    "The table below shows DPS at the 50th percentile, your actual DPS, and the corresponding percentile."
                 ),
                 html.Div(children=action_figure, id="action-pdf-fig-div"),
+                html.Div(
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                dcc.Dropdown(
+                                    options=action_options,
+                                    value=action_values,
+                                    multi=True,
+                                    id="action-dropdown",
+                                ),
+                                width=11,
+                            ),
+                            dbc.Col(
+                                [
+                                    html.Div(
+                                        html.I(
+                                            className="fa-solid fa-rotate-left",
+                                            id="action-reset",
+                                        ),
+                                    )
+                                ],
+                                align="center",
+                            ),
+                        ]
+                    )
+                ),
+                html.Br(),
                 html.Div(children=action_summary_table, id="action-summary-table-div"),
             ],
             className="mb-3",

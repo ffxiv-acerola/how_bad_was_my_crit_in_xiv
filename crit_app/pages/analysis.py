@@ -7,13 +7,13 @@ from ast import literal_eval
 from ffxiv_stats.jobs import Healer, Tank
 
 import dash
-from dash import Input, Output, State, dcc, html, callback
+from dash import Input, Output, State, dcc, html, callback, Patch
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import coreapi
 import pandas as pd
 
-from dmg_distribution import get_dmg_percentile
+from dmg_distribution import get_dps_dmg_percentile
 from rotation import RotationTable
 from job_data.data import (
     damage_buff_table,
@@ -21,7 +21,7 @@ from job_data.data import (
     direct_hit_rate_table,
     guaranteed_hits_by_action_table,
     guaranteed_hits_by_buff_table,
-    potency_table
+    potency_table,
 )
 
 from figures import (
@@ -230,7 +230,7 @@ def layout(analysis_id=None):
             ).reset_index()
             rotation_dps = action_dps["amount"].sum()
             rotation_percentile = (
-                get_dmg_percentile(
+                get_dps_dmg_percentile(
                     rotation_dps,
                     job_object.rotation_dps_distribution,
                     job_object.rotation_dps_support,
@@ -276,7 +276,9 @@ def layout(analysis_id=None):
                 .str.replace(r"(\w)([A-Z])", r"\1 \2", regex=True)
                 .str.strip()
             )
-            role = encounter_df[encounter_df["player_id"] == job_radio_value]["role"].iloc[0]
+            role = encounter_df[encounter_df["player_id"] == job_radio_value][
+                "role"
+            ].iloc[0]
             # show_job_options(job_information, role)
             job_radio_options = show_job_options(encounter_df.to_dict("records"), role)
             job_radio_options_dict = {
@@ -291,7 +293,7 @@ def layout(analysis_id=None):
                 "Healer": None,
                 "Melee": None,
                 "Physical Ranged": None,
-                "Magical Ranged": None
+                "Magical Ranged": None,
             }
 
             job_radio_value_dict[role] = player_id
@@ -321,6 +323,9 @@ def layout(analysis_id=None):
             rotation_percentile_table = rotation_percentile_table[0]
             action_graph = action_graph[0]
             action_summary_table = action_summary_table[0]
+
+            action_options = action_dps["ability_name"].tolist()
+            action_values = action_dps["ability_name"].tolist()
 
             # Crit result text
             crit_text = rotation_percentile_text_map(rotation_percentile)
@@ -365,7 +370,9 @@ def layout(analysis_id=None):
             rotation_card = initialize_rotation_card(
                 rotation_graph, rotation_percentile_table
             )
-            action_card = initialize_action_card(action_graph, action_summary_table)
+            action_card = initialize_action_card(
+                action_graph, action_summary_table, action_options, action_values
+            )
             result_card = initialize_results(
                 character,
                 crit_text,
@@ -390,6 +397,34 @@ def layout(analysis_id=None):
                     result_card,
                 ]
             )
+
+
+@callback(
+    Output("action-pdf-fig", "figure"),
+    Input("action-dropdown", "value"),
+    State("action-pdf-fig", "figure"),
+)
+def select_actions(actions, action_graph):
+    patched_action_figure = Patch()
+    new_data = action_graph["data"]
+
+    for n in new_data:
+        if n["name"] in actions:
+            n["visible"] = True
+        else:
+            n["visible"] = False
+
+    patched_action_figure["data"] = new_data
+    return patched_action_figure
+
+
+@callback(
+    Output("action-dropdown", "value"),
+    State("action-dropdown", "options"),
+    Input("action-reset", "n_clicks"),
+)
+def reset_action_filters(action_list, n):
+    return action_list
 
 
 @callback(
@@ -782,15 +817,65 @@ def process_fflogs_url(n_clicks, url, role):
 
     report_id, fight_id, error_code = parse_fflogs_url(url)
     if error_code == 1:
-        return "This link isn't FFLogs...", [], [], [], radio_value, False, True, True
+        return (
+            "This link isn't FFLogs...",
+            [],
+            [],
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            False,
+            True,
+            True,
+        )
 
     if error_code == 2:
         feedback_text = "Please enter a log linked to a specific kill."
-        return feedback_text, [], [], [], radio_value, False, True, True
-
+        return (
+            feedback_text, 
+            [],
+            [],
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            False,
+            True,
+            True,
+        )
     if error_code == 3:
         feedback_text = "Invalid report ID."
-        return feedback_text, [], [], [], radio_value, False, True, True
+        return (
+            feedback_text, 
+            [],
+            [],
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            False,
+            True,
+            True,
+        )
 
     (
         encounter_id,
@@ -822,7 +907,7 @@ def process_fflogs_url(n_clicks, url, role):
     # the value will remain set but appear unselected. It can only appear selected
     # by click off and clicking back on. This is impossible if an AST is in the party.
     # This is fixed by just clearing the value. How dumb.
-    print(encounter_id, start_time, job_information)
+    # print(encounter_id, start_time, job_information)
 
     db_rows = [
         (
@@ -882,9 +967,9 @@ def display_compute_button(
     melees,
     phys_ranged,
     magic_ranged,
-    selected_job,
     healer_value,
     tank_value,
+    melee_value,
     phys_ranged_value,
     magic_ranged_value,
 ):
@@ -895,7 +980,7 @@ def display_compute_button(
 
     selected_job = [
         x
-        for x in [healer_value, tank_value, phys_ranged_value, magic_ranged_value]
+        for x in [healer_value, tank_value, melee_value, phys_ranged_value, magic_ranged_value]
         if x is not None
     ]
     if job_list is None or (selected_job == []) or (job_list == []):
@@ -932,20 +1017,20 @@ def rotation_percentile_text_map(rotation_percentile):
         return "Personally blessed by Yoshi-P himself."
 
 
-# @callback(
-#     Output("compute-dmg-button", "children"),
-#     Output("compute-dmg-button", "disabled"),
-#     Input("compute-dmg-button", "n_clicks"),
-#     prevent_initial_call=True,
-# )
-# def disable_analyze_button(n_clicks):
-#     """
-#     Return a disabled, spiny button when the log/rotation is being analyzed.
-#     """
-#     if n_clicks is None:
-#         return ["Analyze rotation"], False
-#     else:
-#         return [dbc.Spinner(size="sm"), " Analyzing your log..."], True
+@callback(
+    Output("compute-dmg-button", "children"),
+    Output("compute-dmg-button", "disabled"),
+    Input("compute-dmg-button", "n_clicks"),
+    prevent_initial_call=True,
+)
+def disable_analyze_button(n_clicks):
+    """
+    Return a disabled, spiny button when the log/rotation is being analyzed.
+    """
+    if n_clicks is None:
+        return ["Analyze rotation"], False
+    else:
+        return [dbc.Spinner(size="sm"), " Analyzing your log..."], True
 
 
 @callback(
@@ -1010,15 +1095,12 @@ def analyze_and_register_rotation(
 ):
     updated_url = dash.no_update
 
-    job_player = [
-        healer_jobs, tank_jobs, melee_jobs, phys_ranged_jobs, magical_jobs
-    ]
-
+    job_player = [healer_jobs, tank_jobs, melee_jobs, phys_ranged_jobs, magical_jobs]
 
     if n_clicks is None:
         raise PreventUpdate
         # return updated_url, ["Analyze rotation"], False, True, [], [], [], [], []
-    
+
     job_player = [x for x in job_player if x is not None][0]
     report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
     encounter_df = read_encounter_table()
@@ -1040,8 +1122,14 @@ def analyze_and_register_rotation(
     main_stat = int(main_stat_pre_bonus * main_stat_multiplier)
 
     secondary_stat = int(secondary_stat_pre_bonus)
-    if secondary_stat_type in ("mind", "strength", "dexterity", "intelligence", "vitality"):
-         secondary_stat = int(secondary_stat * main_stat_multiplier)
+    if secondary_stat_type in (
+        "mind",
+        "strength",
+        "dexterity",
+        "intelligence",
+        "vitality",
+    ):
+        secondary_stat = int(secondary_stat * main_stat_multiplier)
 
     medication_amt = int(medication_amt)
     # Predefined values from: https://www.fflogs.com/reports/NJz2cbM4mZd1hajC#fight=12&type=damage-done
@@ -1122,11 +1210,6 @@ def analyze_and_register_rotation(
 
         # FIXME: only analyze and write results, redirect to display results
         if len(prior_analysis) == 0:
-            # actions, t, encounter_name = damage_events(
-            #     report_id, fight_id, job_no_space
-            # )
-            # action_df = create_action_df(actions, ch, dh, job_no_space, medication_amt)
-            # rotation_df = create_rotation_df(action_df)
             pet_ids = player_info["pet_ids"]
             rotation = RotationTable(
                 headers,
@@ -1144,7 +1227,7 @@ def analyze_and_register_rotation(
                 guaranteed_hits_by_action_table,
                 guaranteed_hits_by_buff_table,
                 potency_table,
-                pet_ids
+                pet_ids,
             )
 
             action_df = rotation.actions_df
@@ -1154,7 +1237,9 @@ def analyze_and_register_rotation(
 
             role = player_info["role"]
             main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
-            secondary_stat_type = role_stat_dict[role]["secondary_stat"]["placeholder"].lower()
+            secondary_stat_type = role_stat_dict[role]["secondary_stat"][
+                "placeholder"
+            ].lower()
 
             # FIXME: Parameterize pet attributes
             if job_no_space == "Astrologian":
@@ -1162,7 +1247,7 @@ def analyze_and_register_rotation(
                 pet_job_attribute = 115
                 pet_trait = 134
                 pet_atk_mod = 195
-            if job_no_space == "DarkKnight":
+            elif job_no_space == "DarkKnight":
                 pet_attack_power = main_stat_pre_bonus
                 pet_job_attribute = 100
                 pet_trait = 100
@@ -1172,7 +1257,6 @@ def analyze_and_register_rotation(
                 pet_job_attribute = None
                 pet_trait = None
                 pet_atk_mod = None
-
 
             if role == "Healer":
                 job_obj = Healer(
@@ -1204,7 +1288,7 @@ def analyze_and_register_rotation(
                     pet_atk_mod=pet_atk_mod,
                     pet_job_attribute=pet_job_attribute,
                     pet_trait=pet_trait,
-                    level=90
+                    level=90,
                 )
 
             job_obj.attach_rotation(rotation_df, t)

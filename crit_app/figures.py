@@ -12,7 +12,7 @@ from dash.dash_table.Format import Format, Scheme
 import pandas as pd
 import numpy as np
 
-from dmg_distribution import get_dmg_percentile, summarize_actions
+from dmg_distribution import get_dps_dmg_percentile, summarize_actions
 
 
 def make_rotation_pdf_figure(rotation_obj, rotation_dps):
@@ -53,7 +53,7 @@ def make_rotation_pdf_figure(rotation_obj, rotation_dps):
         mode="markers",
         name="Actual DPS",
         marker={"size": 14, "color": "#009670"},
-        hovertext=f"Percentile = {get_dmg_percentile(x, rotation_obj.rotation_dps_distribution, rotation_obj.rotation_dps_support):.1f}%",
+        hovertext=f"Percentile = {get_dps_dmg_percentile(x, rotation_obj.rotation_dps_distribution, rotation_obj.rotation_dps_support):.1f}%",
     )
 
     fig.update_xaxes(range=[x_min, x_max])
@@ -163,6 +163,7 @@ def make_action_pdfs_figure(rotation_obj, action_dps):
                 legendgroup="Action name",
                 legendgrouptitle_text="Action Name",
                 marker={"color": px.colors.qualitative.Plotly[color_idx]},
+                visible=True
             )
         )
 
@@ -177,7 +178,8 @@ def make_action_pdfs_figure(rotation_obj, action_dps):
             legendgroup="Actual DPS",
             legendgrouptitle_text="Actual DPS",
             marker={"color": px.colors.qualitative.Plotly[color_idx], "size": 11},
-            hovertext=f"Percentile = {get_dmg_percentile(x, v['dps_distribution'], v['support']):.1f}%",
+            hovertext=f"Percentile = {get_dps_dmg_percentile(x, v['dps_distribution'], v['support']):.1f}%",
+            visible=True
         )
 
         max_density = v["dps_distribution"].max()
@@ -218,7 +220,7 @@ def make_action_table(rotation_obj, action_df, t):
     action_summary_df = action_summary_df.rename(
         columns={
             "ability_name": "Action",
-            "expected_dps": "Expected DPS (mean)",
+            "dps_50th_percentile": "DPS 50th %",
             "actual_dps_dealt": "Actual DPS",
             "percentile": "Percentile",
         }
@@ -229,8 +231,8 @@ def make_action_table(rotation_obj, action_df, t):
             name="Action",
         ),
         dict(
-            id="Expected DPS (mean)",
-            name="Expected DPS (mean)",
+            id="DPS 50th %",
+            name="DPS 50th %",
             type="numeric",
             format=Format(precision=2, scheme=Scheme.decimal_integer),
         ),

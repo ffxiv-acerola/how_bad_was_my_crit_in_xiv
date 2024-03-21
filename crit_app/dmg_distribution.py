@@ -4,7 +4,7 @@ Functions for processing results of API queries and computing damage distributio
 
 import numpy as np
 
-def get_dmg_percentile(dps, dmg_distribution, dmg_distribution_support):
+def get_dps_dmg_percentile(dps, dmg_distribution, dmg_distribution_support):
     """
     Compute the CDF from a PDF and support, then find the corresponding percentile a value has
 
@@ -20,6 +20,10 @@ def get_dmg_percentile(dps, dmg_distribution, dmg_distribution_support):
     F = np.cumsum(dmg_distribution) * dx
     return F[(np.abs(dmg_distribution_support - dps)).argmin()] * 100
 
+def get_dmg_percentile(percentile, dmg_distribution, dmg_distribution_support):
+    dx = dmg_distribution_support[1] - dmg_distribution_support[0]
+    F = np.cumsum(dmg_distribution) * dx
+    return dmg_distribution_support[np.abs(F - percentile).argmin()]
 
 def summarize_actions(actions_df, unique_actions, t):
     """
@@ -36,7 +40,7 @@ def summarize_actions(actions_df, unique_actions, t):
 
     action_dps = action_dps.reset_index()
     action_dps["percentile"] = action_dps.apply(
-        lambda x: get_dmg_percentile(
+        lambda x: get_dps_dmg_percentile(
             x["amount"],
             unique_actions[x["ability_name"]]["dps_distribution"],
             unique_actions[x["ability_name"]]["support"],
@@ -45,13 +49,14 @@ def summarize_actions(actions_df, unique_actions, t):
         axis=1,
     )
 
-    action_dps["expected_dps"] = action_dps["ability_name"].apply(
-        lambda x: np.trapz(
-            unique_actions[x]["support"] * unique_actions[x]["dps_distribution"],
-            unique_actions[x]["support"],
+    action_dps["dps_50th_percentile"] = action_dps["ability_name"].apply(
+        lambda x: get_dmg_percentile(
+            0.5, 
+            unique_actions[x]["dps_distribution"],
+            unique_actions[x]["support"],    
         )
     )
 
-    return action_dps[["ability_name", "expected_dps", "amount", "percentile"]].rename(
+    return action_dps[["ability_name", "dps_50th_percentile", "amount", "percentile"]].rename(
         columns={"amount": "actual_dps_dealt"}
     )
