@@ -6,9 +6,13 @@ import dash_bootstrap_components as dbc
 from config import DEBUG
 
 app = dash.Dash(
-    __name__, 
-    use_pages=True, 
-    external_stylesheets=[dbc.themes.DARKLY, dbc.icons.BOOTSTRAP],
+    __name__,
+    use_pages=True,
+    external_stylesheets=[
+        dbc.themes.DARKLY,
+        dbc.icons.BOOTSTRAP,
+        dbc.icons.FONT_AWESOME,
+    ],
     # external_stylesheets=[dbc.themes.BOOTSTRAP],
     # suppress_callback_exceptions=True, # needed because some callbacks use dynamically generated id's
 )
@@ -31,7 +35,15 @@ header = html.Div(
             "For a given run, howbadwasmycritinxiv pulls your rotation and how much damage each action did from FFLogs. Using your job build, it exactly simulates how likely all possible DPS values are due to damage variability and compares it to your actual DPS. To get started, all you need is your job build and link to a fight log."
         ),
         html.P(
-            ["This website is still in its early stages of development, so expect some sharp edges. Only fights from Anabeiseos are currently supported. Only healers are currently supported. Runs with duplicate healers will currently likely not behave as intended. If you have any suggestions, come across bugs, or would like to contribute, join the ", html.A("Discord server", href="https://discord.gg/8eezSgy3sC", target="_blank"), "."]
+            [
+                "This website is still under development, so expect some sharp edges. Only fights from Anabeiseos and the two latest Extreme trials are currently supported. Only supports are currently supported. If you have any suggestions, come across bugs, or would like to contribute, join the ",
+                html.A(
+                    "Discord server",
+                    href="https://discord.gg/8eezSgy3sC",
+                    target="_blank",
+                ),
+                ".",
+            ]
         ),
         html.A("More about this site", href="#", id="about-open"),
         dbc.Modal(
@@ -41,18 +53,31 @@ header = html.Div(
                     [
                         html.H3("How are damage distributions calculated?"),
                         html.P("The short answer: lots of convolutions."),
-                        html.P([
-                            "The long answer: check out ",
-                            html.A("this page", href="/math", target="_blank"),
-                            " for a more detailed explanation."
-                        ]),
+                        html.P(
+                            [
+                                "The long answer: check out ",
+                                html.A("this page", href="/math", target="_blank"),
+                                " for a more detailed explanation.",
+                            ]
+                        ),
                         html.H3("Does this account for..."),
-                        html.P(r"In most cases, yes. Damage variance due to different hit types (normal, critical, direct, and critical-direct) are accounted for along with the ±5% damage roll. Even the small gaps in the damage support due to integer math are accounted for. Rotational variance, like Minor Arcana or action procs are not accounted for because they cannot be reliably inferred from a log. This site only analyzes what is reported FFLogs and does not attempt to make any rotational inferences."),
-                        html.P("Most aspects of the battle system are also accounted for, including damage buffs, hit type buffs (including how they interact with guaranteed hit types, i.e. Chain Stratagem + Midare Setsugekka), and pet potency."),
+                        html.P(
+                            r"In most cases, yes. Damage variance due to different hit types (normal, critical, direct, and critical-direct) are accounted for along with the ±5% damage roll. Even the small gaps in the damage support due to integer math are accounted for. Rotational variance, like Minor Arcana or action procs are not accounted for because they cannot be reliably inferred from a log. This site only analyzes what is reported FFLogs and does not attempt to make any rotational inferences."
+                        ),
+                        html.P(
+                            "Most aspects of the battle system are also accounted for, including damage buffs, hit type buffs (including how they interact with guaranteed hit types, i.e. Chain Stratagem + Midare Setsugekka), and pet potency."
+                        ),
                         html.H3("Why do I need to enter a job build?"),
-                        html.P("Your job build is needed to compute how much damage each action does before any sort of damage variability as well as your critical hit rate and direct hit rate to accurately model damage variability. ACT and FFLogs is unable to reliably gather this information, so it must be explicitly specified."),
-                        html.H3("Is there an example with everything already filled out?"),
-                        html.A("Right here.", href="https://howbadwasmycritinxiv.com/analysis/3d009fc6-5198-4bca-97df-a156c67fb908"),
+                        html.P(
+                            "Your job build is needed to compute how much damage each action does before any sort of damage variability as well as your critical hit rate and direct hit rate to accurately model damage variability. ACT and FFLogs is unable to reliably gather this information, so it must be explicitly specified."
+                        ),
+                        html.H3(
+                            "Is there an example with everything already filled out?"
+                        ),
+                        html.A(
+                            "Right here.",
+                            href="https://howbadwasmycritinxiv.com/analysis/3d009fc6-5198-4bca-97df-a156c67fb908",
+                        ),
                         html.H3("Who is this site for?"),
                         html.P(
                             [
@@ -90,6 +115,7 @@ app.layout = dbc.Container(
     ],
     fluid="md",
 )
+
 
 @app.callback(
     Output("result-interpretation-modal", "is_open"),
