@@ -45,7 +45,7 @@ from cards import (
 )
 from job_data.job_warnings import job_warnings
 from job_data.roles import role_stat_dict
-from config import DB_URI, BLOB_URI, ETRO_TOKEN, DRY_RUN
+from config import DB_URI, BLOB_URI, ETRO_TOKEN, DRY_RUN, DEBUG
 
 
 dash.register_page(
@@ -682,7 +682,7 @@ def job_build_defined(
     """
     # TODO: will need to handle None secondary stat for roles without them.
     job_build_missing = any(
-        elem is None
+        (elem is None) or (elem == [])
         for elem in [
             main_stat,
             secondary_stat,
@@ -711,7 +711,7 @@ def validate_sps(spell_speed):
 
 @callback(Output("DEL", "valid"), Output("DEL", "invalid"), Input("DEL", "value"))
 def validate_del(delay):
-    if (delay is None) or (delay, 4):
+    if (delay == []) or (delay is None) or (delay <= 4):
         return True, False
     else:
         return False, True
@@ -890,9 +890,26 @@ def process_fflogs_url(n_clicks, url, role):
     print(kill_time)
     fight_time_str = f"{int(kill_time // 60)}:{int(kill_time % 60):02d}"
 
-    if encounter_id not in [88, 89, 90, 91, 92]:
+    if encounter_id not in [1069, 1070, 88, 89, 90, 91, 92]:
         feedback_text = "Sorry, only fights from Anabeiseos are currently supported."
-        return feedback_text, [], [], [], radio_value, False, True, True
+        return (
+            feedback_text, 
+            [],
+            [],
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            [],
+            radio_value,
+            False,
+            True,
+            True,
+        )
 
     (
         tank_radio_items,
@@ -1027,7 +1044,7 @@ def disable_analyze_button(n_clicks):
     """
     Return a disabled, spiny button when the log/rotation is being analyzed.
     """
-    if n_clicks is None:
+    if (n_clicks is None) or DEBUG:
         return ["Analyze rotation"], False
     else:
         return [dbc.Spinner(size="sm"), " Analyzing your log..."], True

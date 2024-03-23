@@ -36,7 +36,7 @@ header = html.Div(
         ),
         html.P(
             [
-                "This website is still in its early stages of development, so expect some sharp edges. Only fights from Anabeiseos are currently supported. Only healers are currently supported. Runs with duplicate healers will currently likely not behave as intended. If you have any suggestions, come across bugs, or would like to contribute, join the ",
+                "This website is still under development, so expect some sharp edges. Only fights from Anabeiseos and the two latest Extreme trials are currently supported. Only supports are currently supported. If you have any suggestions, come across bugs, or would like to contribute, join the ",
                 html.A(
                     "Discord server",
                     href="https://discord.gg/8eezSgy3sC",

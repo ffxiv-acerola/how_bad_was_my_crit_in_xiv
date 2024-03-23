@@ -20,12 +20,12 @@ def parse_etro_url(etro_url: str):
     error_code = 0
     try:
         parts = urlparse(etro_url)
+        if parts.netloc != "etro.gg":
+            return None, 1
         gearset_id = [segment for segment in parts.path.split("/") if segment][-1]
 
-        if parts.netloc != "etro.gg":
-            error_code = 1
         if len(gearset_id) != 36:
-            error_code = 2
+            return None, 2
     except Exception:
         gearset_id = None
         error_code = 3

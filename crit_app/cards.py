@@ -202,8 +202,8 @@ def initialize_job_build(
                 value=delay,
                 type="number",
                 placeholder="Delay",
-                min=100,
-                max=4000,
+                min=1.0,
+                max=4.0,
                 id="DEL",
             )
         ),
