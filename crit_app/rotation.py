@@ -183,6 +183,9 @@ class ActionTable(object):
             self.actions_df = self.actions_df[self.actions_df["unpaired"] != True]
 
         self.actions_df = self.actions_df.reset_index(drop=True)
+
+        if self.has_echo:
+            self.apply_the_echo()
         pass
 
     def damage_events(self, headers):
@@ -238,7 +241,8 @@ class ActionTable(object):
                                 kill,
                                 startTime,
                                 endTime,
-                                name
+                                name,
+                                hasEcho
                             }
                         }
                     }
@@ -318,6 +322,8 @@ class ActionTable(object):
         self.ability_name_mapping = {
             x["gameID"]: x["name"] for x in self.ability_name_mapping
         }
+
+        self.has_echo = r["data"]["reportData"]["report"]["fights"][0]["hasEcho"]
 
         # Loop until no more pages
         while next_timestamp is not None:
@@ -555,6 +561,30 @@ class ActionTable(object):
             )
 
         return multiplier, hit_type
+
+    def apply_the_echo(self):
+        """Apply the damage bonus from The Echo.
+        The echo is a multiplicative buff whose stregnth is based on current patch.
+        This is 
+        """
+        six_point_5_7 = 1707818400000
+        six_point_5_8 = 1710849600000
+
+        # 6.57: 10% echo
+        if (self.fight_start_time >= six_point_5_7) & (self.fight_start_time <= six_point_5_8):
+            echo_strength = 1.10
+            echo_buff = "echo10"
+
+        # 6.58: 15% echo
+        elif (self.fight_start_time >= six_point_5_8):
+            echo_strength = 1.15
+            echo_buff = "echo15"
+
+        self.actions_df["multiplier"] = round(self.actions_df["multiplier"] * echo_strength, 6)
+        self.actions_df["action_name"] += f"_{echo_buff}"
+        self.actions_df["buffs"].apply(lambda x: x.append(echo_buff))
+
+        pass
 
     def create_action_df(
         self,
@@ -860,20 +890,33 @@ class RotationTable(ActionTable):
         rotation_df["buff_list"] = rotation_df["buff_str"].str.split(".")
 
         # Assign potency based on whether combo, positional, or combo + positional was satisfied
+        # Also update the action name
         rotation_df["potency"] = rotation_df["base_potency"]
         # Combo bonus
         rotation_df.loc[
             rotation_df["bonusPercent"] == rotation_df["combo_bonus"], "potency"
         ] = rotation_df["combo_potency"]
+        rotation_df.loc[
+            rotation_df["bonusPercent"] == rotation_df["combo_bonus"], "action_name"
+        ] += "_combo"
+
         # Positional bonus
         rotation_df.loc[
             rotation_df["bonusPercent"] == rotation_df["positional_bonus"], "potency"
         ] = rotation_df["positional_potency"]
+        rotation_df.loc[
+            rotation_df["bonusPercent"] == rotation_df["positional_bonus"], "action_name"
+        ] += "_positional"
+        
         # Combo bonus and positional bonus
         rotation_df.loc[
             rotation_df["bonusPercent"] == rotation_df["combo_positional_bonus"],
             "potency",
         ] = rotation_df["combo_positional_potency"]
+        rotation_df.loc[
+            rotation_df["bonusPercent"] == rotation_df["combo_positional_bonus"],
+            "action_name",
+        ] += "_combo_positional"
 
         # Some jobs get different potencies depending if certain buffs are present, which corresponds to
         # multiple rows in the potency table with different `buff_id` values.
