@@ -53,8 +53,8 @@ create table if not exists report(
     delay REAL NOT NULL,
     medication_amount INTEGER NOT NULL,
     party_bonus REAL NOT NULL,
-    etro_id TEXT
-
+    etro_id TEXT,
+    recompute_flag INTEGER NOT NULL
 )
 """
 
