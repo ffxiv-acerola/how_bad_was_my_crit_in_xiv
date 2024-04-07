@@ -35,6 +35,28 @@ role_stat_dict = {
         "secondary_stat": {"label": "TEN:", "placeholder": "Tenacity"},
         "speed_stat": {"label": "SKS:", "placeholder": "Skill Speed"},
     },
+    "Magical Ranged": {
+        "main_stat": {"label": "INT:", "placeholder": "Intelligence"},
+        "secondary_stat": {
+            "label": [
+                html.Span(
+                    "STR:",
+                    id="str-tooltip",
+                    style={
+                        "textDecoration": "underline",
+                        "textDecorationStyle": "dotted",
+                        "cursor": "pointer",
+                    },
+                ),
+                dbc.Tooltip(
+                    "Strength, used for auto-attacks",
+                    target="str-tooltip",
+                ),
+            ],
+            "placeholder": "Strength",
+        },
+        "speed_stat": {"label": "SPS:", "placeholder": "Spell Speed"},
+    },
 }
 
 # How jobs map to roles

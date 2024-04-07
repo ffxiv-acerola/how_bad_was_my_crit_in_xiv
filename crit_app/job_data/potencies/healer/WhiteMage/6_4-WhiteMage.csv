@@ -1,0 +1,8 @@
+job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency
+WhiteMage,7,attack,90,,90,auto,,,,,,
+WhiteMage,25859,Glare III,90,,310,direct,,,,,,
+WhiteMage,25860,Holy III,90,,150,direct,,,,,,
+WhiteMage,16535,Afflatus Misery,90,,1240,direct,,,,,,
+WhiteMage,1001871,Dia (tick),90,,65,magic-dot,,,,,,
+WhiteMage,16532,Dia,90,,65,direct,,,,,,
+WhiteMage,3571,Assize,90,,400,direct,,,,,,

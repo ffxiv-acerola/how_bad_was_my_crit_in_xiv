@@ -1,0 +1,8 @@
+job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency
+Astrologian,25871,Fall Malefic,90,,250,direct,,,,,,
+Astrologian,7444,Lord of Crowns,90,,250,direct,,,,,,
+Astrologian,7,attack,90,,90,auto,,,,,,
+Astrologian,25874,Macrocosmos,90,,250,direct,,,,,,
+Astrologian,1001881,Combust III (tick),90,,55,magic-dot,,,,,,
+Astrologian,7441,Stellar Explosion (Pet),90,,310,pet,,,,,,
+Astrologian,7440,Stellar Burst (Pet),90,,205,pet,,,,,,

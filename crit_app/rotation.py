@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from ffxiv_stats import Rate
 
-from rotation_jobs import DarkKnightActions, PaladinActions
+from rotation_jobs import DarkKnightActions, PaladinActions, BlackMageActions
 from config import FFLOGS_TOKEN
 from job_data.data import (
     critical_hit_rate_table,
@@ -175,6 +175,14 @@ class ActionTable(object):
             self.actions_df = self.job_specifics.apply_pld_buffs(self.actions_df)
             pass
 
+        elif self.job == "BlackMage":
+            self.job_specifics = BlackMageActions(headers, report_id, fight_id, player_id)
+            self.actions_df = self.job_specifics.apply_elemental_buffs(self.actions_df)
+        
+        elif self.job == "Summoner":
+            self.actions_df = self.estimate_ground_effect_multiplier(
+                1002706,
+            )
         # Unpaired didn't have damage go off, filter these out.
         # This column wont exist if there aren't any unpaired actions though.
         # This is done at the very end because unpaired actions can still give gauge,
@@ -986,15 +994,34 @@ class RotationTable(ActionTable):
 if __name__ == "__main__":
     job = "DarkKnight"
 
+    # RotationTable(
+    #     headers,
+    #     "2yDY81rxKFqPTdZC",
+    #     10,
+    #     "DarkKnight",
+    #     4,
+    #     2576,
+    #     940,
+    #     2182,
+    #     254,
+    #     damage_buff_table,
+    #     critical_hit_rate_table,
+    #     direct_hit_rate_table,
+    #     guaranteed_hits_by_action_table,
+    #     guaranteed_hits_by_buff_table,
+    #     potency_table,
+    #     pet_ids=[15],
+    # )
+
     RotationTable(
         headers,
-        "2yDY81rxKFqPTdZC",
-        10,
-        "DarkKnight",
-        4,
-        2576,
-        940,
-        2182,
+        "gbkzXDBTFAQqjxpL",
+        34,
+        "BlackMage",
+        8,
+        2452,
+        1330,
+        1552,
         254,
         damage_buff_table,
         critical_hit_rate_table,
@@ -1002,7 +1029,7 @@ if __name__ == "__main__":
         guaranteed_hits_by_action_table,
         guaranteed_hits_by_buff_table,
         potency_table,
-        pet_ids=[15],
+        pet_ids=None,
     )
 
 
