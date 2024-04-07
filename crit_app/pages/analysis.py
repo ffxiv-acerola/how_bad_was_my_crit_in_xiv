@@ -4,7 +4,7 @@ import pickle
 from uuid import uuid4
 from ast import literal_eval
 
-from ffxiv_stats.jobs import Healer, Tank
+from ffxiv_stats.jobs import Healer, Tank, MagicalRanged
 
 import dash
 from dash import Input, Output, State, dcc, html, callback, Patch
@@ -143,6 +143,92 @@ def update_access_table(db_row):
     cur.close()
     con.close()
     pass
+
+
+def rotation_analysis(
+    role: str,
+    job_no_space: str,
+    rotation_df,
+    t: float,
+    main_stat: int,
+    secondary_stat: int,
+    determination: int,
+    speed_stat: int,
+    ch: int,
+    dh: int,
+    wd: int,
+    delay: float,
+    main_stat_pre_bonus: int,
+):
+    """Analyze the rotation of a job.
+
+    Args:
+        role (str): Job role, Healer, Tank, Magical Ranged, Melee, or Physical Ranged
+        job_no_space (str): Pascal case job, e.g., "WhiteMage"
+        rotation_df (pandas DataFrame): rotation DataFrame
+        t (float): Active fight time used to compute DPS
+        main_stat (int): Amount of main stat.
+        secondary_stat (int): Amount of secondary stat
+        determination (int): Amount of determination stat.
+        speed_stat (int): Amount of Skill/Spell Speed stat.
+        ch (int): Amount of critical hit stat.
+        dh (int): Amount of direct hit rate stat.
+        wd (int): Amount of weapon damage stat.
+        delay (float): Amount of weapon delay stat.
+        main_stat_pre_bonus (int): Amount of main stat before n% party bonus, for pet attack power.
+
+    Returns:
+        ffxiv_stats job object: Object with analyzed rotation and DPS distributions.
+    """
+
+    if role == "Healer":
+        job_obj = Healer(
+            mind=main_stat,
+            strength=secondary_stat,
+            det=determination,
+            spell_speed=speed_stat,
+            crit_stat=ch,
+            dh_stat=dh,
+            weapon_damage=wd,
+            delay=delay,
+            pet_attack_power=main_stat_pre_bonus,
+        )
+
+    elif role == "Tank":
+        job_obj = Tank(
+            strength=main_stat,
+            det=determination,
+            skill_speed=speed_stat,
+            tenacity=secondary_stat,
+            crit_stat=ch,
+            dh_stat=dh,
+            weapon_damage=wd,
+            delay=delay,
+            job=job_no_space,
+            pet_attack_power=main_stat_pre_bonus,
+            level=90,
+        )
+
+    elif role == "Magical Ranged":
+        job_obj = MagicalRanged(
+            intelligence=main_stat,
+            strength=secondary_stat,
+            det=determination,
+            spell_speed=speed_stat,
+            crit_stat=ch,
+            dh_stat=dh,
+            weapon_damage=wd,
+            delay=delay,
+            pet_attack_power=main_stat_pre_bonus,
+        )
+
+    else:
+        raise ValueError("Incorrect role specified.")
+
+    job_obj.attach_rotation(rotation_df, t)
+    job_obj.action_moments = [None] * len(job_obj.action_moments)
+
+    return job_obj
 
 
 def layout(analysis_id=None):
@@ -997,7 +1083,13 @@ def display_compute_button(
 
     selected_job = [
         x
-        for x in [healer_value, tank_value, melee_value, phys_ranged_value, magic_ranged_value]
+        for x in [
+            healer_value,
+            tank_value,
+            melee_value,
+            phys_ranged_value,
+            magic_ranged_value,
+        ]
         if x is not None
     ]
     if job_list is None or (selected_job == []) or (job_list == []):
@@ -1258,60 +1350,24 @@ def analyze_and_register_rotation(
                 "placeholder"
             ].lower()
 
-            # FIXME: Parameterize pet attributes
-            if job_no_space == "Astrologian":
-                pet_attack_power = main_stat_pre_bonus
-                pet_job_attribute = 115
-                pet_trait = 134
-                pet_atk_mod = 195
-            elif job_no_space == "DarkKnight":
-                pet_attack_power = main_stat_pre_bonus
-                pet_job_attribute = 100
-                pet_trait = 100
-                pet_atk_mod = 195
-            else:
-                pet_attack_power = None
-                pet_job_attribute = None
-                pet_trait = None
-                pet_atk_mod = None
-
-            if role == "Healer":
-                job_obj = Healer(
-                    mind=main_stat,
-                    strength=secondary_stat,
-                    det=determination,
-                    spell_speed=speed_stat,
-                    crit_stat=ch,
-                    dh_stat=dh,
-                    weapon_damage=wd,
-                    delay=delay,
-                    pet_attack_power=pet_attack_power,
-                    pet_job_attribute=pet_job_attribute,
-                    pet_trait=pet_trait,
-                )
-
-            elif role == "Tank":
-                job_obj = Tank(
-                    strength=main_stat,
-                    det=determination,
-                    skill_speed=speed_stat,
-                    tenacity=secondary_stat,
-                    crit_stat=ch,
-                    dh_stat=dh,
-                    weapon_damage=wd,
-                    delay=delay,
-                    job=job_no_space,
-                    pet_attack_power=pet_attack_power,
-                    pet_atk_mod=pet_atk_mod,
-                    pet_job_attribute=pet_job_attribute,
-                    pet_trait=pet_trait,
-                    level=90,
-                )
-
-            job_obj.attach_rotation(rotation_df, t)
-            job_obj.action_moments = [None] * len(job_obj.action_moments)
+            job_obj = rotation_analysis(
+                role,
+                job_no_space,
+                rotation_df,
+                t,
+                main_stat,
+                secondary_stat,
+                determination,
+                speed_stat,
+                ch,
+                dh,
+                wd,
+                delay,
+                main_stat_pre_bonus,
+            )
 
             analysis_id = str(uuid4())
+            recompute_flag = 0
 
             if not DRY_RUN:
                 action_df.to_parquet(BLOB_URI / f"action-df-{analysis_id}.parquet")
