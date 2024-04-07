@@ -725,18 +725,18 @@ def process_etro_url(n_clicks, party_bonus, url, default_role):
     if build_role in ("Healer", "Magical Ranged"):
         if job_abbreviated == "SCH":
             secondary_stat = 350
-        if job_abbreviated == "WHM":
+        elif job_abbreviated == "WHM":
             secondary_stat = 214
-        if job_abbreviated == "SGE":
+        elif job_abbreviated == "SGE":
             secondary_stat = 233
-        if job_abbreviated == "AST":
+        elif job_abbreviated == "AST":
             secondary_stat = 194
-        if job_abbreviated == "RDM":
+        elif job_abbreviated == "RDM":
             secondary_stat = 226
-        if job_abbreviated == "SMN":
+        elif job_abbreviated == "SMN":
             secondary_stat = 370
         else:
-            secondary_stat = 150
+            secondary_stat = 194
 
     elif build_role == "Tank":
         secondary_stat = total_params[secondary_stat_str]["value"]
