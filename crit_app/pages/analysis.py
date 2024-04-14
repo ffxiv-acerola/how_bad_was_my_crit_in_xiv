@@ -692,17 +692,17 @@ def process_etro_url(n_clicks, party_bonus, url, default_role):
         main_stat_str = "MND"
         secondary_stat_str = "STR"
         speed_stat_str = "SPS"
-    if job_abbreviated in ["WAR", "PLD", "DRK", "GNB"]:
+    elif job_abbreviated in ["WAR", "PLD", "DRK", "GNB"]:
         build_role = "Tank"
         main_stat_str = "STR"
         secondary_stat_str = "TEN"
         speed_stat_str = "SKS"
-    if job_abbreviated in ["BLM", "SMN", "RDM"]:
+    elif job_abbreviated in ["BLM", "SMN", "RDM"]:
         build_role = "Magical Ranged"
         main_stat_str = "INT"
         secondary_stat_str = "STR"
         speed_stat_str = "SPS"
-    if job_abbreviated in ["MNK", "DRG", "SAM", "RPR", "NIN"]:
+    elif job_abbreviated in ["MNK", "DRG", "SAM", "RPR", "NIN"]:
         build_role = "Melee"
         main_stat_str = "STR" if job_abbreviated != "NIN" else "DEX"
         secondary_stat_str = None
