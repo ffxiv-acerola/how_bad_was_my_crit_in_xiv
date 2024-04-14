@@ -162,3 +162,4 @@ cython_debug/
 crit_app/config.py
 data/*
 .vscode/
+ffxiv_stats/*
