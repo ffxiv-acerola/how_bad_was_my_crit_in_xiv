@@ -4,7 +4,7 @@ import pickle
 from uuid import uuid4
 from ast import literal_eval
 
-from ffxiv_stats.jobs import Healer, Tank, MagicalRanged
+from ffxiv_stats.jobs import Healer, Tank, MagicalRanged, Melee
 
 import dash
 from dash import Input, Output, State, dcc, html, callback, Patch
@@ -235,6 +235,20 @@ def rotation_analysis(
             pet_attack_power=main_stat_pre_bonus,
         )
 
+    elif role == "Melee":
+        job_obj = Melee(
+            main_stat=main_stat,
+            det=determination,
+            skill_speed=speed_stat,
+            crit_stat=ch,
+            dh_stat=dh,
+            weapon_damage=wd,
+            delay=delay,
+            job=job_no_space,
+            pet_attack_power=main_stat_pre_bonus,
+            level=90,
+        )
+
     else:
         raise ValueError("Incorrect role specified.")
 
@@ -358,7 +372,6 @@ def layout(analysis_id=None):
 
             job_radio_value_dict[role] = player_id
 
-
             recompute_flag = analysis_details["recompute_flag"]
             # recompute_flag = 1
 
@@ -378,7 +391,11 @@ def layout(analysis_id=None):
 
             # Player stat info
             main_stat_pre_bonus = analysis_details["main_stat_pre_bonus"]
-            secondary_stat_pre_bonus = analysis_details["secondary_stat_pre_bonus"]
+            secondary_stat_pre_bonus = (
+                analysis_details["secondary_stat_pre_bonus"]
+                if analysis_details["secondary_stat_pre_bonus"] is not None
+                else ""
+            )
             determination = job_object.det
             speed_stat = job_object.dot_speed_stat
             crit = job_object.crit_stat
@@ -561,6 +578,7 @@ def reset_action_filters(action_list, n):
     Output("main-stat", "placeholder"),
     Output("secondary-stat-label", "children"),
     Output("secondary-stat", "placeholder"),
+    Output("secondary-stat", "disabled"),
     Output("speed-tooltip", "children"),
     Output("speed-stat", "placeholder"),
     Input("role-select", "value"),
@@ -574,6 +592,7 @@ def fill_role_stat_labels(role):
         role_stat_dict[role]["main_stat"]["placeholder"],
         role_stat_dict[role]["secondary_stat"]["label"],
         role_stat_dict[role]["secondary_stat"]["placeholder"],
+        True if role == "Melee" else False,
         role_stat_dict[role]["speed_stat"]["label"],
         role_stat_dict[role]["speed_stat"]["placeholder"],
     )
@@ -673,7 +692,7 @@ def process_etro_url(n_clicks, party_bonus, url, default_role):
         main_stat_str = "MND"
         secondary_stat_str = "STR"
         speed_stat_str = "SPS"
-    elif job_abbreviated in ["WAR", "PLD", "DRK", "GNB"]:
+    if job_abbreviated in ["WAR", "PLD", "DRK", "GNB"]:
         build_role = "Tank"
         main_stat_str = "STR"
         secondary_stat_str = "TEN"
@@ -683,6 +702,11 @@ def process_etro_url(n_clicks, party_bonus, url, default_role):
         main_stat_str = "INT"
         secondary_stat_str = "STR"
         speed_stat_str = "SPS"
+    if job_abbreviated in ["MNK", "DRG", "SAM", "RPR", "NIN"]:
+        build_role = "Melee"
+        main_stat_str = "STR" if job_abbreviated != "NIN" else "DEX"
+        secondary_stat_str = None
+        speed_stat_str = "SKS"
 
     else:
         build_role = "Unsupported"
@@ -740,6 +764,9 @@ def process_etro_url(n_clicks, party_bonus, url, default_role):
 
     elif build_role == "Tank":
         secondary_stat = total_params[secondary_stat_str]["value"]
+
+    else:
+        secondary_stat = "None"
 
     weapon_id = build_result["weapon"]
     weapon_action = ["equipment", "read"]
@@ -895,7 +922,7 @@ def show_job_options(job_information, role):
         elif d["role"] == "Melee":
             melee_radio_items.append(
                 {
-                    "label": label_text + " [Unsupported]",
+                    "label": label_text,
                     "value": d["player_id"],
                     "disabled": "Melee" != role,
                 }
@@ -1281,11 +1308,17 @@ def analyze_and_register_rotation(
     job_no_space = player_info["job"]
     role = player_info["role"]
     main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
-    secondary_stat_type = role_stat_dict[role]["secondary_stat"]["placeholder"].lower()
+    secondary_stat_type = (
+        None
+        if role in ("Melee", "Physical Ranged")
+        else role_stat_dict[role]["secondary_stat"]["placeholder"].lower()
+    )
 
     main_stat = int(main_stat_pre_bonus * main_stat_multiplier)
 
-    secondary_stat = int(secondary_stat_pre_bonus)
+    secondary_stat = (
+        None if role in ("Melee", "Physical Ranged") else int(secondary_stat_pre_bonus)
+    )
     if secondary_stat_type in (
         "mind",
         "strength",
@@ -1399,12 +1432,6 @@ def analyze_and_register_rotation(
             t = rotation.fight_time
             encounter_name = rotation.fight_name
 
-            role = player_info["role"]
-            main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
-            secondary_stat_type = role_stat_dict[role]["secondary_stat"][
-                "placeholder"
-            ].lower()
-
             job_obj = rotation_analysis(
                 role,
                 job_no_space,
@@ -1440,8 +1467,12 @@ def analyze_and_register_rotation(
                     int(main_stat_pre_bonus),
                     int(main_stat),
                     main_stat_type,
-                    int(secondary_stat_pre_bonus),
-                    int(secondary_stat),
+                    None
+                    if role in ("Melee", "Physical Ranged")
+                    else int(secondary_stat_pre_bonus),
+                    None
+                    if role in ("Melee", "Physical Ranged")
+                    else int(secondary_stat),
                     secondary_stat_type,
                     int(determination),
                     int(speed_stat),
