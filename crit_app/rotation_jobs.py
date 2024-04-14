@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import requests
 
+from ffxiv_stats import Rate
+
 url = "https://www.fflogs.com/api/v2/client"
 
 
@@ -16,6 +18,65 @@ url = "https://www.fflogs.com/api/v2/client"
 # where the number of "between" conditions could be variable
 def disjunction(*conditions):
     return reduce(np.logical_or, conditions)
+
+
+class BuffQuery(object):
+    def __init__(
+        self,
+    ) -> None:
+        """Helper class to perform GraphQL queries, get buff timings, and and apply buffs to an actions DataFrame."""
+        pass
+
+    def _perform_graph_ql_query(
+        self, headers, query, variables, operation_name, report_start=True
+    ):
+        json_payload = {
+            "query": query,
+            "variables": variables,
+            "operationName": operation_name,
+        }
+        self.request_response = json.loads(
+            requests.post(url=url, json=json_payload, headers=headers).text
+        )
+
+        if report_start:
+            self.report_start = self.request_response["data"]["reportData"]["report"][
+                "startTime"
+            ]
+        pass
+
+    def _get_buff_times(self, buff_name, absolute_time=True):
+        aura = self.request_response["data"]["reportData"]["report"][buff_name]["data"][
+            "auras"
+        ]
+        if len(aura) > 0:
+            return (
+                pd.DataFrame(aura[0]["bands"]) + (self.report_start * absolute_time)
+            ).to_numpy()
+        else:
+            return np.array([[]])
+
+    def _apply_buffs(self, actions_df, condition, buff_id):
+        """Apply a buff to an actions DataFrame.
+        Updates the buffs list column and appends the buff ID to the action_name column
+
+        Args:
+            actions_df (DataFrame): Pandas DataFrame of actions
+            condition (bool): condition for which actions the buffs should be applied to.
+            buff_id (str): Buff to add to `buffs` and `action_name` columns
+        """
+
+        actions_df.loc[
+            condition,
+            "buffs",
+        ] = actions_df["buffs"].apply(lambda x: x + [str(buff_id)])
+
+        actions_df["action_name"] = (
+            actions_df["action_name"].str.split("-").str[0]
+            + "-"
+            + actions_df["buffs"].sort_values().str.join("_")
+        )
+        return actions_df
 
 
 class DarkKnightActions(object):
@@ -513,7 +574,7 @@ class BlackMageActions(object):
             self.thundercloud_times = (
                 pd.DataFrame(thundercloud_auras[0]["bands"]) + report_start
             ).to_numpy()
-    
+
         pass
 
     def _set_elemental_timings(self, actions_df):
@@ -768,10 +829,13 @@ class BlackMageActions(object):
             lambda x: x + ["Enochian"]
         )
 
-        self.thundercloud_times = (self.thundercloud_times - actions_df["timestamp"].iloc[0]) / 1000
+        self.thundercloud_times = (
+            self.thundercloud_times - actions_df["timestamp"].iloc[0]
+        ) / 1000
         # Thundercloud
         thundercloud_condition = list(
-            self.elemental_status["elapsed_time"].between(b[0], b[1], inclusive="right") for b in self.thundercloud_times
+            self.elemental_status["elapsed_time"].between(b[0], b[1], inclusive="right")
+            for b in self.thundercloud_times
         )
 
         self.elemental_status.loc[
@@ -793,7 +857,9 @@ class BlackMageActions(object):
         )
 
         # Add blm buffs into buffs column and action name
-        blm_actions_df["buffs"] = blm_actions_df.apply(lambda x: x["buffs"] + x["blm_buffs"], axis=1)
+        blm_actions_df["buffs"] = blm_actions_df.apply(
+            lambda x: x["buffs"] + x["blm_buffs"], axis=1
+        )
 
         # Update action names
         blm_actions_df["action_name"] = (
@@ -805,11 +871,743 @@ class BlackMageActions(object):
         return blm_actions_df[actions_df.columns]
 
 
+class MonkActions(BuffQuery):
+    def __init__(
+        self,
+        headers: dict,
+        report_id: str,
+        fight_id: int,
+        player_id: int,
+        bootshine_id: int = 53,
+        opo_opo_id: int = 1000107,
+        leaden_fist_id: int = 1001861,
+    ) -> None:
+        self.report_id = report_id
+        self.fight_id = fight_id
+        self.player_id = player_id
+        self.opo_opo_id = opo_opo_id
+        self.leaden_fist_id = leaden_fist_id
+        self.bootshine_id = bootshine_id
+        self._set_mnk_buff_times(headers)
+        pass
+
+    def _set_mnk_buff_times(self, headers):
+        """Perform an API call to get buff intervals for Requiescat and Divine Might.
+        Sets values as a 2 x n Numpy array, where the first column is the start time
+        and the second column is the end time.
+
+        Args:
+            headers (dict): FFLogs API header.
+
+        """
+        query = """
+        query MonkOpoOpo(
+            $code: String!
+            $id: [Int]!
+            $playerID: Int!
+            $opoOpoID: Float!
+            $leadenFistID: Float!
+        ) {
+            reportData {
+                report(code: $code) {
+                    startTime
+                    opoOpo: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $opoOpoID
+                    )
+                    leadenFist: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $leadenFistID
+                    )
+                }
+            }
+        }
+        """
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+            "playerID": self.player_id,
+            "opoOpoID": self.opo_opo_id,
+            "leadenFistID": self.leaden_fist_id,
+        }
+
+        self._perform_graph_ql_query(headers, query, variables, "MonkOpoOpo")
+        self.opo_opo_times = self._get_buff_times("opoOpo")
+        self.leaden_fist_times = self._get_buff_times("leadenFist")
+        pass
+
+    def apply_mnk_buffs(self, actions_df):
+        """Apply opo opo form to the actions DF,
+        which is used to account if Bootshine is guaranteed
+        critical damage
+
+        Args:
+            actions_df (DataFrame): Pandas DataFrame of actions.
+        """
+
+        # Opo opo
+        opo_opo_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1]) for b in self.opo_opo_times
+        )
+
+        opo_opo_condition = disjunction(*opo_opo_betweens) & (
+            actions_df["abilityGameID"] == self.bootshine_id
+        )
+
+        # Leaden fist
+        leaden_fist_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.leaden_fist_times
+        )
+
+        leaden_fist_condition = disjunction(*leaden_fist_betweens) & (
+            actions_df["abilityGameID"] == self.bootshine_id
+        )
+
+        # Apply to actions df
+        actions_df = self._apply_buffs(actions_df, opo_opo_condition, self.opo_opo_id)
+
+        actions_df = self._apply_buffs(
+            actions_df, leaden_fist_condition, self.leaden_fist_id
+        )
+
+        return actions_df
+
+    def apply_bootshine_autocrit(
+        self,
+        actions_df,
+        critical_hit_stat,
+        direct_hit_rate_stat,
+        critical_hit_rate_buffs,
+    ):
+        r = Rate(critical_hit_stat, direct_hit_rate_stat)
+
+        def critical_hit_rate_increase(buffs, multiplier):
+            valid_buffs = [
+                critical_hit_rate_buffs[b]
+                for b in buffs
+                if b in critical_hit_rate_buffs.keys()
+            ]
+            if len(valid_buffs) == 0:
+                p = r.get_p(guaranteed_hit_type=1)
+            else:
+                crit_rate_buff = sum(valid_buffs)
+                p = r.get_p(crit_rate_buff, guaranteed_hit_type=1)
+                multiplier = round(
+                    multiplier * r.get_hit_type_damage_buff(1, crit_rate_buff), 6
+                )
+
+            return multiplier, p[0], p[1], p[2], p[3]
+
+        actions_df.loc[
+            actions_df["abilityGameID"] == self.bootshine_id,
+            ["multiplier", "p_n", "p_c", "p_d", "p_cd"],
+        ] = (
+            actions_df[actions_df["abilityGameID"] == self.bootshine_id]
+            .apply(
+                lambda x: critical_hit_rate_increase(x["buffs"], x["multiplier"]),
+                axis=1,
+                result_type="expand",
+            )
+            .to_numpy()
+        )
+
+        return actions_df
+
+
+class NinjaActions(BuffQuery):
+    def __init__(
+        self,
+        headers: dict,
+        report_id: int,
+        fight_id: int,
+        player_id: int,
+        bhavacakra_id: int = 7402,
+        ninjutsu_ids: list = [  # why are there so many dupes
+            2265,
+            18873,
+            18874,
+            18875,
+            18876,
+            2267,
+            18877,
+            2271,
+            18881,
+            16491,
+            16492,
+        ],
+        meisui_id: int = 1002689,
+        kassatsu_id: int = 1000497,
+    ) -> None:
+        self.report_id = report_id
+        self.fight_id = fight_id
+        self.player_id = player_id
+        self.bhavacakra_id = bhavacakra_id
+        self.ninjutsu_id = ninjutsu_ids
+        self.meisui_id = meisui_id
+        self.kassatsu_id = kassatsu_id
+
+        self.set_meisui_times(headers)
+        pass
+
+    def set_meisui_times(self, headers):
+        """Perform an API call to get buff intervals for Requiescat and Divine Might.
+        Sets values as a 2 x n Numpy array, where the first column is the start time
+        and the second column is the end time.
+
+        Args:
+            headers (dict): FFLogs API header.
+
+        """
+        query = """
+        query ninjaMeisui(
+            $code: String!
+            $id: [Int]!
+            $playerID: Int!
+            $meisuiID: Float!
+            $kassatsuID: Float!
+        ) {
+            reportData {
+                report(code: $code) {
+                    startTime
+                    meisui: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $meisuiID
+                    )
+                    kassatsu: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $kassatsuID
+                    )
+                }
+            }
+        }
+        """
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+            "playerID": self.player_id,
+            "meisuiID": self.meisui_id,
+            "kassatsuID": self.kassatsu_id,
+        }
+
+        self._perform_graph_ql_query(headers, query, variables, "ninjaMeisui")
+        self.meisui_times = self._get_buff_times("meisui")
+        self.kassatsu_times = self._get_buff_times("kassatsu")
+        pass
+
+    def apply_ninja_buff(self, actions_df):
+        meisui_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.meisui_times
+        )
+
+        meisui_condition = disjunction(*meisui_betweens) & (
+            actions_df["abilityGameID"] == self.bhavacakra_id
+        )
+
+        kassatsu_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.kassatsu_times
+        )
+
+        kassatsu_conditions = disjunction(*kassatsu_betweens) * actions_df[
+            "abilityGameID"
+        ].isin(self.ninjutsu_id)
+        actions_df = self._apply_buffs(actions_df, meisui_condition, self.meisui_id)
+        actions_df = self._apply_buffs(
+            actions_df, kassatsu_conditions, self.kassatsu_id
+        )
+
+        actions_df.loc[
+            kassatsu_conditions & actions_df["abilityGameID"].isin(self.ninjutsu_id),
+            "multiplier",
+        ] *= 1.3
+        return actions_df
+
+
+class SamuraiActions(BuffQuery):
+    def __init__(
+        self,
+        headers: dict,
+        report_id: int,
+        fight_id: int,
+        player_id: int,
+        enpi_id: int = 7486,
+        enhanced_enpi_id: int = 1001236,
+    ) -> None:
+        self.report_id = report_id
+        self.fight_id = fight_id
+        self.player_id = player_id
+
+        self.enpi_id = enpi_id
+        self.enhanced_enpi_id = enhanced_enpi_id
+        self._set_enhanced_enpi_time(headers)
+        pass
+
+    def _set_enhanced_enpi_time(self, headers):
+
+        query = """
+        query samuraiEnpi(
+            $code: String!
+            $id: [Int]!
+            $playerID: Int!
+            $enhancedEnpiID: Float!
+        ) {
+            reportData {
+                report(code: $code) {
+                    startTime
+                    ehancedEnpi: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $enhancedEnpiID
+                    )
+                }
+            }
+        }
+        """
+
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+            "playerID": self.player_id,
+            "enhancedEnpiID": self.enhanced_enpi_id,
+        }
+
+        self._perform_graph_ql_query(headers, query, variables, "samuraiEnpi")
+        self.enhanced_enpi_times = self._get_buff_times("ehancedEnpi")
+        pass
+
+    def apply_enhanced_enpi(self, actions_df):
+        enhanced_enpi_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.enhanced_enpi_times
+        )
+
+        enhanced_enpi_condition = disjunction(*enhanced_enpi_betweens) & (
+            actions_df["abilityGameID"] == self.enpi_id
+        )
+
+        return self._apply_buffs(actions_df, enhanced_enpi_condition, self.enhanced_enpi_id)
+
+class DragoonActions(BuffQuery):
+    def __init__(
+        self,
+        headers: dict,
+        report_id: int,
+        fight_id: int,
+        player_id: int,
+        fang_and_claw_id: int = 3554,
+        wheeling_thrust_id: int = 3556,
+        fang_and_claw_bared_id: int = 1000802,
+        wheel_in_motion_id: int = 1000803,
+    ):
+        self.report_id = report_id
+        self.fight_id = fight_id
+        self.player_id = player_id
+
+        self.fang_and_claw_id = fang_and_claw_id
+        self.wheeling_thrust_id = wheeling_thrust_id
+
+        self.fang_and_claw_bared_id = fang_and_claw_bared_id
+        self.wheel_in_motion_id = wheel_in_motion_id
+
+        self._set_combo_finisher_timings(headers)
+        pass
+
+    def _set_combo_finisher_timings(self, headers):
+        query = """
+        query dragoonFinishers(
+            $code: String!
+            $id: [Int]!
+            $playerID: Int!
+            $fangBaredID: Float!
+            $wheelMotionID: Float!
+        ) {
+            reportData {
+                report(code: $code) {
+                    startTime
+                    fangBared: events(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $fangBaredID
+                    ) {
+                        data
+                        nextPageTimestamp
+                    }
+                    
+                    wheelMotion: events(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $wheelMotionID
+                    ) {
+                        data
+                        nextPageTimestamp
+                    }
+                }
+            }
+        }
+        """
+
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+            "playerID": self.player_id,
+            "fangBaredID": self.fang_and_claw_bared_id,
+            "wheelMotionID": self.wheel_in_motion_id,
+        }
+
+        self._perform_graph_ql_query(headers, query, variables, "dragoonFinishers")
+
+        #### Fang and Claw ####
+        # Fang and claw timings with applying ability ID
+        self.fang_and_claw_bared_times = pd.DataFrame(
+            self.request_response["data"]["reportData"]["report"]["fangBared"]["data"]
+        )
+        # End time
+        self.fang_and_claw_bared_times["next_timestamp"] = (
+            self.fang_and_claw_bared_times["timestamp"].shift(-1)
+        )
+        # Filter to buff application and removal timings
+        self.fang_and_claw_bared_times = self.fang_and_claw_bared_times[
+            self.fang_and_claw_bared_times["type"] == "applybuff"
+        ][["timestamp", "next_timestamp", "extraAbilityGameID"]]
+        # Absolute timing
+        self.fang_and_claw_bared_times[["timestamp", "next_timestamp"]] += (
+            self.report_start
+        )
+        self.fang_and_claw_bared_times = self.fang_and_claw_bared_times.fillna(
+            self.fang_and_claw_bared_times["timestamp"].iloc[-1] + 30000
+        )
+        self.fang_and_claw_bared_times = self.fang_and_claw_bared_times.astype(
+            int
+        ).to_numpy()
+
+        #### Wheel in motion ###
+        # Wheel in motion timings with applying ability ID
+        self.wheel_in_motion_times = pd.DataFrame(
+            self.request_response["data"]["reportData"]["report"]["wheelMotion"]["data"]
+        )
+        # End time
+        self.wheel_in_motion_times["next_timestamp"] = self.wheel_in_motion_times[
+            "timestamp"
+        ].shift(-1)
+        # Filter to buff application and removal timings
+        self.wheel_in_motion_times = self.wheel_in_motion_times[
+            self.wheel_in_motion_times["type"] == "applybuff"
+        ][["timestamp", "next_timestamp", "extraAbilityGameID"]]
+        # Absolute timing
+        self.wheel_in_motion_times[["timestamp", "next_timestamp"]] += self.report_start
+        self.wheel_in_motion_times = self.wheel_in_motion_times.fillna(
+            self.wheel_in_motion_times["timestamp"].iloc[-1] + 30000
+        )
+
+        self.wheel_in_motion_times = self.wheel_in_motion_times.astype(int).to_numpy()
+
+        pass
+
+    def apply_combo_finisher_potencies(self, actions_df):
+        """
+        Check if wheeling thrust/fang and claw buffs were applied by the penultimate
+        or antepenultimate action in the combo. This dictates if the action gets the
+        100 potency bonus.
+
+        We have to go through all this effort to properly account for the combo finisher
+        when a position is missed...
+        """
+
+        #### Wheeling Thrust ####
+        wheel_no_finisher_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.wheel_in_motion_times
+            if b[2] == 25772
+        )
+
+        wheel_no_finisher_conditions = disjunction(*wheel_no_finisher_betweens) & (
+            actions_df["abilityGameID"] == self.wheeling_thrust_id
+        )
+
+        wheel_finisher_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.wheel_in_motion_times
+            if b[2] == 3554
+        )
+
+        wheel_finisher_conditions = disjunction(*wheel_finisher_betweens) & (
+            actions_df["abilityGameID"] == self.wheeling_thrust_id
+        )
+
+        #### Fang and Claw ####
+        fang_no_finisher_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.fang_and_claw_bared_times
+            if b[2] == 25771
+        )
+
+        fang_no_finisher_conditions = disjunction(*fang_no_finisher_betweens) & (
+            actions_df["abilityGameID"] == self.fang_and_claw_id
+        )
+
+        fang_finisher_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.fang_and_claw_bared_times
+            if b[2] == 3556
+        )
+
+        fang_finisher_conditions = disjunction(*fang_finisher_betweens) & (
+            actions_df["abilityGameID"] == self.fang_and_claw_id
+        )
+
+        actions_df = self._apply_buffs(
+            actions_df, wheel_no_finisher_conditions, "no_finisher"
+        )
+        actions_df = self._apply_buffs(
+            actions_df, fang_no_finisher_conditions, "no_finisher"
+        )
+
+        actions_df = self._apply_buffs(
+            actions_df, wheel_finisher_conditions, "combo_finisher"
+        )
+        actions_df = self._apply_buffs(
+            actions_df, fang_finisher_conditions, "combo_finisher"
+        )
+        return actions_df
+
+
+class ReaperActions(BuffQuery):
+    def __init__(
+        self,
+        headers: dict,
+        report_id: int,
+        fight_id: int,
+        player_id: int,
+        cross_reaping_id: int = 24396,
+        gallows_id: int = 24383,
+        gibbet_id: int = 24382,
+        void_reaping_id: int = 24395,
+        plentiful_harvest_id: int = 24385,
+        enhanced_cross_reaping_id: int = 1002591,
+        enhanced_gallows_id: int = 1002589,
+        enhanced_gibbet_id: int = 1002588,
+        enhanced_void_reaping_id: int = 1002590,
+        immortal_sacrifice_id: int = 1002592,
+    ) -> None:
+        self.report_id = report_id
+        self.fight_id = fight_id
+        self.player_id = player_id
+
+        self.cross_reaping_id = cross_reaping_id
+        self.gallows_id = gallows_id
+        self.gibbet_id = gibbet_id
+        self.void_reaping_id = void_reaping_id
+        self.plentiful_harvest_id = plentiful_harvest_id
+
+        self.enhanced_cross_reaping_id = enhanced_cross_reaping_id
+        self.enhanced_gallows_id = enhanced_gallows_id
+        self.enhanced_gibbet_id = enhanced_gibbet_id
+        self.enhanced_void_reaping_id = enhanced_void_reaping_id
+        self.immortal_sacrifice_id = immortal_sacrifice_id
+
+        self.set_enhanced_times(headers)
+        pass
+
+    def set_enhanced_times(self, headers):
+        query = """
+        query reaperEnhanced(
+            $code: String!
+            $id: [Int]!
+            $playerID: Int!
+            $enhancedCrossReapingID: Float!
+            $enhancedGallowsID: Float!
+            $enhancedGibbetID: Float!
+            $enhancedVoidReapingID: Float!
+            $immortalSacrificeID: Float!
+
+        ) {
+            reportData {
+                report(code: $code) {
+                    startTime
+                    enhancedCrossReaping: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $enhancedCrossReapingID
+                    )
+                    enhancedGallows: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $enhancedGallowsID
+                    )
+                    enhancedGibbet: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $enhancedGibbetID
+                    )
+                    enhancedVoidReaping: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $enhancedVoidReapingID
+                    )
+                    immortalSacrifice: events(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $immortalSacrificeID
+                    ) {
+                        data
+                        nextPageTimestamp
+                    }
+                }
+            }
+        }
+        """
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+            "playerID": self.player_id,
+            "enhancedCrossReapingID": self.enhanced_cross_reaping_id,
+            "enhancedGallowsID": self.enhanced_gallows_id,
+            "enhancedGibbetID": self.enhanced_gibbet_id,
+            "enhancedVoidReapingID": self.enhanced_void_reaping_id,
+            "immortalSacrificeID": self.immortal_sacrifice_id,
+        }
+
+        self._perform_graph_ql_query(headers, query, variables, "reaperEnhanced")
+        self.enhanced_cross_reaping_times = self._get_buff_times("enhancedCrossReaping")
+        self.enhanced_gallows_times = self._get_buff_times("enhancedGallows")
+        self.enhanced_gibbet_times = self._get_buff_times("enhancedGibbet")
+        self.enhanced_void_reaping_times = self._get_buff_times("enhancedVoidReaping")
+
+        # Track immortal sacrifice stacks because sometimes dancer doesn't proc it.
+        self.immortal_sacrifice_times = pd.DataFrame(
+            self.request_response["data"]["reportData"]["report"]["immortalSacrifice"][
+                "data"
+            ]
+        )
+        self.immortal_sacrifice_times["prior_stacks"] = self.immortal_sacrifice_times[
+            "stack"
+        ].shift(1)
+        # Get number of stacks
+        self.immortal_sacrifice_times = self.immortal_sacrifice_times[
+            self.immortal_sacrifice_times["type"].isin(["applybuff", "removebuff"])
+        ][["timestamp", "type", "stack", "prior_stacks"]]
+
+        # Get time bands
+        self.immortal_sacrifice_times["prior_timestamp"] = (
+            self.immortal_sacrifice_times["timestamp"].shift(1)
+        )
+
+        self.immortal_sacrifice_times = self.immortal_sacrifice_times[
+            self.immortal_sacrifice_times["type"] == "removebuff"
+        ][["prior_timestamp", "timestamp", "prior_stacks"]]
+        # Absolute timing
+        self.immortal_sacrifice_times[["timestamp", "prior_timestamp"]] += (
+            self.report_start
+        )
+        self.immortal_sacrifice_times = self.immortal_sacrifice_times.fillna(
+            self.immortal_sacrifice_times["timestamp"].iloc[-1] + 30000
+        )
+
+        self.immortal_sacrifice_times = self.immortal_sacrifice_times.astype(
+            int
+        ).to_numpy()
+
+        pass
+
+    def apply_enhanced_buffs(self, actions_df):
+        # Enhanced cross reaping
+        enhanced_cross_reaping_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.enhanced_cross_reaping_times
+        )
+
+        enhanced_cross_reaping_condition = disjunction(
+            *enhanced_cross_reaping_betweens
+        ) & (actions_df["abilityGameID"] == self.cross_reaping_id)
+
+        # Enhanced gallows
+        enhanced_gallows_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.enhanced_gallows_times
+        )
+
+        enhanced_gallows_condition = disjunction(*enhanced_gallows_betweens) & (
+            actions_df["abilityGameID"] == self.gallows_id
+        )
+
+        # Enhanced gibbet
+        enhanced_gibbet_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.enhanced_gibbet_times
+        )
+
+        enhanced_gibbet_condition = disjunction(*enhanced_gibbet_betweens) & (
+            actions_df["abilityGameID"] == self.gibbet_id
+        )
+
+        # Enhanced harpe
+        enhanced_void_reaping_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.enhanced_void_reaping_times
+        )
+
+        enhanced_void_reaping_condition = disjunction(
+            *enhanced_void_reaping_betweens
+        ) & (actions_df["abilityGameID"] == self.void_reaping_id)
+
+        # Immortal sacrifice stacks, which affect plentiful harvest potency.
+        # Dancer is dumb because they dont always trigger a stack.
+        for s in range(6, 9):
+            plentiful_harvest_betweens = list(
+                actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+                for b in self.immortal_sacrifice_times
+                if b[2] == s
+            )
+
+            if len(plentiful_harvest_betweens) > 0:
+                plentiful_harvest_condition = disjunction(
+                    *plentiful_harvest_betweens
+                ) & (actions_df["abilityGameID"] == self.plentiful_harvest_id)
+
+                actions_df = self._apply_buffs(
+                    actions_df, plentiful_harvest_condition, f"immortal_sac_{s}"
+                )
+
+        actions_df = self._apply_buffs(
+            actions_df, enhanced_cross_reaping_condition, self.enhanced_cross_reaping_id
+        )
+        actions_df = self._apply_buffs(
+            actions_df, enhanced_gallows_condition, self.enhanced_gallows_id
+        )
+        actions_df = self._apply_buffs(
+            actions_df, enhanced_gibbet_condition, self.enhanced_gibbet_id
+        )
+        actions_df = self._apply_buffs(
+            actions_df, enhanced_void_reaping_condition, self.enhanced_void_reaping_id
+        )
+
+        return actions_df
+
+
 if __name__ == "__main__":
     from config import FFLOGS_TOKEN
 
     api_key = FFLOGS_TOKEN  # or copy/paste your key here
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
 
-    PaladinActions(headers, "M2ZKgJtTqnNjYxCQ", 54, 118)
+    # PaladinActions(headers, "M2ZKgJtTqnNjYxCQ", 54, 118)
+    SamuraiActions(headers, "LpHbRKxkAwynaCNv", 44, 79)
     pass

@@ -6,7 +6,16 @@ import pandas as pd
 import numpy as np
 from ffxiv_stats import Rate
 
-from rotation_jobs import DarkKnightActions, PaladinActions, BlackMageActions
+from rotation_jobs import (
+    DarkKnightActions,
+    PaladinActions,
+    BlackMageActions,
+    MonkActions,
+    NinjaActions,
+    ReaperActions,
+    DragoonActions,
+    SamuraiActions
+)
 from config import FFLOGS_TOKEN
 from job_data.data import (
     critical_hit_rate_table,
@@ -176,13 +185,48 @@ class ActionTable(object):
             pass
 
         elif self.job == "BlackMage":
-            self.job_specifics = BlackMageActions(headers, report_id, fight_id, player_id)
+            self.job_specifics = BlackMageActions(
+                headers, report_id, fight_id, player_id
+            )
             self.actions_df = self.job_specifics.apply_elemental_buffs(self.actions_df)
-        
+
         elif self.job == "Summoner":
             self.actions_df = self.estimate_ground_effect_multiplier(
                 1002706,
             )
+
+        # FIXME: Update bootshine crit rates / dmg multiplier if opo opo form is present
+        # FIXME: I think arm of the destroyer won't get updated but surely no one would use that in savage.
+        elif self.job == "Monk":
+            self.job_specifics = MonkActions(headers, report_id, fight_id, player_id)
+            self.actions_df = self.job_specifics.apply_mnk_buffs(self.actions_df)
+            self.actions_df = self.job_specifics.apply_bootshine_autocrit(
+                self.actions_df,
+                self.critical_hit_stat,
+                self.direct_hit_stat,
+                self.critical_hit_rate_buffs,
+            )
+            pass
+
+        elif self.job == "Ninja":
+            self.job_specifics = NinjaActions(headers, report_id, fight_id, player_id)
+            self.actions_df = self.job_specifics.apply_ninja_buff(self.actions_df)
+            pass
+
+        elif self.job == "Dragoon":
+            self.job_specifics = DragoonActions(headers, report_id, fight_id, player_id)
+            self.actions_df = self.job_specifics.apply_combo_finisher_potencies(
+                self.actions_df
+            )
+
+        elif self.job == "Reaper":
+            self.job_specifics = ReaperActions(headers, report_id, fight_id, player_id)
+            self.actions_df = self.job_specifics.apply_enhanced_buffs(self.actions_df)
+            pass
+
+        elif self.job == "Samurai":
+            self.job_specifics = SamuraiActions(headers, report_id, fight_id, player_id)
+            self.actions_df = self.job_specifics.apply_enhanced_enpi(self.actions_df)
         # Unpaired didn't have damage go off, filter these out.
         # This column wont exist if there aren't any unpaired actions though.
         # This is done at the very end because unpaired actions can still give gauge,
@@ -573,22 +617,26 @@ class ActionTable(object):
     def apply_the_echo(self):
         """Apply the damage bonus from The Echo.
         The echo is a multiplicative buff whose stregnth is based on current patch.
-        This is 
+        This is
         """
         six_point_5_7 = 1707818400000
         six_point_5_8 = 1710849600000
 
         # 6.57: 10% echo
-        if (self.fight_start_time >= six_point_5_7) & (self.fight_start_time <= six_point_5_8):
+        if (self.fight_start_time >= six_point_5_7) & (
+            self.fight_start_time <= six_point_5_8
+        ):
             echo_strength = 1.10
             echo_buff = "echo10"
 
         # 6.58: 15% echo
-        elif (self.fight_start_time >= six_point_5_8):
+        elif self.fight_start_time >= six_point_5_8:
             echo_strength = 1.15
             echo_buff = "echo15"
 
-        self.actions_df["multiplier"] = round(self.actions_df["multiplier"] * echo_strength, 6)
+        self.actions_df["multiplier"] = round(
+            self.actions_df["multiplier"] * echo_strength, 6
+        )
         self.actions_df["action_name"] += f"_{echo_buff}"
         self.actions_df["buffs"].apply(lambda x: x.append(echo_buff))
 
@@ -691,7 +739,9 @@ class ActionTable(object):
                 actions_df["ability_name"] + " (tick)"
             )
 
-        actions_df.loc[actions_df["sourceID"] != self.player_id, "ability_name"] += " (Pet)"
+        actions_df.loc[actions_df["sourceID"] != self.player_id, "ability_name"] += (
+            " (Pet)"
+        )
 
         actions_df["buffs"] = actions_df["buffs"].apply(
             lambda x: x[:-1].split(".") if not pd.isna(x) else []
@@ -897,35 +947,6 @@ class RotationTable(ActionTable):
         # Back to a list
         rotation_df["buff_list"] = rotation_df["buff_str"].str.split(".")
 
-        # Assign potency based on whether combo, positional, or combo + positional was satisfied
-        # Also update the action name
-        rotation_df["potency"] = rotation_df["base_potency"]
-        # Combo bonus
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["combo_bonus"], "potency"
-        ] = rotation_df["combo_potency"]
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["combo_bonus"], "action_name"
-        ] += "_combo"
-
-        # Positional bonus
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["positional_bonus"], "potency"
-        ] = rotation_df["positional_potency"]
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["positional_bonus"], "action_name"
-        ] += "_positional"
-        
-        # Combo bonus and positional bonus
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["combo_positional_bonus"],
-            "potency",
-        ] = rotation_df["combo_positional_potency"]
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["combo_positional_bonus"],
-            "action_name",
-        ] += "_combo_positional"
-
         # Some jobs get different potencies depending if certain buffs are present, which corresponds to
         # multiple rows in the potency table with different `buff_id` values.
         # The corresponding potency needs to be correctly matched depending which buffs are present (or not).
@@ -949,25 +970,54 @@ class RotationTable(ActionTable):
         rotation_df["potency_priority"] = rotation_df.apply(
             lambda x: buff_id_match(x["buff_id"], x["buff_list"]), axis=1
         )
-        # Take the highest potency priority value
-        # IDK why the drop duplicates subset needs to be so large, but it does.
-        rotation_df = rotation_df.sort_values(
-            ["action_name", "potency_priority"], ascending=[True, False]
-        ).drop_duplicates(
-            subset=[
-                "action_name",
-                "base_action",
-                "n",
-                "buff_str",
-                "p_n",
-                "p_c",
-                "p_d",
-                "p_cd",
-                "buffs",
-                "l_c",
-                "main_stat_add",
-            ],
-            keep="first",
+
+        # Assign potency based on whether combo, positional, or combo + positional was satisfied
+        # Also update the action name
+        rotation_df["potency"] = rotation_df["base_potency"]
+        # Combo bonus
+        rotation_df.loc[
+            rotation_df["bonusPercent"] == rotation_df["combo_bonus"], "potency"
+        ] = rotation_df["combo_potency"]
+        rotation_df.loc[
+            rotation_df["bonusPercent"] == rotation_df["combo_bonus"], "action_name"
+        ] += "_combo"
+
+        # Positional bonus
+        rotation_df.loc[
+            rotation_df["bonusPercent"] == rotation_df["positional_bonus"], "potency"
+        ] = rotation_df["positional_potency"]
+        rotation_df.loc[
+            rotation_df["bonusPercent"] == rotation_df["positional_bonus"],
+            "action_name",
+        ] += "_positional"
+
+        # Combo bonus and positional bonus
+        rotation_df.loc[
+            rotation_df["bonusPercent"] == rotation_df["combo_positional_bonus"],
+            "potency",
+        ] = rotation_df["combo_positional_potency"]
+        rotation_df.loc[
+            rotation_df["bonusPercent"] == rotation_df["combo_positional_bonus"],
+            "action_name",
+        ] += "_combo_positional"
+
+        # Take the highest potency priority value by unique action
+        sort_list = [
+            "base_action",
+            "n",
+            "buff_str",
+            "p_n",
+            "p_c",
+            "p_d",
+            "p_cd",
+            "buffs",
+            "main_stat_add",
+            "potency_priority",
+        ]
+        rotation_df = (
+            rotation_df.sort_values(sort_list, ascending=False)
+            .groupby(sort_list[:-1] + ["bonusPercent"])
+            .head(1)
         )
 
         rotation_df = rotation_df[
@@ -993,7 +1043,7 @@ class RotationTable(ActionTable):
 
 if __name__ == "__main__":
     job = "DarkKnight"
-
+    # TODO: turn these into tests
     # RotationTable(
     #     headers,
     #     "2yDY81rxKFqPTdZC",
@@ -1013,23 +1063,40 @@ if __name__ == "__main__":
     #     pet_ids=[15],
     # )
 
-    RotationTable(
-        headers,
-        "gbkzXDBTFAQqjxpL",
-        34,
-        "BlackMage",
-        8,
-        2452,
-        1330,
-        1552,
-        254,
-        damage_buff_table,
-        critical_hit_rate_table,
-        direct_hit_rate_table,
-        guaranteed_hits_by_action_table,
-        guaranteed_hits_by_buff_table,
-        potency_table,
-        pet_ids=None,
-    )
-
+    # RotationTable(
+    #     headers,
+    #     "gbkzXDBTFAQqjxpL",
+    #     34,
+    #     "BlackMage",
+    #     8,
+    #     2452,
+    #     1330,
+    #     1552,
+    #     254,
+    #     damage_buff_table,
+    #     critical_hit_rate_table,
+    #     direct_hit_rate_table,
+    #     guaranteed_hits_by_action_table,
+    #     guaranteed_hits_by_buff_table,
+    #     potency_table,
+    #     pet_ids=None,
+    # )
+    # RotationTable(
+    #     headers,
+    #     "9DHznqxcAGLbjpgh",
+    #     7,
+    #     "Monk",
+    #     4,
+    #     2567,
+    #     1396,
+    #     1870,
+    #     254,
+    #     damage_buff_table,
+    #     critical_hit_rate_table,
+    #     direct_hit_rate_table,
+    #     guaranteed_hits_by_action_table,
+    #     guaranteed_hits_by_buff_table,
+    #     potency_table,
+    #     pet_ids=None,
+    # )
 
