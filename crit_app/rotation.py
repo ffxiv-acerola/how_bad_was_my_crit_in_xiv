@@ -767,7 +767,7 @@ class ActionTable(object):
             b = row["buffs"]
 
             # Loop through buffs and do various things depending on the buff
-            for b_idx, s in enumerate(b):
+            for b_idx, s in enumerate(set(b)):
                 # Adjust critical/direct hit rate according to hit-type buffs
                 if s in self.critical_hit_rate_buffs.keys():
                     crit_hit_rate_mod[idx] += self.critical_hit_rate_buffs[s]
