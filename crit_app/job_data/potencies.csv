@@ -631,6 +631,178 @@ Gunbreaker,16141,Demon Slice,90,,100,direct,,,,,,,1696327200000,1733119200000
 Gunbreaker,16149,Demon Slaughter,90,,100,direct,37,160,,,,,1696327200000,1733119200000
 Gunbreaker,16163,Fated Circle,90,,300,direct,,,,,,,1696327200000,1733119200000
 Gunbreaker,16143,Lightning Shot,90,,150,direct,,,,,,,1696327200000,1733119200000
+Bard,25783,Ladonsbite,90,,130,direct,,,,,,,1684836000000,1696327199999
+Bard,16495,Burst Shot,90,,220,direct,,,,,,,1684836000000,1696327199999
+Bard,7409,Refulgent Arrow,90,,280,direct,,,,,,,1684836000000,1696327199999
+Bard,8,Shot,90,,80,auto,,,,,,,1684836000000,1696327199999
+Bard,117,Rain of Death,90,,100,direct,,,,,,,1684836000000,1696327199999
+Bard,16494,Shadowbite,90,,170,direct,,,,,,,1684836000000,1696327199999
+Bard,16496,Apex Arrow,90,gauge_90,450,direct,,,,,,,1684836000000,1696327199999
+Bard,16496,Apex Arrow,90,gauge_100,500,direct,,,,,,,1684836000000,1696327199999
+Bard,3558,Empyreal Arrow,90,,230,direct,,,,,,,1684836000000,1696327199999
+Bard,7404,Pitch Perfect,90,pp1,100,direct,,,,,,,1684836000000,1696327199999
+Bard,7404,Pitch Perfect,90,pp2,220,direct,,,,,,,1684836000000,1696327199999
+Bard,7404,Pitch Perfect,90,pp3,360,direct,,,,,,,1684836000000,1696327199999
+Bard,1001201,Stormbite (tick),90,,25,physical-dot,,,,,,,1684836000000,1696327199999
+Bard,25784,Blast Arrow,90,,600,direct,,,,,,,1684836000000,1696327199999
+Bard,110,Bloodletter,90,,110,direct,,,,,,,1684836000000,1696327199999
+Bard,3562,Sidewinder,90,,300,direct,,,,,,,1684836000000,1696327199999
+Bard,1001200,Caustic Bite (tick),90,,20,physical-dot,,,,,,,1684836000000,1696327199999
+Bard,7407,Stormbite,90,,100,direct,,,,,,,1684836000000,1696327199999
+Bard,7406,Caustic Bite,90,,150,direct,,,,,,,1684836000000,1696327199999
+Bard,3560,Iron Jaws,90,,100,direct,,,,,,,1684836000000,1696327199999
+Bard,3559,the Wanderer's Minuet,90,,100,direct,,,,,,,1684836000000,1696327199999
+Bard,116,Army's Paeon,90,,100,direct,,,,,,,1684836000000,1696327199999
+Bard,114,Mage's Ballad,90,,100,direct,,,,,,,1684836000000,1696327199999
+Bard,25783,Ladonsbite,90,,130,direct,,,,,,,1696327200000,1733119200000
+Bard,16495,Burst Shot,90,,220,direct,,,,,,,1696327200000,1733119200000
+Bard,7409,Refulgent Arrow,90,,280,direct,,,,,,,1696327200000,1733119200000
+Bard,8,Shot,90,,80,auto,,,,,,,1696327200000,1733119200000
+Bard,117,Rain of Death,90,,100,direct,,,,,,,1696327200000,1733119200000
+Bard,16494,Shadowbite,90,,170,direct,,,,,,,1696327200000,1733119200000
+Bard,16496,Apex Arrow,90,gauge_90,450,direct,,,,,,,1696327200000,1733119200000
+Bard,16496,Apex Arrow,90,gauge_100,500,direct,,,,,,,1696327200000,1733119200000
+Bard,3558,Empyreal Arrow,90,,240,direct,,,,,,,1696327200000,1733119200000
+Bard,7404,Pitch Perfect,90,pp1,100,direct,,,,,,,1696327200000,1733119200000
+Bard,7404,Pitch Perfect,90,pp2,220,direct,,,,,,,1696327200000,1733119200000
+Bard,7404,Pitch Perfect,90,pp3,360,direct,,,,,,,1696327200000,1733119200000
+Bard,1001201,Stormbite (tick),90,,25,physical-dot,,,,,,,1696327200000,1733119200000
+Bard,25784,Blast Arrow,90,,600,direct,,,,,,,1696327200000,1733119200000
+Bard,110,Bloodletter,90,,110,direct,,,,,,,1696327200000,1733119200000
+Bard,3562,Sidewinder,90,,320,direct,,,,,,,1696327200000,1733119200000
+Bard,1001200,Caustic Bite (tick),90,,20,physical-dot,,,,,,,1696327200000,1733119200000
+Bard,7407,Stormbite,90,,100,direct,,,,,,,1696327200000,1733119200000
+Bard,7406,Caustic Bite,90,,150,direct,,,,,,,1696327200000,1733119200000
+Bard,3560,Iron Jaws,90,,100,direct,,,,,,,1696327200000,1733119200000
+Bard,3559,the Wanderer's Minuet,90,,100,direct,,,,,,,1696327200000,1733119200000
+Bard,116,Army's Paeon,90,,100,direct,,,,,,,1696327200000,1733119200000
+Bard,114,Mage's Ballad,90,,100,direct,,,,,,,1696327200000,1733119200000
+Machinist,8,Shot,90,,80,auto,,,,,,,1696327200000,1733119200000
+Machinist,2874,Gauss Round,90,,130,direct,,,,,,,1696327200000,1733119200000
+Machinist,2890,Ricochet,90,,130,direct,,,,,,,1696327200000,1733119200000
+Machinist,7410,Heat Blast,90,,220,direct,,,,,,,1696327200000,1733119200000
+Machinist,7411,Heated Split Shot,90,,200,direct,,,,,,,1696327200000,1733119200000
+Machinist,7412,Heated Slug Shot,90,,120,direct,60,300,,,,,1696327200000,1733119200000
+Machinist,7413,Heated Clean Shot,90,,120,direct,68,380,,,,,1696327200000,1733119200000
+Machinist,16497,Auto Crossbow,90,,160,direct,,,,,,,1696327200000,1733119200000
+Machinist,16498,Drill,90,,600,direct,,,,,,,1696327200000,1733119200000
+Machinist,16499,Bioblaster,90,,50,direct,,,,,,,1696327200000,1733119200000
+Machinist,16500,Air Anchor,90,,600,direct,,,,,,,1696327200000,1733119200000
+Machinist,16503,Pile Bunker (Pet),90,gauge_50,340,pet,,,,,,,1696327200000,1733119200000
+Machinist,16503,Pile Bunker (Pet),90,gauge_60,408,pet,,,,,,,1696327200000,1733119200000
+Machinist,16503,Pile Bunker (Pet),90,gauge_70,476,pet,,,,,,,1696327200000,1733119200000
+Machinist,16503,Pile Bunker (Pet),90,gauge_80,544,pet,,,,,,,1696327200000,1733119200000
+Machinist,16503,Pile Bunker (Pet),90,gauge_90,612,pet,,,,,,,1696327200000,1733119200000
+Machinist,16503,Pile Bunker (Pet),90,gauge_100,680,pet,,,,,,,1696327200000,1733119200000
+Machinist,16504,Arm Punch (Pet),90,gauge_50,120,pet,,,,,,,1696327200000,1733119200000
+Machinist,16504,Arm Punch (Pet),90,gauge_60,144,pet,,,,,,,1696327200000,1733119200000
+Machinist,16504,Arm Punch (Pet),90,gauge_70,168,pet,,,,,,,1696327200000,1733119200000
+Machinist,16504,Arm Punch (Pet),90,gauge_80,192,pet,,,,,,,1696327200000,1733119200000
+Machinist,16504,Arm Punch (Pet),90,gauge_90,216,pet,,,,,,,1696327200000,1733119200000
+Machinist,16504,Arm Punch (Pet),90,gauge_100,240,pet,,,,,,,1696327200000,1733119200000
+Machinist,17206,Roller Dash (Pet),90,gauge_50,240,pet,,,,,,,1696327200000,1733119200000
+Machinist,17206,Roller Dash (Pet),90,gauge_60,288,pet,,,,,,,1696327200000,1733119200000
+Machinist,17206,Roller Dash (Pet),90,gauge_70,336,pet,,,,,,,1696327200000,1733119200000
+Machinist,17206,Roller Dash (Pet),90,gauge_80,384,pet,,,,,,,1696327200000,1733119200000
+Machinist,17206,Roller Dash (Pet),90,gauge_90,432,pet,,,,,,,1696327200000,1733119200000
+Machinist,17206,Roller Dash (Pet),90,gauge_100,480,pet,,,,,,,1696327200000,1733119200000
+Machinist,25786,Scattergun,90,,150,direct,,,,,,,1696327200000,1733119200000
+Machinist,25787,Crowned Collider (Pet),90,gauge_50,390,pet,,,,,,,1696327200000,1733119200000
+Machinist,25787,Crowned Collider (Pet),90,gauge_60,468,pet,,,,,,,1696327200000,1733119200000
+Machinist,25787,Crowned Collider (Pet),90,gauge_70,546,pet,,,,,,,1696327200000,1733119200000
+Machinist,25787,Crowned Collider (Pet),90,gauge_80,624,pet,,,,,,,1696327200000,1733119200000
+Machinist,25787,Crowned Collider (Pet),90,gauge_90,702,pet,,,,,,,1696327200000,1733119200000
+Machinist,25787,Crowned Collider (Pet),90,gauge_100,780,pet,,,,,,,1696327200000,1733119200000
+Machinist,25788,Chain Saw,90,,600,direct,,,,,,,1696327200000,1733119200000
+Machinist,1000861,Wildfire (tick),90,wildfire_1,240,physical-dot,,,,,,,1696327200000,1733119200000
+Machinist,1000861,Wildfire (tick),90,wildfire_2,480,physical-dot,,,,,,,1696327200000,1733119200000
+Machinist,1000861,Wildfire (tick),90,wildfire_3,720,physical-dot,,,,,,,1696327200000,1733119200000
+Machinist,1000861,Wildfire (tick),90,wildfire_4,960,physical-dot,,,,,,,1696327200000,1733119200000
+Machinist,1000861,Wildfire (tick),90,wildfire_5,1200,physical-dot,,,,,,,1696327200000,1733119200000
+Machinist,1000861,Wildfire (tick),90,wildfire_6,1440,physical-dot,,,,,,,1696327200000,1733119200000
+Machinist,1001205,Flamethrower (tick),90,,80,physical-dot,,,,,,,1696327200000,1733119200000
+Machinist,1001866,Bioblaster (tick),90,,50,physical-dot,,,,,,,1696327200000,1733119200000
+Machinist,8,Shot,90,,80,auto,,,,,,,1684836000000,1696327199999
+Machinist,2874,Gauss Round,90,,130,direct,,,,,,,1684836000000,1696327199999
+Machinist,2890,Ricochet,90,,130,direct,,,,,,,1684836000000,1696327199999
+Machinist,7410,Heat Blast,90,,220,direct,,,,,,,1684836000000,1696327199999
+Machinist,7411,Heated Split Shot,90,,200,direct,,,,,,,1684836000000,1696327199999
+Machinist,7412,Heated Slug Shot,90,,120,direct,60,300,,,,,1684836000000,1696327199999
+Machinist,7413,Heated Clean Shot,90,,120,direct,68,380,,,,,1684836000000,1696327199999
+Machinist,16497,Auto Crossbow,90,,160,direct,,,,,,,1684836000000,1696327199999
+Machinist,16498,Drill,90,,600,direct,,,,,,,1684836000000,1696327199999
+Machinist,16499,Bioblaster,90,,50,direct,,,,,,,1684836000000,1696327199999
+Machinist,16500,Air Anchor,90,,600,direct,,,,,,,1684836000000,1696327199999
+Machinist,16503,Pile Bunker (Pet),90,gauge_50,340,pet,,,,,,,1684836000000,1696327199999
+Machinist,16503,Pile Bunker (Pet),90,gauge_60,408,pet,,,,,,,1684836000000,1696327199999
+Machinist,16503,Pile Bunker (Pet),90,gauge_70,476,pet,,,,,,,1684836000000,1696327199999
+Machinist,16503,Pile Bunker (Pet),90,gauge_80,544,pet,,,,,,,1684836000000,1696327199999
+Machinist,16503,Pile Bunker (Pet),90,gauge_90,612,pet,,,,,,,1684836000000,1696327199999
+Machinist,16503,Pile Bunker (Pet),90,gauge_100,680,pet,,,,,,,1684836000000,1696327199999
+Machinist,16504,Arm Punch (Pet),90,gauge_50,120,pet,,,,,,,1684836000000,1696327199999
+Machinist,16504,Arm Punch (Pet),90,gauge_60,144,pet,,,,,,,1684836000000,1696327199999
+Machinist,16504,Arm Punch (Pet),90,gauge_70,168,pet,,,,,,,1684836000000,1696327199999
+Machinist,16504,Arm Punch (Pet),90,gauge_80,192,pet,,,,,,,1684836000000,1696327199999
+Machinist,16504,Arm Punch (Pet),90,gauge_90,216,pet,,,,,,,1684836000000,1696327199999
+Machinist,16504,Arm Punch (Pet),90,gauge_100,240,pet,,,,,,,1684836000000,1696327199999
+Machinist,17206,Roller Dash (Pet),90,gauge_50,240,pet,,,,,,,1684836000000,1696327199999
+Machinist,17206,Roller Dash (Pet),90,gauge_60,288,pet,,,,,,,1684836000000,1696327199999
+Machinist,17206,Roller Dash (Pet),90,gauge_70,336,pet,,,,,,,1684836000000,1696327199999
+Machinist,17206,Roller Dash (Pet),90,gauge_80,384,pet,,,,,,,1684836000000,1696327199999
+Machinist,17206,Roller Dash (Pet),90,gauge_90,432,pet,,,,,,,1684836000000,1696327199999
+Machinist,17206,Roller Dash (Pet),90,gauge_100,480,pet,,,,,,,1684836000000,1696327199999
+Machinist,25786,Scattergun,90,,150,direct,,,,,,,1684836000000,1696327199999
+Machinist,25787,Crowned Collider (Pet),90,gauge_50,390,pet,,,,,,,1684836000000,1696327199999
+Machinist,25787,Crowned Collider (Pet),90,gauge_60,468,pet,,,,,,,1684836000000,1696327199999
+Machinist,25787,Crowned Collider (Pet),90,gauge_70,546,pet,,,,,,,1684836000000,1696327199999
+Machinist,25787,Crowned Collider (Pet),90,gauge_80,624,pet,,,,,,,1684836000000,1696327199999
+Machinist,25787,Crowned Collider (Pet),90,gauge_90,702,pet,,,,,,,1684836000000,1696327199999
+Machinist,25787,Crowned Collider (Pet),90,gauge_100,780,pet,,,,,,,1684836000000,1696327199999
+Machinist,25788,Chain Saw,90,,600,direct,,,,,,,1684836000000,1696327199999
+Machinist,1000861,Wildfire (tick),90,wildfire_1,240,physical-dot,,,,,,,1684836000000,1696327199999
+Machinist,1000861,Wildfire (tick),90,wildfire_2,480,physical-dot,,,,,,,1684836000000,1696327199999
+Machinist,1000861,Wildfire (tick),90,wildfire_3,720,physical-dot,,,,,,,1684836000000,1696327199999
+Machinist,1000861,Wildfire (tick),90,wildfire_4,960,physical-dot,,,,,,,1684836000000,1696327199999
+Machinist,1000861,Wildfire (tick),90,wildfire_5,1200,physical-dot,,,,,,,1684836000000,1696327199999
+Machinist,1000861,Wildfire (tick),90,wildfire_6,1440,physical-dot,,,,,,,1684836000000,1696327199999
+Machinist,1001205,Flamethrower (tick),90,,80,physical-dot,,,,,,,1684836000000,1696327199999
+Machinist,1001866,Bioblaster (tick),90,,50,physical-dot,,,,,,,1684836000000,1696327199999
+Dancer,16005,Saber Dance,90,,480,direct,,,,,,,1696327200000,1733119200000
+Dancer,16192,Double Standard Finish,90,,720,direct,,,,,,,1696327200000,1733119200000
+Dancer,15996,Bloodshower,90,,180,direct,,,,,,,1696327200000,1733119200000
+Dancer,7,attack,90,,90,auto,,,,,,,1696327200000,1733119200000
+Dancer,16009,Fan Dance III,90,,200,direct,,,,,,,1696327200000,1733119200000
+Dancer,16196,Quadruple Technical Finish,90,,1200,direct,,,,,,,1696327200000,1733119200000
+Dancer,25792,Starfall Dance,90,,600,direct,,,,,,,1696327200000,1733119200000
+Dancer,16008,Fan Dance II,90,,100,direct,,,,,,,1696327200000,1733119200000
+Dancer,25791,Fan Dance IV,90,,300,direct,,,,,,,1696327200000,1733119200000
+Dancer,15994,Bladeshower,90,,100,direct,28,140,,,,,1696327200000,1733119200000
+Dancer,15995,Rising Windmill,90,,140,direct,,,,,,,1696327200000,1733119200000
+Dancer,15993,Windmill,90,,100,direct,,,,,,,1696327200000,1733119200000
+Dancer,15991,Reverse Cascade,90,,280,direct,,,,,,,1696327200000,1733119200000
+Dancer,15992,Fountainfall,90,,340,direct,,,,,,,1696327200000,1733119200000
+Dancer,25790,Tillana,90,,360,direct,,,,,,,1696327200000,1733119200000
+Dancer,15990,Fountain,90,,100,direct,64,280,,,,,1696327200000,1733119200000
+Dancer,15989,Cascade,90,,220,direct,,,,,,,1696327200000,1733119200000
+Dancer,16007,Fan Dance,90,,150,direct,,,,,,,1696327200000,1733119200000
+Dancer,16005,Saber Dance,90,,480,direct,,,,,,,1684836000000,1696327199999
+Dancer,16192,Double Standard Finish,90,,720,direct,,,,,,,1684836000000,1696327199999
+Dancer,15996,Bloodshower,90,,180,direct,,,,,,,1684836000000,1696327199999
+Dancer,7,attack,90,,90,auto,,,,,,,1684836000000,1696327199999
+Dancer,16009,Fan Dance III,90,,200,direct,,,,,,,1684836000000,1696327199999
+Dancer,16196,Quadruple Technical Finish,90,,1200,direct,,,,,,,1684836000000,1696327199999
+Dancer,25792,Starfall Dance,90,,600,direct,,,,,,,1684836000000,1696327199999
+Dancer,16008,Fan Dance II,90,,100,direct,,,,,,,1684836000000,1696327199999
+Dancer,25791,Fan Dance IV,90,,300,direct,,,,,,,1684836000000,1696327199999
+Dancer,15994,Bladeshower,90,,100,direct,28,140,,,,,1684836000000,1696327199999
+Dancer,15995,Rising Windmill,90,,140,direct,,,,,,,1684836000000,1696327199999
+Dancer,15993,Windmill,90,,100,direct,,,,,,,1684836000000,1696327199999
+Dancer,15991,Reverse Cascade,90,,280,direct,,,,,,,1684836000000,1696327199999
+Dancer,15992,Fountainfall,90,,340,direct,,,,,,,1684836000000,1696327199999
+Dancer,25790,Tillana,90,,360,direct,,,,,,,1684836000000,1696327199999
+Dancer,15990,Fountain,90,,100,direct,64,280,,,,,1684836000000,1696327199999
+Dancer,15989,Cascade,90,,220,direct,,,,,,,1684836000000,1696327199999
+Dancer,16007,Fan Dance,90,,150,direct,,,,,,,1684836000000,1696327199999
 Astrologian,25871,Fall Malefic,90,,250,direct,,,,,,,1696327200000,1733119200000
 Astrologian,7444,Lord of Crowns,90,,250,direct,,,,,,,1696327200000,1733119200000
 Astrologian,7,attack,90,,90,auto,,,,,,,1696327200000,1733119200000
