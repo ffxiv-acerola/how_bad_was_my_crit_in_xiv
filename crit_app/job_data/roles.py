@@ -61,6 +61,11 @@ role_stat_dict = {
         "main_stat": {"label": "STR/DEX:", "placeholder": "Strength"},
         "secondary_stat": {"label": "N/A:", "placeholder": None},
         "speed_stat": {"label": "SKS:", "placeholder": "Skill Speed"},        
+    },
+    "Physical Ranged": {
+        "main_stat": {"label": "DEX:", "placeholder": "Dexterity"},
+        "secondary_stat": {"label": "N/A:", "placeholder": None},
+        "speed_stat": {"label": "SKS:", "placeholder": "Skill Speed"},        
     }
 }
 

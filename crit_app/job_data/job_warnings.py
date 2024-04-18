@@ -10,5 +10,8 @@ job_warnings = {
             ),
             html.P(generic_variance_warning),
         ]
-    )
+    ),
+    # "Dancer": None,
+    # "Bard": None,
+    # "BlackMage": None,
 }
