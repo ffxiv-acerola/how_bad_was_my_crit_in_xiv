@@ -4,7 +4,7 @@ import pickle
 from uuid import uuid4
 from ast import literal_eval
 
-from ffxiv_stats.jobs import Healer, Tank, MagicalRanged, Melee
+from ffxiv_stats.jobs import Healer, Tank, MagicalRanged, Melee, PhysicalRanged
 
 import dash
 from dash import Input, Output, State, dcc, html, callback, Patch
@@ -249,6 +249,18 @@ def rotation_analysis(
             level=90,
         )
 
+    elif role == "Physical Ranged":
+        job_obj = PhysicalRanged(
+            dexterity=main_stat,
+            det=determination,
+            skill_speed=speed_stat,
+            crit_stat=ch,
+            dh_stat=dh,
+            weapon_damage=wd,
+            delay=delay,
+            pet_attack_power=main_stat_pre_bonus,
+            level=90,
+        )
     else:
         raise ValueError("Incorrect role specified.")
 
@@ -592,7 +604,7 @@ def fill_role_stat_labels(role):
         role_stat_dict[role]["main_stat"]["placeholder"],
         role_stat_dict[role]["secondary_stat"]["label"],
         role_stat_dict[role]["secondary_stat"]["placeholder"],
-        True if role == "Melee" else False,
+        True if role in ("Melee", "Physical Ranged") else False,
         role_stat_dict[role]["speed_stat"]["label"],
         role_stat_dict[role]["speed_stat"]["placeholder"],
     )
@@ -687,24 +699,29 @@ def process_etro_url(n_clicks, party_bonus, url, default_role):
     build_name = build_result["name"]
     build_children = [html.H4(f"Build name: {build_name} ({job_abbreviated})")]
 
-    if job_abbreviated in ["WHM", "AST", "SGE", "SCH"]:
+    if job_abbreviated in ("WHM", "AST", "SGE", "SCH"):
         build_role = "Healer"
         main_stat_str = "MND"
         secondary_stat_str = "STR"
         speed_stat_str = "SPS"
-    elif job_abbreviated in ["WAR", "PLD", "DRK", "GNB"]:
+    elif job_abbreviated in ("WAR", "PLD", "DRK", "GNB"):
         build_role = "Tank"
         main_stat_str = "STR"
         secondary_stat_str = "TEN"
         speed_stat_str = "SKS"
-    elif job_abbreviated in ["BLM", "SMN", "RDM"]:
+    elif job_abbreviated in ("BLM", "SMN", "RDM"):
         build_role = "Magical Ranged"
         main_stat_str = "INT"
         secondary_stat_str = "STR"
         speed_stat_str = "SPS"
-    elif job_abbreviated in ["MNK", "DRG", "SAM", "RPR", "NIN"]:
+    elif job_abbreviated in ("MNK", "DRG", "SAM", "RPR", "NIN"):
         build_role = "Melee"
         main_stat_str = "STR" if job_abbreviated != "NIN" else "DEX"
+        secondary_stat_str = None
+        speed_stat_str = "SKS"
+    elif job_abbreviated in ("BRD", "DNC", "MCH"):
+        build_role = "Physical Ranged"
+        main_stat_str = "DEX"
         secondary_stat_str = None
         speed_stat_str = "SKS"
 
@@ -930,7 +947,7 @@ def show_job_options(job_information, role):
         elif d["role"] == "Physical Ranged":
             physical_ranged_radio_items.append(
                 {
-                    "label": label_text + " [Unsupported]",
+                    "label": label_text,
                     "value": d["player_id"],
                     "disabled": "Physical Ranged" != role,
                 }

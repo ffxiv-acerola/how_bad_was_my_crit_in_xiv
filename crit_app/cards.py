@@ -63,7 +63,7 @@ def initialize_job_build(
         [
             dbc.Label("Role", width=12, md=2),
             dbc.Col(
-                [dbc.Select(["Healer", "Tank", "Magical Ranged", "Melee"], role, id="role-select")],
+                [dbc.Select(["Tank", "Healer", "Melee", "Physical Ranged", "Magical Ranged",], role, id="role-select")],
                 width=12,
                 md=5,
             ),
