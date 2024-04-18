@@ -14,7 +14,9 @@ from rotation_jobs import (
     NinjaActions,
     ReaperActions,
     DragoonActions,
-    SamuraiActions
+    SamuraiActions,
+    MachinistActions,
+    BardActions,
 )
 from config import FFLOGS_TOKEN
 from job_data.data import (
@@ -227,6 +229,27 @@ class ActionTable(object):
         elif self.job == "Samurai":
             self.job_specifics = SamuraiActions(headers, report_id, fight_id, player_id)
             self.actions_df = self.job_specifics.apply_enhanced_enpi(self.actions_df)
+
+        elif self.job == "Machinist":
+            # wildfire can't crit...
+            self.actions_df.loc[
+                self.actions_df["abilityGameID"] == 1000861,
+                ["p_n", "p_c", "p_d", "p_cd"],
+            ] = [1.0, 0.0, 0.0, 0.0]
+
+            self.actions_df = self.estimate_ground_effect_multiplier(
+                1000861,
+            )
+            self.job_specifics = MachinistActions(
+                headers, report_id, fight_id, player_id
+            )
+            self.actions_df = self.job_specifics.apply_mch_potencies(self.actions_df)
+
+        elif self.job == "Bard":
+            self.job_specifics = BardActions()
+            self.actions_df = self.job_specifics.estimate_pitch_perfect_potency(
+                self.actions_df
+            )
         # Unpaired didn't have damage go off, filter these out.
         # This column wont exist if there aren't any unpaired actions though.
         # This is done at the very end because unpaired actions can still give gauge,
@@ -676,6 +699,8 @@ class ActionTable(object):
             "tick",
             "multiplier",
             "bonusPercent",
+            "hitType",
+            "directHit",
         ]
 
         # Whether to include damage from pets by their source ID
@@ -1100,3 +1125,21 @@ if __name__ == "__main__":
     #     pet_ids=None,
     # )
 
+    RotationTable(
+        headers,
+        "JXmA81qar9BYFCLj",
+        1,
+        "Dancer",
+        7,
+        2557,
+        1432,
+        1844,
+        254,
+        damage_buff_table,
+        critical_hit_rate_table,
+        direct_hit_rate_table,
+        guaranteed_hits_by_action_table,
+        guaranteed_hits_by_buff_table,
+        potency_table,
+        pet_ids=None,
+    )
