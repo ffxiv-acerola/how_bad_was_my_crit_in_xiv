@@ -50,7 +50,7 @@ def parse_fflogs_url(fflogs_url: str):
     try:
         fight_id = parse_qs(parts.fragment)["fight"][0]
         fight_id = int(fight_id)
-    except KeyError:
+    except (KeyError, ValueError):
         fight_id = None
         error_code = 2
 
