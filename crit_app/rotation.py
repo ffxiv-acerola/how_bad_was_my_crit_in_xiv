@@ -191,6 +191,7 @@ class ActionTable(object):
                 headers, report_id, fight_id, player_id
             )
             self.actions_df = self.job_specifics.apply_elemental_buffs(self.actions_df)
+            self.actions_df = self.actions_df[self.actions_df["ability_name"] != "attack"]
 
         elif self.job == "Summoner":
             self.actions_df = self.estimate_ground_effect_multiplier(

@@ -15,6 +15,7 @@ import pandas as pd
 
 from dmg_distribution import get_dps_dmg_percentile
 from rotation import RotationTable
+from job_data.job_data import weapon_delays
 from job_data.data import (
     damage_buff_table,
     critical_hit_rate_table,
@@ -86,7 +87,7 @@ def update_report_table(db_row):
     cur.execute(
         """
     insert into report 
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         db_row,
     )
@@ -101,13 +102,24 @@ def unflag_report_recompute(analysis_id):
     cur = con.cursor()
 
     cur.execute(f"""
-    update report set recompute_flag = 0 where analysis_id = "{analysis_id}"
+    update report set redo_dps_pdf_flag = 0 where analysis_id = "{analysis_id}"
     """)
     con.commit()
     cur.close()
     con.close()
     pass
 
+def unflag_redo_rotation(analysis_id):
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+
+    cur.execute(f"""
+    update report set redo_rotation_flag = 0 where analysis_id = "{analysis_id}"
+    """)
+    con.commit()
+    cur.close()
+    con.close()
+    pass
 
 def update_encounter_table(db_rows):
     con = sqlite3.connect(DB_URI)
@@ -384,7 +396,8 @@ def layout(analysis_id=None):
 
             job_radio_value_dict[role] = player_id
 
-            recompute_flag = analysis_details["recompute_flag"]
+            redo_rotation = analysis_details["redo_rotation_flag"]
+            recompute_pdf_flag = analysis_details["redo_dps_pdf_flag"]
             # recompute_flag = 1
 
             #### Damage Distributions ####
@@ -418,13 +431,45 @@ def layout(analysis_id=None):
             party_bonus = analysis_details["party_bonus"]
             medication_amt = analysis_details["medication_amount"]
             player_job_no_space = analysis_details["job"]
+            pet_ids = analysis_details["pet_ids"]
+
+            # Get actions and create a rotation again, used if the RotationTable class updates.
+            if redo_rotation:
+                rotation = RotationTable(
+                    headers,
+                    report_id,
+                    int(fight_id),
+                    player_job_no_space,
+                    int(player_id),
+                    crit,
+                    direct_hit,
+                    determination,
+                    medication_amt,
+                    damage_buff_table,
+                    critical_hit_rate_table,
+                    direct_hit_rate_table,
+                    guaranteed_hits_by_action_table,
+                    guaranteed_hits_by_buff_table,
+                    potency_table,
+                    pet_ids,
+                )
+                actions_df = rotation.actions_df
+                rotation_df = rotation.rotation_df
+
+                actions_df.to_parquet(BLOB_URI / f"action-df-{analysis_id}.parquet")
+                rotation_df.to_parquet(BLOB_URI / f"rotation-df-{analysis_id}.parquet")
+
+                unflag_redo_rotation(analysis_id)
+            else:
+                rotation_df = job_object.rotation_df
+
             # Recompute DPS distributions if flagged to do so.
             # Happens if `ffxiv_stats` updates with some sort of correction.
-            if recompute_flag:
+            if recompute_pdf_flag:
                 job_object = rotation_analysis(
                     role,
                     player_job_no_space,
-                    job_object.rotation_df,
+                    rotation_df,
                     job_object.t,
                     analysis_details["main_stat"],
                     analysis_details["secondary_stat"],
@@ -785,12 +830,26 @@ def process_etro_url(n_clicks, party_bonus, url, default_role):
     else:
         secondary_stat = "None"
 
-    weapon_id = build_result["weapon"]
-    weapon_action = ["equipment", "read"]
+    # Weapon delay is read differently for normal weapons and relics
+    # If normal weapon if the weapon key exists
+    if build_result["weapon"] is not None:
+        weapon_id = build_result["weapon"]
+        weapon_action = ["equipment", "read"]
+        weapon_params = {"id": weapon_id}
+        weapon_result = client.action(schema, weapon_action, params=weapon_params)
+        delay = weapon_result["delay"] / 1000
 
-    weapon_params = {"id": weapon_id}
-    weapon_result = client.action(schema, weapon_action, params=weapon_params)
-    delay = weapon_result["delay"] / 1000
+    # Relic weapon if the relic key exists
+    elif build_result["relics"] is not None:
+        weapon_id = build_result["relics"]["weapon"]
+        weapon_action = ["relic", "read"]
+        weapon_params = {"id": weapon_id}
+        weapon_result = client.action(schema, weapon_action, params=weapon_params)
+        delay = weapon_result["baseItem"]["delay"] / 1000
+
+    # Fall back to hard-coded values by job if something goes wrong
+    else:
+        delay = weapon_delays[job_abbreviated]
 
     print(primary_stat, dh, ch, determination, speed, wd, delay, etro_party_bonus)
 
@@ -1023,7 +1082,7 @@ def process_fflogs_url(n_clicks, url, role):
         )
 
     if error_code == 2:
-        feedback_text = "Please enter a log linked to a specific kill."
+        feedback_text = """Please enter a log linked to a specific kill.\nfight=last in the URL is also currently unsupported."""
         return (
             feedback_text,
             [],
@@ -1466,10 +1525,12 @@ def analyze_and_register_rotation(
             )
 
             analysis_id = str(uuid4())
-            recompute_flag = 0
+            redo_rotation_flag = 0
+            redo_dps_pdf_flag = 0
 
             if not DRY_RUN:
                 action_df.to_parquet(BLOB_URI / f"action-df-{analysis_id}.parquet")
+                rotation_df.to_parquet(BLOB_URI / f"rotation-df-{analysis_id}.parquet")
                 with open(BLOB_URI / f"rotation-obj-{analysis_id}.pkl", "wb") as outp:
                     pickle.dump(job_obj, outp, pickle.HIGHEST_PROTOCOL)
 
@@ -1500,7 +1561,8 @@ def analyze_and_register_rotation(
                     medication_amt,
                     main_stat_multiplier,
                     gearset_id,
-                    recompute_flag,
+                    redo_dps_pdf_flag,
+                    redo_rotation_flag,
                 )
                 update_report_table(db_row)
 

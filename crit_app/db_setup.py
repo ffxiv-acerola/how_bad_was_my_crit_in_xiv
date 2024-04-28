@@ -54,7 +54,8 @@ create table if not exists report(
     medication_amount INTEGER NOT NULL,
     party_bonus REAL NOT NULL,
     etro_id TEXT,
-    recompute_flag INTEGER NOT NULL
+    redo_dps_pdf_flag INTEGER NOT NULL,
+    redo_rotation_flag INTEGER NOT NULL
 )
 """
 
