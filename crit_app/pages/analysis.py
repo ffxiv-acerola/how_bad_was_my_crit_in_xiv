@@ -1164,13 +1164,6 @@ def process_fflogs_url(n_clicks, url, role):
         magical_ranged_radio_items,
     ) = show_job_options(job_information, role)
 
-    # Clear the value if one already existed.
-    # If the selected value from a prior log is a value in the current log,
-    # the value will remain set but appear unselected. It can only appear selected
-    # by click off and clicking back on. This is impossible if an AST is in the party.
-    # This is fixed by just clearing the value. How dumb.
-    # print(encounter_id, start_time, job_information)
-
     db_rows = [
         (
             report_id,
