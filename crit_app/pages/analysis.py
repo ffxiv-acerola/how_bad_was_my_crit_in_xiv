@@ -679,7 +679,7 @@ def job_build_defined(
     """
     secondary_stat_condition = (role in ("Healer", "Tank", "Magical Ranged")) & (
         secondary_stat is not None
-    ) | (role in ("Melee", "Physical Ranged") & (secondary_stat is None))
+    ) | ((role in ("Melee", "Physical Ranged")) & (secondary_stat is None))
     # TODO: will need to handle None secondary stat for roles without them.
     job_build_missing = (
         any(
