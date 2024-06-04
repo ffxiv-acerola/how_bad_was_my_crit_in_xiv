@@ -63,12 +63,69 @@ def initialize_job_build(
         [
             dbc.Label("Role", width=12, md=2),
             dbc.Col(
-                [dbc.Select(["Tank", "Healer", "Melee", "Physical Ranged", "Magical Ranged",], role, id="role-select")],
+                [
+                    dbc.Select(
+                        [
+                            "Tank",
+                            "Healer",
+                            "Melee",
+                            "Physical Ranged",
+                            "Magical Ranged",
+                        ],
+                        role,
+                        id="role-select",
+                    )
+                ],
                 width=12,
                 md=5,
             ),
         ],
         class_name="mb-3",
+    )
+
+    tincture_input = dbc.Row(
+        [
+            dbc.Label(
+                [
+                    html.Span(
+                        "POT:",
+                        id="tincture-tooltip",
+                        style={
+                            "textDecoration": "underline",
+                            "textDecorationStyle": "dotted",
+                            "cursor": "pointer",
+                        },
+                    ),
+                    dbc.Tooltip(
+                        "Medication/potion. If no medication was used, " "keep the default value selected.",
+                        target="tincture-tooltip",
+                    ),
+                ],
+                width=12,
+                md=1,
+            ),
+            dbc.Col(
+                [
+                    dbc.Select(
+                        name="POT:",
+                        id="tincture-grade",
+                        options=[
+                            {
+                                "label": "Grade 8 Tincture (+262)",
+                                "value": 262,
+                            },
+                            {
+                                "label": "Grade 7 Tincture (+223)",
+                                "value": 223,
+                            },
+                        ],
+                        value=medication_amt,
+                    ),
+                ],
+                width=12,
+                md=5,
+            ),
+        ]
     )
 
     top_stat_list = [
@@ -263,43 +320,43 @@ def initialize_job_build(
                 width=12,
             ),
             # Medication
-            dbc.Col(
-                [
-                    dbc.Label(
-                        [
-                            html.Span(
-                                "Tincture grade",
-                                id="tincture-tooltip",
-                                style={
-                                    "textDecoration": "underline",
-                                    "textDecorationStyle": "dotted",
-                                    "cursor": "pointer",
-                                },
-                            ),
-                            dbc.Tooltip(
-                                "If no tincture was used, "
-                                "keep the default value selected.",
-                                target="tincture-tooltip",
-                            ),
-                        ],
-                    ),
-                    dbc.Select(
-                        name="Tincture grade",
-                        id="tincture-grade",
-                        options=[
-                            {
-                                "label": "Grade 8 Tincture (+262)",
-                                "value": 262,
-                            },
-                            {
-                                "label": "Grade 7 Tincture (+223)",
-                                "value": 223,
-                            },
-                        ],
-                        value=medication_amt,
-                    ),
-                ]
-            ),
+            # dbc.Col(
+            #     [
+            #         dbc.Label(
+            #             [
+            #                 html.Span(
+            #                     "Tincture grade",
+            #                     id="tincture-tooltip",
+            #                     style={
+            #                         "textDecoration": "underline",
+            #                         "textDecorationStyle": "dotted",
+            #                         "cursor": "pointer",
+            #                     },
+            #                 ),
+            #                 dbc.Tooltip(
+            #                     "If no tincture was used, "
+            #                     "keep the default value selected.",
+            #                     target="tincture-tooltip",
+            #                 ),
+            #             ],
+            #         ),
+            #         dbc.Select(
+            #             name="Tincture grade",
+            #             id="tincture-grade",
+            #             options=[
+            #                 {
+            #                     "label": "Grade 8 Tincture (+262)",
+            #                     "value": 262,
+            #                 },
+            #                 {
+            #                     "label": "Grade 7 Tincture (+223)",
+            #                     "value": 223,
+            #                 },
+            #             ],
+            #             value=medication_amt,
+            #         ),
+            #     ]
+            # ),
         ]
     )
 
@@ -315,11 +372,13 @@ def initialize_job_build(
                         [
                             etro_input,
                             role_input,
+                            html.H3("Job stats"),
                             dbc.Row(id="etro-build-name-div"),
                             top_stat_row,
                             bottom_stat_row,
                             dbc.Row(id="party-bonus-warning"),
-                            party_bonus,
+                            tincture_input,
+                            # party_bonus,
                         ]
                     ),
                 ]
@@ -403,6 +462,12 @@ def initialize_fflogs_card(
             dbc.RadioItems(
                 value=job_radio_value_dict["Tank"],
                 options=job_radio_options_dict["Tank"],
+                input_style={
+                    "margin-bottom": "0rem",
+                },
+                style={
+                    "margin-bottom": "0rem",
+                },
                 id="tank-jobs",
             ),
             dbc.Label("Healers:"),

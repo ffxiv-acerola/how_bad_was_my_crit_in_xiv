@@ -11,6 +11,11 @@ if not (DB_URI / "../").exists():
 if not (BLOB_URI).exists():
     (BLOB_URI).resolve().mkdir(parents=True)
 
+if not (BLOB_URI / "job-rotation-clippings").exists():
+    (BLOB_URI / "job-rotation-clippings").resolve().mkdir(parents=True)
+
+if not (BLOB_URI / "party-analyses").exists():
+    (BLOB_URI / "party-analyses").resolve().mkdir(parents=True)
 con = sqlite3.connect(DB_URI)
 cur = con.cursor()
 
@@ -59,6 +64,22 @@ create table if not exists report(
 )
 """
 
+create_party_report_table = """
+create table if not exists party_report(
+    party_analysis_id TEXT NOT NULL,
+    report_id TEXT NOT NULL,
+    fight_id INTEGER NOT NULL,
+    analysis_id_1 TEXT NOT NULL,
+    analysis_id_2 TEXT NOT NULL,
+    analysis_id_3 TEXT NOT NULL,
+    analysis_id_4 TEXT NOT NULL,
+    analysis_id_5 TEXT, 
+    analysis_id_6 TEXT, 
+    analysis_id_7 TEXT, 
+    analysis_id_8 TEXT
+)
+"""
+
 create_access_table = """
 create table if not exists access(
     analysis_id TEXT NOT NULL,
@@ -67,6 +88,7 @@ create table if not exists access(
 """
 cur.execute(create_encounter_table)
 cur.execute(create_report_table)
+cur.execute(create_party_report_table)
 cur.execute(create_access_table)
 cur.close()
 con.close()

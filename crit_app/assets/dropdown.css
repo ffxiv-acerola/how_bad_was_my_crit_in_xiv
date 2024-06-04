@@ -34,3 +34,27 @@
     border-color: var(--primary); 
     box-shadow: none;
 }
+
+.dash-spreadsheet td{
+    font-family: sans-serif;
+}
+
+.dash-spreadsheet tr td.dash-cell.cell--selected.focused{
+    border-color: lightgrey !important;
+    border-width: 0.5px !important;
+    background-color: #2e3c45 !important;
+    color: white !important;
+}
+.dash-spreadsheet td.dash-cell{
+    border-color: lightgrey !important;
+    border-width: 0.5px !important;
+    color: white !important;
+}
+.dash-spreadsheet input.input-active.unfocused.selectable.dash-cell-value{
+    color: white;
+
+}
+
+div#encounter-info .form-check label.form-check-label p{
+    margin-bottom: 0rem;
+}

@@ -15,7 +15,7 @@ import numpy as np
 from dmg_distribution import get_dps_dmg_percentile, summarize_actions
 
 
-def make_rotation_pdf_figure(rotation_obj, rotation_dps):
+def make_rotation_pdf_figure(rotation_obj, rotation_dps, t=1):
     """
     Make a plotly figure showing the DPS distribution for a rotation.
     The actual DPS for the run and first three moments of the DPS distribution are shown.
@@ -27,25 +27,37 @@ def make_rotation_pdf_figure(rotation_obj, rotation_dps):
     Returns:
     plotly figure object displaying rotation DPS distribution
     """
-    max_density = rotation_obj.rotation_dps_distribution.max()
-    x = rotation_obj.rotation_dps_support[
-        rotation_obj.rotation_dps_distribution > max_density * 5e-6
-    ]
+    if t == 1:
+        support = rotation_obj.rotation_dps_support
+        density = rotation_obj.rotation_dps_distribution
+
+    else:
+        support = rotation_obj.rotation_dps_support / t
+        density = rotation_obj.rotation_dps_distribution / np.trapz(
+            rotation_obj.rotation_dps_distribution, support
+        )
+
+    max_density = density.max()
+    x = support[density > max_density * 5e-6]
     x_min, x_max = x[0], x[-1]
+
+    # Percentiles
+    dx = support[1] - support[0]
+    F_percentile = np.cumsum(density) * dx
 
     fig = px.line(template="plotly_dark")
 
     fig.add_scatter(
-        x=rotation_obj.rotation_dps_support,
-        y=rotation_obj.rotation_dps_distribution,
+        x=support,
+        y=density,
         name="DPS distribution",
         marker={"color": "#009670"},
+        hovertext=[f"Percentile: {p:.1%}" for p in np.abs(F_percentile)],
     )
 
+    # Actual dps data points
     x = rotation_dps
-    y = rotation_obj.rotation_dps_distribution[
-        np.abs(rotation_obj.rotation_dps_support - x).argmin()
-    ]
+    y = density[np.abs(support - x).argmin()]
 
     fig.add_scatter(
         x=[x],
@@ -53,12 +65,15 @@ def make_rotation_pdf_figure(rotation_obj, rotation_dps):
         mode="markers",
         name="Actual DPS",
         marker={"size": 14, "color": "#009670"},
-        hovertext=f"Percentile = {get_dps_dmg_percentile(x, rotation_obj.rotation_dps_distribution, rotation_obj.rotation_dps_support):.1f}%",
+        hovertext=f"Percentile = {get_dps_dmg_percentile(x, density, support):.1f}%",
     )
 
     fig.update_xaxes(range=[x_min, x_max])
+
+    mu = rotation_obj.rotation_mean / t
+    sigma = rotation_obj.rotation_std / t
     fig.update_layout(
-        title=f"Rotation DPS distribution: μ = {rotation_obj.rotation_mean:.0f} DPS, σ = {rotation_obj.rotation_std:.0f} DPS, γ = {rotation_obj.rotation_skewness:.3f}",
+        title=f"Rotation DPS distribution: μ = {mu:.0f} DPS, σ = {sigma:.0f} DPS, γ = {rotation_obj.rotation_skewness:.3f}",
         xaxis_title="Damage per second (DPS)",
         yaxis_title="Frequency",
     )
@@ -116,20 +131,14 @@ def make_rotation_percentile_table(rotation_obj, rotation_percentile):
             columns=columns,
             cell_selectable=False,
             style_data_conditional=style_rotation_percentile,
-            style_header={
-                'backgroundColor': 'rgb(48, 48, 48)',
-                'color': 'white'
-            },
-            style_data={
-                'backgroundColor': 'rgb(50, 50, 50)',
-                'color': 'white'
-            },
+            style_header={"backgroundColor": "rgb(48, 48, 48)", "color": "white"},
+            style_data={"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
         )
     ]
     return rotation_percentile_table
 
 
-def make_action_pdfs_figure(rotation_obj, action_dps):
+def make_action_pdfs_figure(rotation_obj, action_dps, t_scale=1):
     """
     Plot damage distributions for each action.
     The actual damage dealt is also plotted.
@@ -153,38 +162,55 @@ def make_action_pdfs_figure(rotation_obj, action_dps):
     max_density = rotation_obj.rotation_dps_distribution.max()
 
     for idx, (k, v) in enumerate(rotation_obj.unique_actions_distribution.items()):
+        # Use fewer points if there are more than 5k
+        if len(v["dps_distribution"]) > 5000:
+            support = np.linspace(v["support"][0], v["support"][-1], 2500)
+            density = np.interp(support, v["support"], v["dps_distribution"])
+
+        else:
+            density = v["dps_distribution"]
+            support = v["support"]
+
+        if t_scale > 1:
+            support /= t_scale
+            density = density / np.trapz(density, support)
+
+        dx = support[1] - support[0]
+        F_percentile = np.cumsum(density) * dx
+
         color_idx = idx % len(px.colors.qualitative.Plotly)
         fig.add_trace(
             go.Scatter(
-                x=v["support"],
-                y=v["dps_distribution"],
+                x=support,
+                y=density,
                 name=k,
                 mode="lines",
                 legendgroup="Action name",
                 legendgrouptitle_text="Action Name",
                 marker={"color": px.colors.qualitative.Plotly[color_idx]},
-                visible=True
+                visible=True,
+                hovertext=[f"Percentile: {p:.1%}" for p in np.abs(F_percentile)],
             )
         )
 
         x = action_dps.loc[action_dps["ability_name"] == k, "amount"].iloc[0]
-        y = v["dps_distribution"][np.abs(v["support"] - x).argmin()]
+        y = density[np.abs(support - x).argmin()]
 
         fig.add_scatter(
-            x=[x],
-            y=[y],
-            name=k,
+            x=np.array([x]),
+            y=np.array([y]),
+            name=f"{k} (Actual DPS)",
             mode="markers",
             legendgroup="Actual DPS",
             legendgrouptitle_text="Actual DPS",
             marker={"color": px.colors.qualitative.Plotly[color_idx], "size": 11},
-            hovertext=f"Percentile = {get_dps_dmg_percentile(x, v['dps_distribution'], v['support']):.1f}%",
-            visible=True
+            hovertext=f"Percentile = {get_dps_dmg_percentile(x, density, support):.1f}%",
+            visible=True,
         )
 
-        max_density = v["dps_distribution"].max()
+        max_density = density.max()
         max_y.append(max_density)
-        truncated_x = v["support"][v["dps_distribution"] > max_density * 5e-6]
+        truncated_x = support[density > max_density * 5e-6]
         x_min.append(truncated_x[0])
         x_max.append(truncated_x[-1])
         colors[k] = px.colors.qualitative.Plotly[color_idx]
@@ -255,14 +281,118 @@ def make_action_table(rotation_obj, action_df, t):
             data=action_summary_df.to_dict("records"),
             columns=columns,
             cell_selectable=False,
-            style_header={
-                'backgroundColor': 'rgb(48, 48, 48)',
-                'color': 'white'
-            },
-            style_data={
-                'backgroundColor': 'rgb(50, 50, 50)',
-                'color': 'white'
-            },
+            style_header={"backgroundColor": "rgb(48, 48, 48)", "color": "white"},
+            style_data={"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
         )
     ]
     return action_summary_table
+
+
+def make_kill_time_graph(party_rotation_dataclass, kill_time_seconds: int):
+    x = [
+        kill_time_seconds - x.seconds_shortened
+        for x in party_rotation_dataclass.shortened_rotations
+    ]
+    x_theoretical = [
+        f"2024-01-01 00:{int(x//60):02}:{int(x%60):02}.{int(round((x % 60 % 1) * 1000, 0))}"
+        for x in x
+    ]
+
+    y_theoretical = [
+        (1 - y.percentile) for y in party_rotation_dataclass.shortened_rotations
+    ]
+
+    
+    x_real = [f"2024-01-01 00:{int(kill_time_seconds//60):02}:{int(kill_time_seconds%60):02}.{int(round((kill_time_seconds % 60 % 1) * 1000, 0))}"]
+    y_real = [(1 - party_rotation_dataclass.percentile)]
+
+    y_min, y_max = (np.floor(np.log10(y_theoretical)) - 1).min(), 1
+
+    layout = go.Layout(
+        yaxis=dict(range=[y_min, y_max], type="log", tickformat="%"),
+        xaxis=dict(tickformat="%M:%S"),
+        xaxis_title=dict(text="Kill time (KT)"),
+        yaxis_title=dict(text="% of kills faster than KT"),
+        template="plotly_dark",
+    )
+
+    df_theoretical = pd.DataFrame(
+        {"kill_time": x_theoretical, "percent_kills_faster": y_theoretical}
+    )
+    df = pd.DataFrame({"kill_time": x_real, "percent_kills_faster": y_real})
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                x=df["kill_time"],
+                y=df[r"percent_kills_faster"],
+                marker_color="#7b6cb2",
+                marker_line_color="#7b6cb2",
+                name="Actual KT",
+            ),
+            go.Bar(
+                x=df_theoretical["kill_time"],
+                y=df_theoretical[r"percent_kills_faster"],
+                marker_color="#009670",
+                marker_line_color="#009670",
+                name="Theoretical KT",
+            ),
+
+        ],
+        layout=layout,
+    )
+
+    fig.update_layout(
+        xaxis_tickformatstops=[
+            dict(dtickrange=[1, 100], value=".0%"),
+            dict(dtickrange=[0.001, 1], value=".4%"),
+        ]
+    )
+    return fig
+
+
+def make_party_rotation_pdf_figure(party_support, party_pdf, boss_hp, active_dps_time):
+    support = np.linspace(party_support[0], party_support[-1], num=2500)
+    density = np.interp(support, party_support, party_pdf)
+
+    support /= active_dps_time
+    density = density / np.trapz(density, support)
+
+    max_density = density.max()
+    x_lim = support[density > max_density * 5e-6]
+    x_min, x_max = x_lim[0], x_lim[-1]
+
+    party_dps_x = boss_hp / active_dps_time
+    party_dps_y = density[np.abs(support - party_dps_x).argmin()]
+
+    dx = support[1] - support[0]
+    F_percentile = np.cumsum(density) * dx
+
+    layout = go.Layout(
+        xaxis=dict(range=[x_min, x_max]),
+        xaxis_title={"text": "Damage per second (DPS)"},
+        yaxis_title={"text": "Frequency"},
+        template="plotly_dark",
+    )
+
+    fig = go.Figure(
+        data=[
+            go.Scatter(
+                x=support,
+                y=density,
+                mode="lines",
+                marker={"color": "#009670"},
+                name="DPS distribution",
+                hovertext=[f"Percentile: {p:.1%}" for p in np.abs(F_percentile)],
+            ),
+            go.Scatter(
+                x=[party_dps_x],
+                y=[party_dps_y],
+                marker={"size": 14, "color": "#009670"},
+                name="Actual DPS",
+                hovertext=f"Percentile: {F_percentile[np.abs(support - party_dps_x).argmin()]:.1%}",
+            ),
+        ],
+        layout=layout,
+    )
+
+    return fig

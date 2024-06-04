@@ -72,6 +72,8 @@ def get_encounter_job_info(code: str, fight_id: int):
         query EncounterInfo($code: String!, $id: [Int!]) {
             reportData {
                 report(code: $code) {
+                    startTime
+                    rankings(fightIDs: $id)
                     fights(fightIDs: $id, translate: true) {
                         encounterID
                         kill,
@@ -119,9 +121,36 @@ def get_encounter_job_info(code: str, fight_id: int):
                 }
             )
 
-    fight_time = r["data"]["reportData"]["report"]["table"]["data"]["totalTime"]
-
+    fight_time = r['data']['reportData']['report']['rankings']['data'][0]["duration"]
     fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
+    report_start_time = r["data"]["reportData"]["report"]["startTime"]
+    return encounter_id, start_time, jobs, fight_time / 1000, fight_name, report_start_time, r
 
-    return encounter_id, start_time, jobs, fight_time / 1000, fight_name, start_time, r
+def limit_break_damage(code: str, fight_id: int):
+    variables = {"code": code, "id": [fight_id]}
 
+    json_payload = {
+        "query": """
+        query LimitBreakDamage(
+            $code: String!
+            $id: [Int]!
+        ) {
+            reportData {
+                report(code: $code) {
+                    table(fightIDs: $id, dataType: DamageDone, sourceClass: "LimitBreak")
+                }
+            }
+        }
+    """,
+        "variables": variables,
+        "operationName": "LimitBreakDamage",
+    }
+    r = requests.post(url=url, json=json_payload, headers=headers)
+    r = json.loads(r.text)
+
+    lb_data = r["data"]["reportData"]["report"]["table"]["data"]["entries"]
+
+    if len(lb_data) == 0:
+        return 0
+    else:
+        return lb_data[0]["total"]

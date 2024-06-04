@@ -1,23 +1,43 @@
-from config import ETRO_TOKEN
-from job_data.job_data import weapon_delays
-import coreapi
+import sqlite3
+from ast import literal_eval
 
-# Top row stats
-# Bottom row stats
+import coreapi
+import pandas as pd
+from config import DB_URI
+from job_data.job_data import weapon_delays
+
+from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
 
 def etro_build(gearset_id):
-    etro_auth = coreapi.auth.TokenAuthentication(token=ETRO_TOKEN)
-
     # Initialize a client & load the schema document
-    client = coreapi.Client(auth=etro_auth)
+    client = coreapi.Client()
     schema = client.get("https://etro.gg/api/docs/")
 
     gearset_action = ["gearsets", "read"]
     gearset_params = {
         "id": gearset_id,
     }
-    build_result = client.action(schema, gearset_action, params=gearset_params)
+    try:
+        build_result = client.action(schema, gearset_action, params=gearset_params)
+
+    except Exception as e:
+        return (
+            False,
+            f"Etro error: {e.error.title}",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+    
     job_abbreviated = build_result["jobAbbrev"]
     build_name = build_result["name"]
 
@@ -50,6 +70,9 @@ def etro_build(gearset_id):
     else:
         build_role = "Unsupported"
         return (
+            False,
+            f"Job {job_abbreviated} unsupported",
+            None,
             None,
             None,
             None,
@@ -121,6 +144,8 @@ def etro_build(gearset_id):
         delay = weapon_delays[job_abbreviated]
 
     return (
+        True,
+        "",
         build_name,
         build_role,
         primary_stat,
@@ -133,3 +158,377 @@ def etro_build(gearset_id):
         delay,
         etro_party_bonus,
     )
+
+
+def validate_meldable_stat(stat_name, stat_value):
+    if (stat_value > 380) and (stat_value < 4500):
+        return True, None
+    else:
+        return False, f"{stat_name} must be between 380-4500."
+
+
+def validate_secondary_stat(role, stat_value):
+    if role in ("Healer", "Magical Ranged"):
+        if (stat_value > 100) & (stat_value < 400):
+            return True, None
+        else:
+            return False, "Strength must be between 100-400."
+    elif role == "Tank":
+        if (stat_value > 380) & (stat_value < 4500):
+            return True, None
+        else:
+            return False, "Tenacity must be between 380-4500."
+    else:
+        return True, None
+
+
+def validate_speed_stat(speed_stat):
+    """Check that speed stat is inputted and not the GCD
+
+    Args:
+        speed_stat (int, optional): Speed stat. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    """
+    if speed_stat > 3:
+        return True, None
+    else:
+        return False, "Enter the speed stat, not the GCD."
+
+
+def validate_weapon_damage(weapon_damage):
+    if weapon_damage < 380:
+        return True, None
+    else:
+        return False, "Weapon damage must be less than 380."
+
+
+def validate_delay(delay):
+    if (delay > 1) and (delay < 4):
+        return True, None
+    else:
+        return False, "Weapon delay must be between 1 and 4."
+
+
+def read_report_table():
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+
+    report_df = pd.read_sql_query("select * from report", con)
+
+    cur.close()
+    con.close()
+    return report_df
+
+
+def read_party_report_table():
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+
+    report_df = pd.read_sql_query("select * from party_report", con)
+
+    cur.close()
+    con.close()
+    return report_df
+
+
+def read_encounter_table():
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+
+    player_df = pd.read_sql_query("select * from encounter", con)
+
+    cur.close()
+    con.close()
+    player_df["pet_ids"] = player_df["pet_ids"].apply(
+        lambda x: literal_eval(x) if x is not None else x
+    )
+    return player_df
+
+
+def update_report_table(db_row):
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.execute(
+        """
+    insert into report 
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """,
+        db_row,
+    )
+    con.commit()
+    cur.close()
+    con.close()
+    pass
+
+
+def update_party_report_table(db_row):
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.execute(
+        """
+    insert into party_report 
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """,
+        db_row,
+    )
+    con.commit()
+    cur.close()
+    con.close()
+    pass
+
+
+def unflag_report_recompute(analysis_id):
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+
+    cur.execute(f"""
+    update report set redo_dps_pdf_flag = 0 where analysis_id = "{analysis_id}"
+    """)
+    con.commit()
+    cur.close()
+    con.close()
+    pass
+
+
+def unflag_redo_rotation(analysis_id):
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+
+    cur.execute(f"""
+    update report set redo_rotation_flag = 0 where analysis_id = "{analysis_id}"
+    """)
+    con.commit()
+    cur.close()
+    con.close()
+    pass
+
+
+def update_encounter_table(db_rows):
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.executemany(
+        """
+    insert into encounter 
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """,
+        db_rows,
+    )
+    # Drop any duplicate records
+    cur.execute(
+        """
+    delete from encounter 
+     where rowid not in (
+        select min(rowid)
+        from encounter
+        group by report_id, fight_id, player_id
+     )
+    """
+    )
+    con.commit()
+    cur.close()
+    con.close()
+    pass
+
+
+def update_access_table(db_row):
+    """
+    Update access table, keeping track of when and how much an analysis ID is accessed.
+
+    Inputs:
+    db_row - tuple, of row to insert. Contains (`analysis_id`, `access_datetime`).
+    """
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.execute(
+        """
+    insert into access 
+    values (?, ?)
+    """,
+        db_row,
+    )
+    con.commit()
+    cur.close()
+    con.close()
+    pass
+
+def format_kill_time_str(kill_time):
+
+    return f"{int(kill_time//60):02}:{int(kill_time%60):02}.{int(round((kill_time % 60 % 1) * 1000, 0))}"
+
+def check_prior_analyses(
+    report_id,
+    fight_id,
+    player_id,
+    player_name,
+    main_stat_pre_bonus,
+    secondary_stat_pre_bonus,
+    determination,
+    speed,
+    critical_hit,
+    direct_hit,
+    weapon_damage,
+    delay,
+    medication_amount,
+):
+    report_df = read_report_table()
+    encounter_df = read_encounter_table()
+    report_df = report_df.merge(
+        encounter_df[["report_id", "fight_id", "player_name", "player_id"]],
+        on=["report_id", "fight_id", "player_name"],
+        how="inner",
+    )
+
+    same_fight = report_df[
+        (report_df["report_id"] == report_id)
+        & (report_df["fight_id"] == fight_id)
+        & (report_df["player_id"] == player_id)
+    ]
+
+    if len(same_fight) == 0:
+        return None
+
+    build_comparison = (
+        (same_fight["main_stat_pre_bonus"] == main_stat_pre_bonus)
+        & (same_fight["secondary_stat_pre_bonus"] == secondary_stat_pre_bonus)
+        & (same_fight["determination"] == determination)
+        & (same_fight["speed"] == speed)
+        & (same_fight["critical_hit"] == critical_hit)
+        & (same_fight["direct_hit"] == direct_hit)
+        & (same_fight["weapon_damage"] == weapon_damage)
+        & (same_fight["delay"] == delay)
+        & (same_fight["medication_amount"] == medication_amount)
+        & (same_fight["redo_dps_pdf_flag"] == 0)
+        & (same_fight["redo_rotation_flag"] == 0)
+    )
+
+    matched_record = same_fight[build_comparison]
+
+    if len(matched_record) == 0:
+        return None
+
+    return matched_record["analysis_id"].iloc[0]
+
+
+def rotation_analysis(
+    role: str,
+    job_no_space: str,
+    rotation_df,
+    t: float,
+    main_stat: int,
+    secondary_stat: int,
+    determination: int,
+    speed_stat: int,
+    ch: int,
+    dh: int,
+    wd: int,
+    delay: float,
+    main_stat_pre_bonus: int,
+    rotation_delta: int = 100,
+    rotation_step: int = 0.5,
+):
+    """Analyze the rotation of a job.
+
+    Args:
+        role (str): Job role, Healer, Tank, Magical Ranged, Melee, or Physical Ranged
+        job_no_space (str): Pascal case job, e.g., "WhiteMage"
+        rotation_df (pandas DataFrame): rotation DataFrame
+        t (float): Active fight time used to compute DPS
+        main_stat (int): Amount of main stat.
+        secondary_stat (int): Amount of secondary stat
+        determination (int): Amount of determination stat.
+        speed_stat (int): Amount of Skill/Spell Speed stat.
+        ch (int): Amount of critical hit stat.
+        dh (int): Amount of direct hit rate stat.
+        wd (int): Amount of weapon damage stat.
+        delay (float): Amount of weapon delay stat.
+        main_stat_pre_bonus (int): Amount of main stat before n% party bonus, for pet attack power.
+
+    Returns:
+        ffxiv_stats job object: Object with analyzed rotation and DPS distributions.
+    """
+
+    if role == "Healer":
+        job_obj = Healer(
+            mind=main_stat,
+            strength=secondary_stat,
+            det=determination,
+            spell_speed=speed_stat,
+            crit_stat=ch,
+            dh_stat=dh,
+            weapon_damage=wd,
+            delay=delay,
+            pet_attack_power=main_stat_pre_bonus,
+        )
+
+    elif role == "Tank":
+        job_obj = Tank(
+            strength=main_stat,
+            det=determination,
+            skill_speed=speed_stat,
+            tenacity=secondary_stat,
+            crit_stat=ch,
+            dh_stat=dh,
+            weapon_damage=wd,
+            delay=delay,
+            job=job_no_space,
+            pet_attack_power=main_stat_pre_bonus,
+            level=90,
+        )
+
+    elif role == "Magical Ranged":
+        job_obj = MagicalRanged(
+            intelligence=main_stat,
+            strength=secondary_stat,
+            det=determination,
+            spell_speed=speed_stat,
+            crit_stat=ch,
+            dh_stat=dh,
+            weapon_damage=wd,
+            delay=delay,
+            pet_attack_power=main_stat_pre_bonus,
+        )
+
+    elif role == "Melee":
+        job_obj = Melee(
+            main_stat=main_stat,
+            det=determination,
+            skill_speed=speed_stat,
+            crit_stat=ch,
+            dh_stat=dh,
+            weapon_damage=wd,
+            delay=delay,
+            job=job_no_space,
+            pet_attack_power=main_stat_pre_bonus,
+            level=90,
+        )
+
+    elif role == "Physical Ranged":
+        job_obj = PhysicalRanged(
+            dexterity=main_stat,
+            det=determination,
+            skill_speed=speed_stat,
+            crit_stat=ch,
+            dh_stat=dh,
+            weapon_damage=wd,
+            delay=delay,
+            pet_attack_power=main_stat_pre_bonus,
+            level=90,
+        )
+    else:
+        raise ValueError("Incorrect role specified.")
+
+    action_delta = 10
+    job_obj.attach_rotation(
+        rotation_df,
+        t,
+        rotation_delta=rotation_delta,
+        rotation_pdf_step=rotation_step,
+        action_delta=action_delta,
+        purge_action_moments=True,
+        compute_mgf=False,
+    )
+    # job_obj.action_moments = [None] * len(job_obj.action_moments)
+
+    return job_obj

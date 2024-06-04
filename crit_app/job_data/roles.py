@@ -60,13 +60,13 @@ role_stat_dict = {
     "Melee": {
         "main_stat": {"label": "STR/DEX:", "placeholder": "Strength"},
         "secondary_stat": {"label": "N/A:", "placeholder": None},
-        "speed_stat": {"label": "SKS:", "placeholder": "Skill Speed"},        
+        "speed_stat": {"label": "SKS:", "placeholder": "Skill Speed"},
     },
     "Physical Ranged": {
         "main_stat": {"label": "DEX:", "placeholder": "Dexterity"},
         "secondary_stat": {"label": "N/A:", "placeholder": None},
-        "speed_stat": {"label": "SKS:", "placeholder": "Skill Speed"},        
-    }
+        "speed_stat": {"label": "SKS:", "placeholder": "Skill Speed"},
+    },
 }
 
 # How jobs map to roles
@@ -89,5 +89,27 @@ role_mapping = {
     "Reaper": "Melee",
     "BlackMage": "Magical Ranged",
     "Summoner": "Magical Ranged",
-    "RedMage": "Magical Ranged"
+    "RedMage": "Magical Ranged",
+}
+
+abbreviated_job_map = {
+    "WhiteMage": "whm",
+    "Scholar": "sch",
+    "Astrologian": "ast",
+    "Sage": "sge",
+    "Paladin": "pld",
+    "Warrior": "war",
+    "DarkKnight": "drk",
+    "Gunbreaker": "gnb",
+    "Bard": "brd",
+    "Dancer": "dnc",
+    "Machinist": "mch",
+    "Dragoon": "drg",
+    "Monk": "mnk",
+    "Ninja": "nin",
+    "Samurai": "sam",
+    "Reaper": "rpr",
+    "BlackMage": "blm",
+    "Summoner": "smn",
+    "RedMage": "rdm",
 }

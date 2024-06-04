@@ -5,6 +5,12 @@ import dash_bootstrap_components as dbc
 
 from config import DEBUG
 
+from dash.long_callback import DiskcacheLongCallbackManager
+import diskcache
+
+cache = diskcache.Cache("./cache")
+long_callback_manager = DiskcacheLongCallbackManager(cache)
+
 app = dash.Dash(
     __name__,
     use_pages=True,
@@ -13,6 +19,7 @@ app = dash.Dash(
         dbc.icons.BOOTSTRAP,
         dbc.icons.FONT_AWESOME,
     ],
+    long_callback_manager=long_callback_manager
     # external_stylesheets=[dbc.themes.BOOTSTRAP],
     # suppress_callback_exceptions=True, # needed because some callbacks use dynamically generated id's
 )
@@ -36,7 +43,7 @@ header = html.Div(
         ),
         html.P(
             [
-                "This website is still under development, so expect some sharp edges. Only fights from Anabeiseos and the two latest Extreme trials are currently supported. Only supports are currently supported. If you have any suggestions, come across bugs, or would like to contribute, join the ",
+                "This site is being actively developed, so there might be some sharp edges. Only fights from Anabeiseos and the two latest Extreme trials are currently supported. Only fights from Anabeiseos and the final two Extreme trials from Endwalker are currently supported. If you have any suggestions, come across bugs, or would like to contribute, join the ",
                 html.A(
                     "Discord server",
                     href="https://discord.gg/8eezSgy3sC",
@@ -150,6 +157,21 @@ def toggle_about_modal(n1, n2, is_open):
         return not is_open
     return is_open
 
+@app.callback(
+    Output("party-analysis-modal", "is_open"),
+    Input("party-analysis-open", "n_clicks"),
+    Input("party-analysis-close", "n_clicks"),
+    State("party-analysis-modal", "is_open"),
+)
+def toggle_party_analysis_modal(n1, n2, is_open):
+    """
+    Open/close the "about this site" modal.
+    """
+    if n1 is None or n2 is None:
+        raise PreventUpdate
+    if n1 or n2:
+        return not is_open
+    return is_open
 
 if __name__ == "__main__":
     app.run(debug=DEBUG)
