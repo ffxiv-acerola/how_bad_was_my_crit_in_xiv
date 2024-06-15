@@ -306,11 +306,11 @@ def make_kill_time_graph(party_rotation_dataclass, kill_time_seconds: int):
     x_real = [f"2024-01-01 00:{int(kill_time_seconds//60):02}:{int(kill_time_seconds%60):02}.{int(round((kill_time_seconds % 60 % 1) * 1000, 0))}"]
     y_real = [(1 - party_rotation_dataclass.percentile)]
 
-    y_min, y_max = (np.floor(np.log10(y_theoretical)) - 1).min(), 1
+    y_min, y_max = (np.floor(np.log10(y_theoretical)) - 1).min(), 1e-2
 
     layout = go.Layout(
         yaxis=dict(range=[y_min, y_max], type="log", tickformat="%"),
-        xaxis=dict(tickformat="%M:%S"),
+        xaxis=dict(tickformat=r"%M:%S"),
         xaxis_title=dict(text="Kill time (KT)"),
         yaxis_title=dict(text="% of kills faster than KT"),
         template="plotly_dark",
@@ -351,7 +351,7 @@ def make_kill_time_graph(party_rotation_dataclass, kill_time_seconds: int):
 
 
 def make_party_rotation_pdf_figure(party_support, party_pdf, boss_hp, active_dps_time):
-    support = np.linspace(party_support[0], party_support[-1], num=2500)
+    support = np.linspace(party_support[0], party_support[-1], num=5500)
     density = np.interp(support, party_support, party_pdf)
 
     support /= active_dps_time
