@@ -68,6 +68,8 @@ from shared_elements import (
     read_report_table,
     rotation_analysis,
     unflag_party_report_recompute,
+    unflag_redo_rotation,
+    unflag_report_recompute,
     update_encounter_table,
     update_party_report_table,
     update_report_table,
@@ -957,7 +959,6 @@ def analyze_party_rotation(
     action_delta = 2
     rotation_delta = 10
     n_data_points = 5000
-    job_analysis_id = []
 
     ######
     # Job-level analyses
@@ -972,7 +973,7 @@ def analyze_party_rotation(
     job_rotation_clipping_pdf_list = {t: [] for t in t_clips}
     job_rotation_clipping_analyses = {t: [] for t in t_clips}
 
-    matched_ids = [
+    job_analysis_ids = [
         check_prior_job_analyses(
             report_id,
             fight_id,
@@ -991,10 +992,8 @@ def analyze_party_rotation(
         for a in range(len(job))
     ]
 
-    if len(matched_ids) == len(job):
-        # FIXME: function to match job analysis IDs to the party analysis ID
-        party_analysis_id, redo_party_analysis = None, 1
-        party_analysis_id, redo_party_analysis = check_prior_party_analysis(matched_ids, report_id, fight_id, len(job))
+    if len(job_analysis_ids) == len(job):
+        party_analysis_id, redo_party_analysis = check_prior_party_analysis(job_analysis_ids, report_id, fight_id, len(job))
         if redo_party_analysis == 0:
             return f"/party_analysis/{party_analysis_id}"
 
@@ -1059,8 +1058,9 @@ def analyze_party_rotation(
         )
 
         # Assign analysis ID
-        # FIXME: only append if analysis ID is None
-        job_analysis_id.append(str(uuid4()))
+        # only append if analysis ID is None so the ID isn't overwritten
+        if job_analysis_ids[a] is None:
+            job_analysis_ids[a] = str(uuid4())
         main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"]
         secondary_stat_type = role_stat_dict[role]["secondary_stat"]["placeholder"]
         gearset_id, _ = parse_etro_url(gearset_id)
@@ -1068,7 +1068,7 @@ def analyze_party_rotation(
         # Collect DB rows to insert at the end
         job_db_rows.append(
             (
-                job_analysis_id[a],
+                job_analysis_ids[a],
                 report_id,
                 fight_id,
                 encounter_name,
@@ -1200,7 +1200,7 @@ def analyze_party_rotation(
     # Job analyses
     for a in range(len(job_rotation_pdf_list)):
         # Write RotationTable
-        with open(BLOB_URI / f"rotation-object-{job_analysis_id[a]}.pkl", "wb") as f:
+        with open(BLOB_URI / f"rotation-object-{job_analysis_ids[a]}.pkl", "wb") as f:
             pickle.dump(job_rotation_analyses_list[a], f)
 
         # Convert job analysis to data class
@@ -1219,10 +1219,12 @@ def analyze_party_rotation(
         )
 
         # Write data class
-        with open(BLOB_URI / f"job-analysis-data-{job_analysis_id[a]}.pkl", "wb") as f:
+        with open(BLOB_URI / f"job-analysis-data-{job_analysis_ids[a]}.pkl", "wb") as f:
             pickle.dump(job_analysis_data, f)
 
         # Update report table
+        unflag_redo_rotation(job_analysis_ids[a])
+        unflag_report_recompute(job_analysis_ids[a])
         update_report_table(job_db_rows[a])
         pass
 
@@ -1262,7 +1264,7 @@ def analyze_party_rotation(
 
     # Update party report table
     individual_analysis_ids = [None] * 8
-    individual_analysis_ids[0 : len(job_analysis_id)] = job_analysis_id
+    individual_analysis_ids[0 : len(job_analysis_ids)] = job_analysis_ids
     db_row = tuple(
         [
             party_analysis_id,

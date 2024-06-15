@@ -258,6 +258,18 @@ def update_report_table(db_row):
         db_row,
     )
     con.commit()
+    # Drop any duplicate records
+    cur.execute(
+        """
+    delete from report 
+     where rowid not in (
+        select min(rowid)
+        from report
+        group by analysis_id
+     )
+    """
+    )
+    con.commit()
     cur.close()
     con.close()
     pass
@@ -272,6 +284,19 @@ def update_party_report_table(db_row):
     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         db_row,
+    )
+    con.commit()
+ 
+    # Drop any duplicate records
+    cur.execute(
+        """
+    delete from party_report 
+     where rowid not in (
+        select min(rowid)
+        from party_report
+        group by party_analysis_id
+     )
+    """
     )
     con.commit()
     cur.close()
