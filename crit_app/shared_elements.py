@@ -37,7 +37,7 @@ def etro_build(gearset_id):
             None,
             None,
         )
-    
+
     job_abbreviated = build_result["jobAbbrev"]
     build_name = build_result["name"]
 
@@ -269,7 +269,7 @@ def update_party_report_table(db_row):
     cur.execute(
         """
     insert into party_report 
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         db_row,
     )
@@ -298,6 +298,24 @@ def unflag_redo_rotation(analysis_id):
 
     cur.execute(f"""
     update report set redo_rotation_flag = 0 where analysis_id = "{analysis_id}"
+    """)
+    con.commit()
+    cur.close()
+    con.close()
+    pass
+
+
+def unflag_party_report_recompute(analysis_id):
+    """
+    Set the recompute flag to 0 for a party analysis ID.
+    Used after the report has been recomputed.
+
+    """
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+
+    cur.execute(f"""
+    update party_report set redo_analysis_flag = 0 where party_analysis_id = "{analysis_id}"
     """)
     con.commit()
     cur.close()
@@ -353,11 +371,12 @@ def update_access_table(db_row):
     con.close()
     pass
 
-def format_kill_time_str(kill_time):
 
+def format_kill_time_str(kill_time):
     return f"{int(kill_time//60):02}:{int(kill_time%60):02}.{int(round((kill_time % 60 % 1) * 1000, 0))}"
 
-def check_prior_analyses(
+
+def check_prior_job_analyses(
     report_id,
     fight_id,
     player_id,
@@ -411,6 +430,45 @@ def check_prior_analyses(
     return matched_record["analysis_id"].iloc[0]
 
 
+def check_prior_party_analysis(
+    job_analysis_id_list: list, report_id: str, fight_id: int, party_size=8
+):
+    """Check if a list of job-level analysis IDs map to a party analysis ID
+
+    Args:
+        job_analysis_id_list (_type_): _description_
+    """
+
+    if len(set(job_analysis_id_list)) != party_size:
+        return None, 1
+
+    party_analysis_ids = read_party_report_table()
+
+    party_analysis_ids = party_analysis_ids[
+        (party_analysis_ids["report_id"] == report_id)
+        & (party_analysis_ids["fight_id"] == fight_id)
+    ]
+
+    if len(party_analysis_ids) == 0:
+        return None, 1
+
+    all_job_analyses_match = (
+        (~party_analysis_ids[party_analysis_ids.isin(job_analysis_id_list)].isna())[
+            [f"analysis_id_{x+1}" for x in range(len(job_analysis_id_list))]
+        ]
+        .all(axis=1)
+        .iloc[0]
+    )
+
+    if all_job_analyses_match:
+        matched_party_analysis_id = party_analysis_ids["party_analysis_id"].iloc[0]
+        recompute_flag = party_analysis_ids["redo_analysis_flag"].iloc[0]
+
+        return matched_party_analysis_id, recompute_flag
+    else:
+        return None, 1
+
+
 def rotation_analysis(
     role: str,
     job_no_space: str,
@@ -427,6 +485,8 @@ def rotation_analysis(
     main_stat_pre_bonus: int,
     rotation_delta: int = 100,
     rotation_step: int = 0.5,
+    action_delta: int = 10,
+    compute_mgf: bool = False,
 ):
     """Analyze the rotation of a job.
 
@@ -519,7 +579,6 @@ def rotation_analysis(
     else:
         raise ValueError("Incorrect role specified.")
 
-    action_delta = 10
     job_obj.attach_rotation(
         rotation_df,
         t,
@@ -527,7 +586,7 @@ def rotation_analysis(
         rotation_pdf_step=rotation_step,
         action_delta=action_delta,
         purge_action_moments=True,
-        compute_mgf=False,
+        compute_mgf=compute_mgf,
     )
     # job_obj.action_moments = [None] * len(job_obj.action_moments)
 

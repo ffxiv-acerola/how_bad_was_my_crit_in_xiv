@@ -4,10 +4,11 @@ from uuid import uuid4
 
 import dash
 import dash_bootstrap_components as dbc
+import pandas as pd
 from api_queries import (
     get_encounter_job_info,
     headers,
-    limit_break_damage,
+    limit_break_damage_events,
     parse_etro_url,
     parse_fflogs_url,
 )
@@ -26,9 +27,9 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 from dmg_distribution import (
-    JobRotationClippings,
+    JobAnalysis,
     PartyRotation,
-    PartyRotationClipping,
+    SplitPartyRotation,
     rotation_dps_pdf,
     unconvovle_clipped_pdf,
 )
@@ -58,13 +59,15 @@ from party_cards import (
 )
 from rotation import RotationTable
 from shared_elements import (
-    check_prior_analyses,
+    check_prior_job_analyses,
+    check_prior_party_analysis,
     etro_build,
     format_kill_time_str,
     read_encounter_table,
     read_party_report_table,
     read_report_table,
     rotation_analysis,
+    unflag_party_report_recompute,
     update_encounter_table,
     update_party_report_table,
     update_report_table,
@@ -98,11 +101,25 @@ def layout(party_analysis_id=None):
 
     else:
         # Read in everything:
-        with open(
-            BLOB_URI / "party-analyses" / f"party-analysis-{party_analysis_id}.pkl",
-            "rb",
-        ) as f:
-            party_analysis_obj = pickle.load(f)
+        try:
+            with open(
+                BLOB_URI / "party-analyses" / f"party-analysis-{party_analysis_id}.pkl",
+                "rb",
+            ) as f:
+                party_analysis_obj = pickle.load(f)
+        except Exception as e:
+            return html.Div(
+                [
+                    html.H2("404 Not Found"),
+                    html.P(
+                        [
+                            "The link entered does not exist. ",
+                            html.A("Click here", href="/party_analysis"),
+                            " to return home and analyze a rotation.",
+                        ]
+                    ),
+                ]
+            )
 
         # Party level analysis,
         party_report_df = read_party_report_table()
@@ -443,7 +460,7 @@ def layout(party_analysis_id=None):
 def load_job_rotation_figure(job_analysis_id, graph_type):
     if job_analysis_id is None:
         raise PreventUpdate
-    with open(BLOB_URI / f"job-analysis-object-{job_analysis_id}.pkl", "rb") as f:
+    with open(BLOB_URI / f"job-analysis-data-{job_analysis_id}.pkl", "rb") as f:
         job_object = pickle.load(f)
 
     with open(BLOB_URI / f"rotation-object-{job_analysis_id}.pkl", "rb") as f:
@@ -526,6 +543,7 @@ def party_fflogs_process(n_clicks, url):
         encounter_id,
         start_time,
         job_information,
+        limit_break_information,
         kill_time,
         encounter_name,
         report_start_time,
@@ -610,7 +628,7 @@ def party_fflogs_process(n_clicks, url):
                 k["job"],
                 k["role"],
             )
-            for k in job_information
+            for k in job_information + limit_break_information
         ]
         update_encounter_table(db_rows)
     return "looking good", encounter_children
@@ -887,6 +905,21 @@ def analyze_party_rotation(
     encounter_name,
     fflogs_url,
 ):
+    """
+    Analyze and compute the damage distribution of a whole party. This is done by
+    computing the damage distribution of each job and convolving each one together.
+
+    The likelihood of faster kill times is also analyzed, by computing the percentile
+    of the damage distribution >= Boss HP when the each job's rotation is shortened by
+    2.5, 5.0, 7.5, and 10.0 seconds.
+
+    Notation:
+
+    party rotation = (truncated party rotation) + (party rotation clipping)
+
+    party_{} -
+    {}_truncat
+    """
     if n_clicks is None:
         raise PreventUpdate
 
@@ -900,51 +933,47 @@ def analyze_party_rotation(
     ]
     pet_ids = matched_encounter.set_index("player_id")["pet_ids"].to_dict()
     encounter_id = matched_encounter["encounter_id"].iloc[0]
-    lb_damage = limit_break_damage(report_id, fight_id)
+
+    # Get Limit Break instances
+    # Check if LB was used, get its ID if it was
+    if len(matched_encounter[matched_encounter["job"] == "LimitBreak"]) > 0:
+        lb_id = int(
+            matched_encounter[matched_encounter["job"] == "LimitBreak"][
+                "player_id"
+            ].iloc[0]
+        )
+        lb_damage_events_df = limit_break_damage_events(report_id, fight_id, lb_id)
+        lb_damage = lb_damage_events_df["amount"].sum()
+    else:
+        lb_damage_events_df = pd.DataFrame(columns=["timestamp"])
+        lb_damage = 0
+
+    # Party bonus to main stat
+    main_stat_multiplier = 1 + len(set(main_stat_label)) / 100
 
     t_clips = [2.5, 5, 7.5, 10]
-    dmg_step = 250
-
+    # Damage step size for
+    rotation_dmg_step = 20
+    action_delta = 2
+    rotation_delta = 10
+    n_data_points = 5000
     job_analysis_id = []
-    rotation_list = []
-    rotation_pdf_list = []
-    clipped_rotation_pdf_list = {t: [] for t in t_clips}
 
-    main_stat_multiplier = 1 + len(set(main_stat_label)) / 100
-    medication_amt = 262
+    ######
+    # Job-level analyses
+    ######
 
-    n_already_analyzed = 0
-    for a in range(len(job)):
-        full_job = reverse_abbreviated_role_map[job[a]]
-        role = role_mapping[full_job]
+    # Whole job rotations
+    job_rotation_analyses_list = []
+    job_rotation_pdf_list = []
+    job_db_rows = []
 
-        # Progress bar
-        current_job = [
-            "Analysis progress: ",
-            html.Span(
-                job[a],
-                style={
-                    "font-family": "job-icons",
-                    "font-size": "1.2em",
-                    "position": "relative",
-                    "top": "4px",
-                },
-            ),
-        ]
-        # style={"font-size": "1.3em"},
-        current_job = job_progress(job, job[a])
-        set_progress((a, len(job), current_job))
+    # Job rotation clippings to unconvolve out later
+    job_rotation_clipping_pdf_list = {t: [] for t in t_clips}
+    job_rotation_clipping_analyses = {t: [] for t in t_clips}
 
-        main_stat_buff = int(main_stat_no_buff[a] * main_stat_multiplier)
-        secondary_stat_buff = (
-            int(secondary_stat_no_buff[a] * main_stat_multiplier)
-            if role in ("Healer", "Magical Ranged")
-            else secondary_stat_no_buff[a]
-        )
-        # FIXME:
-        gearset_id = etro_url[a]
-        # Check if job has been analyzed with this build before
-        matched_id = check_prior_analyses(
+    matched_ids = [
+        check_prior_job_analyses(
             report_id,
             fight_id,
             player_id[a],
@@ -959,69 +988,91 @@ def analyze_party_rotation(
             delay[a],
             medication_amt,
         )
+        for a in range(len(job))
+    ]
 
-        # If it hasn't or is flagged for recompute, reanalyze
-        # Also recompute clippings in case the rotation was flagged for recompute
-        if matched_id is None:
-            redo_clippings = True
-            rotation_list.append(
-                RotationTable(
-                    headers,
-                    report_id,
-                    fight_id,
-                    full_job,
-                    player_id[a],
-                    crit[a],
-                    dh[a],
-                    determination[a],
-                    medication_amt,
-                    damage_buff_table,
-                    critical_hit_rate_table,
-                    direct_hit_rate_table,
-                    guaranteed_hits_by_action_table,
-                    guaranteed_hits_by_buff_table,
-                    potency_table,
-                    pet_ids[player_id[a]],
-                )
+    if len(matched_ids) == len(job):
+        # FIXME: function to match job analysis IDs to the party analysis ID
+        party_analysis_id, redo_party_analysis = None, 1
+        party_analysis_id, redo_party_analysis = check_prior_party_analysis(matched_ids, report_id, fight_id, len(job))
+        if redo_party_analysis == 0:
+            return f"/party_analysis/{party_analysis_id}"
+
+    # Compute job-level analyses
+    for a in range(len(job)):
+        full_job = reverse_abbreviated_role_map[job[a]]
+        role = role_mapping[full_job]
+
+        # Progress bar
+        current_job = job_progress(job, job[a])
+        set_progress((a, len(job), current_job))
+
+        main_stat_buff = int(main_stat_no_buff[a] * main_stat_multiplier)
+        secondary_stat_buff = (
+            int(secondary_stat_no_buff[a] * main_stat_multiplier)
+            if role in ("Healer", "Magical Ranged")
+            else secondary_stat_no_buff[a]
+        )
+        gearset_id = etro_url[a]
+
+        job_rotation_analyses_list.append(
+            RotationTable(
+                headers,
+                report_id,
+                fight_id,
+                full_job,
+                player_id[a],
+                crit[a],
+                dh[a],
+                determination[a],
+                medication_amt,
+                damage_buff_table,
+                critical_hit_rate_table,
+                direct_hit_rate_table,
+                guaranteed_hits_by_action_table,
+                guaranteed_hits_by_buff_table,
+                potency_table,
+                pet_ids[player_id[a]],
             )
+        )
 
-            rotation_pdf_list.append(
-                rotation_analysis(
-                    role,
-                    full_job,
-                    rotation_list[a].rotation_df,
-                    1,
-                    main_stat_buff,
-                    secondary_stat_buff,
-                    determination[a],
-                    speed[a],
-                    crit[a],
-                    dh[a],
-                    weapon_damage[a],
-                    delay[a],
-                    main_stat_no_buff[a],
-                    rotation_step=dmg_step,
-                )
+        job_rotation_pdf_list.append(
+            rotation_analysis(
+                role,
+                full_job,
+                job_rotation_analyses_list[a].rotation_df,
+                1,
+                main_stat_buff,
+                secondary_stat_buff,
+                determination[a],
+                speed[a],
+                crit[a],
+                dh[a],
+                weapon_damage[a],
+                delay[a],
+                main_stat_no_buff[a],
+                rotation_step=rotation_dmg_step,
+                rotation_delta=rotation_delta,
+                action_delta=action_delta,
+                compute_mgf=False,
             )
+        )
 
-            # Assign analysis ID
-            matched_id = str(uuid4())
+        # Assign analysis ID
+        # FIXME: only append if analysis ID is None
+        job_analysis_id.append(str(uuid4()))
+        main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"]
+        secondary_stat_type = role_stat_dict[role]["secondary_stat"]["placeholder"]
+        gearset_id, _ = parse_etro_url(gearset_id)
 
-            with open(BLOB_URI / f"rotation-object-{matched_id}.pkl", "wb") as f:
-                pickle.dump(rotation_list[a], f)
-            with open(BLOB_URI / f"job-analysis-object-{matched_id}.pkl", "wb") as f:
-                pickle.dump(rotation_pdf_list[a], f)
-
-            main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"]
-            secondary_stat_type = role_stat_dict[role]["secondary_stat"]["placeholder"]
-            gearset_id, _ = parse_etro_url(gearset_id)
-            # Update DB
-            db_row = (
-                matched_id,
+        # Collect DB rows to insert at the end
+        job_db_rows.append(
+            (
+                job_analysis_id[a],
                 report_id,
                 fight_id,
                 encounter_name,
-                rotation_list[a].fight_time,
+                job_rotation_analyses_list[a].fight_time,
                 full_job,
                 player_name[a],
                 int(main_stat_no_buff[a]),
@@ -1042,150 +1093,174 @@ def analyze_party_rotation(
                 0,
                 0,
             )
-            update_report_table(db_row)
-        # Otherwise just read rotation object in
-        else:
-            n_already_analyzed += 1
-            redo_clippings = False
-            with open(BLOB_URI / f"rotation-object-{matched_id}.pkl", "rb") as f:
-                rotation_list.append(pickle.load(f))
-
-            with open(BLOB_URI / f"job-analysis-object-{matched_id}.pkl", "rb") as f:
-                rotation_pdf_list.append(pickle.load(f))
-
-        job_analysis_id.append(matched_id)
-        # Now check if rotation clippings exist
-        clipping_file = (
-            BLOB_URI / "job-rotation-clippings" / f"rotation-clippings-{matched_id}.pkl"
-        )
-        if (clipping_file).exists() or (not redo_clippings):
-            with open(clipping_file, "rb") as f:
-                job_clippings = pickle.load(f)
-            for x in range(len(job_clippings.analysis_clipping)):
-                clipped_rotation_pdf_list[job_clippings.clipping_duration[x]].append(
-                    job_clippings.analysis_clipping[x]
-                )
-
-        # If not, create them
-        else:
-            actions_df = rotation_list[a].actions_df
-            if role in ("Healer", "Magical Ranged"):
-                actions_df = actions_df[actions_df["ability_name"] != "attack"]
-
-            # We have to get a little cute here because it's possible for to return an empty rotation
-            # If that's the case, we just want to skip over it and not append it, so individual lists
-            # of each dataclass are created and appended to if a rotation is returned.
-            t_out = []
-            clipped_rotations = []
-            clipped_rotation_analyses = []
-            for idx, t in enumerate(t_clips):
-                print(t)
-                clipped_rotations.append(
-                    rotation_list[a].make_rotation_df(
-                        actions_df, t_end_clip=t, return_clipped=True
-                    )
-                )
-                if clipped_rotations[idx] is not None:
-                    clipped_rotation_analyses.append(
-                        rotation_analysis(
-                            role,
-                            full_job,
-                            clipped_rotations[idx],
-                            1,
-                            main_stat_buff,
-                            secondary_stat_buff,
-                            determination[a],
-                            speed[a],
-                            crit[a],
-                            dh[a],
-                            weapon_damage[a],
-                            delay[a],
-                            main_stat_no_buff[a],
-                            rotation_step=dmg_step,
-                        )
-                    )
-                    clipped_rotation_pdf_list[t].append(clipped_rotation_analyses[-1])
-                    t_out.append(t)
-            with open(clipping_file, "wb") as f:
-                pickle.dump(
-                    JobRotationClippings(
-                        t_out, clipped_rotations, clipped_rotation_analyses
-                    ),
-                    f,
-                )
-
-    if n_already_analyzed == len(job):
-        # find party_analysis_id if all jobs already match
-        party_df = read_party_report_table()
-
-        # Filter to same fight
-        same_fight = party_df[
-            (party_df["report_id"] == report_id) & (party_df["fight_id"] == fight_id)
-        ]
-        party_analysis_id = None
-
-        # Then
-        all_ids_match = (
-            same_fight["analysis_id_1"].isin(job_analysis_id)
-            & same_fight["analysis_id_2"].isin(job_analysis_id)
-            & same_fight["analysis_id_3"].isin(job_analysis_id)
-            & same_fight["analysis_id_4"].isin(job_analysis_id)
-            & same_fight["analysis_id_5"].isin(job_analysis_id)
-            & same_fight["analysis_id_6"].isin(job_analysis_id)
-            & same_fight["analysis_id_7"].isin(job_analysis_id)
-            & same_fight["analysis_id_8"].isin(job_analysis_id)
         )
 
-        party_analysis_id = same_fight[all_ids_match]["party_analysis_id"]
+        actions_df = job_rotation_analyses_list[a].actions_df
+        if role in ("Healer", "Magical Ranged"):
+            actions_df = actions_df[actions_df["ability_name"] != "attack"]
 
-        if len(party_analysis_id) > 0:
-            current_job = "Analysis progress: Done!"
-            set_progress((a + 1, len(job), current_job, "Analysis progress:"))
-            return f"/party_analysis/{party_analysis_id.iloc[0]}"
+        # We have to get a little cute here because it's possible for to return an empty rotation
+        # If that's the case, we just want to skip over it and not append it, so individual lists
+        # of each dataclass are created and appended to if a rotation is returned.
+        t_out = []
+        clipped_rotations = []
+        for idx, t in enumerate(t_clips):
+            print(t)
+            clipped_rotations.append(
+                job_rotation_analyses_list[a].make_rotation_df(
+                    actions_df, t_end_clip=t, return_clipped=True
+                )
+            )
+            if clipped_rotations[idx] is not None:
+                # Compute mean via MGFs because it is cheap to compute
+                # and will be exact. We need the mean later when we unconvolve
+                # to create a truncated rotation.
+                job_rotation_clipping_analyses[t].append(
+                    rotation_analysis(
+                        role,
+                        full_job,
+                        clipped_rotations[idx],
+                        1,
+                        main_stat_buff,
+                        secondary_stat_buff,
+                        determination[a],
+                        speed[a],
+                        crit[a],
+                        dh[a],
+                        weapon_damage[a],
+                        delay[a],
+                        main_stat_no_buff[a],
+                        rotation_step=rotation_dmg_step,
+                        rotation_delta=rotation_delta,
+                        action_delta=action_delta,
+                        compute_mgf=True,
+                    )
+                )
+                job_rotation_clipping_pdf_list[t].append(
+                    job_rotation_clipping_analyses[t][-1]
+                )
+                t_out.append(t)
 
-        else:
-            return "/party_analysis/oopsy_poopsy_its_a_404"
+    ########################
+    # Party-level analysis
+    ########################
+    rotation_pdf, rotation_supp = rotation_dps_pdf(job_rotation_pdf_list, lb_damage)
 
-    rotation_pdf, rotation_supp = rotation_dps_pdf(rotation_pdf_list, lb_damage)
+    party_distribution_clipping = {t: {} for t in t_clips}
+    truncated_party_distribution = {t: {} for t in t_clips}
 
-    clipped_party_distribution = {t: {} for t in t_clips}
-    shortened_party_distribution = {t: {} for t in t_clips}
-
+    # Create truncated damage distributions for kill time analysis
+    rotation_mean = sum([j.rotation_mean for j in job_rotation_pdf_list])
+    fight_end_timestamp = job_rotation_analyses_list[0].fight_end_time
     for t in t_clips:
+        # Convolve rotation clippings together
         (
-            clipped_party_distribution[t]["pdf"],
-            clipped_party_distribution[t]["support"],
-        ) = rotation_dps_pdf(clipped_rotation_pdf_list[t], lb_damage)
+            party_distribution_clipping[t]["pdf"],
+            party_distribution_clipping[t]["support"],
+        ) = rotation_dps_pdf(job_rotation_clipping_pdf_list[t])
+
+        # Subtract out the party rotation clipping
+        # More efficient than recomputing the entire rotation,
+        # which only very slightly changes.
+
+        # FIXME: Check if any LB damage is lost when a rotation is truncated.
+        party_rotation_clipping_mean = sum(
+            [j.rotation_mean for j in job_rotation_clipping_analyses[t]]
+        )
+
+        # Filter LB damage events that happen within truncated rotation
+        lb_damage = lb_damage_events_df[
+            lb_damage_events_df["timestamp"] <= (fight_end_timestamp - 1000 * t)
+        ]
+
+        # Set to 0 if none exist, otherwise sum amounts.
+        if len(lb_damage) == 0:
+            lb_damage = 0
+        else:
+            lb_damage = lb_damage["amount"].sum()
 
         (
-            shortened_party_distribution[t]["pdf"],
-            shortened_party_distribution[t]["support"],
+            truncated_party_distribution[t]["pdf"],
+            truncated_party_distribution[t]["support"],
         ) = unconvovle_clipped_pdf(
             rotation_pdf,
-            clipped_party_distribution[t]["pdf"],
+            party_distribution_clipping[t]["pdf"],
             rotation_supp,
-            clipped_party_distribution[t]["support"],
+            party_distribution_clipping[t]["support"],
+            party_rotation_clipping_mean,
+            rotation_mean,
+            limit_break_damage=lb_damage,
+            dmg_step=rotation_dmg_step,
         )
 
-    party_analysis_id = str(uuid4())
+    ##########################################
+    # Export all the data we've generated
+    ##########################################
+
+    # Job analyses
+    for a in range(len(job_rotation_pdf_list)):
+        # Write RotationTable
+        with open(BLOB_URI / f"rotation-object-{job_analysis_id[a]}.pkl", "wb") as f:
+            pickle.dump(job_rotation_analyses_list[a], f)
+
+        # Convert job analysis to data class
+        job_analysis_data = JobAnalysis(
+            job_rotation_pdf_list[a].t,
+            job_rotation_pdf_list[a].rotation_mean,
+            job_rotation_pdf_list[a].rotation_variance,
+            job_rotation_pdf_list[a].rotation_std,
+            job_rotation_pdf_list[a].rotation_skewness,
+            job_rotation_pdf_list[a].rotation_dps_distribution,
+            job_rotation_pdf_list[a].rotation_dps_support,
+            job_rotation_pdf_list[a].unique_actions_distribution,
+        )
+        job_analysis_data.interpolate_distributions(
+            rotation_n=n_data_points, action_n=n_data_points
+        )
+
+        # Write data class
+        with open(BLOB_URI / f"job-analysis-data-{job_analysis_id[a]}.pkl", "wb") as f:
+            pickle.dump(job_analysis_data, f)
+
+        # Update report table
+        update_report_table(job_db_rows[a])
+        pass
+
+    # Party analysis
+    # Create an ID if it's not a recompute
+    if party_analysis_id is None:
+        party_analysis_id = str(uuid4())
+
     party_rotation = PartyRotation(
         party_analysis_id,
         boss_hp[encounter_id],
+        lb_damage_events_df,
         rotation_pdf,
         rotation_supp,
         [
-            PartyRotationClipping(
+            SplitPartyRotation(
                 t,
                 boss_hp[encounter_id],
-                shortened_party_distribution[t]["pdf"],
-                shortened_party_distribution[t]["support"],
-                clipped_party_distribution[t]["pdf"],
-                clipped_party_distribution[t]["support"],
+                truncated_party_distribution[t]["pdf"],
+                truncated_party_distribution[t]["support"],
+                party_distribution_clipping[t]["pdf"],
+                party_distribution_clipping[t]["support"],
             )
             for t in t_clips
         ],
     )
 
+    party_rotation.interpolate_distributions(
+        rotation_n=n_data_points, split_n=n_data_points
+    )
+
+    # Write party analysis to disk
+    with open(
+        BLOB_URI / "party-analyses" / f"party-analysis-{party_analysis_id}.pkl", "wb"
+    ) as f:
+        pickle.dump(party_rotation, f)
+
+    # Update party report table
     individual_analysis_ids = [None] * 8
     individual_analysis_ids[0 : len(job_analysis_id)] = job_analysis_id
     db_row = tuple(
@@ -1195,13 +1270,12 @@ def analyze_party_rotation(
             fight_id,
         ]
         + individual_analysis_ids
+        + [0]
     )
-
-    update_party_report_table(db_row)
-    with open(
-        BLOB_URI / "party-analyses" / f"party-analysis-{party_analysis_id}.pkl", "wb"
-    ) as f:
-        pickle.dump(party_rotation, f)
+    if redo_party_analysis == 1:
+        update_party_report_table(db_row)
+    else:
+        unflag_party_report_recompute(party_analysis_id)
 
     current_job = "Analysis progress: Done!"
     set_progress((a + 1, len(job), current_job, "Analysis progress:"))

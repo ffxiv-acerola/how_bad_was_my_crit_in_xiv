@@ -6,6 +6,7 @@ from urllib.parse import urlparse, parse_qs
 import json
 
 import requests
+import pandas as pd
 
 from config import FFLOGS_TOKEN
 from job_data.roles import role_mapping
@@ -99,10 +100,13 @@ def get_encounter_job_info(code: str, fight_id: int):
     start_time = encounter_info["startTime"]
 
     # This probably isn't needed, but would require updating a table schema.
-    server_info = r["data"]["reportData"]["report"]["playerDetails"]["data"]["playerDetails"]
+    server_info = r["data"]["reportData"]["report"]["playerDetails"]["data"][
+        "playerDetails"
+    ]
     server_info = {y["name"]: y["server"] for x in server_info for y in server_info[x]}
     # simple filter and remapping
     jobs = []
+    limit_break = []
     for x in r["data"]["reportData"]["report"]["table"]["data"]["entries"]:
         if "pets" in x.keys():
             pet_ids = json.dumps([y["id"] for y in x["pets"]])
@@ -121,26 +125,52 @@ def get_encounter_job_info(code: str, fight_id: int):
                 }
             )
 
-    fight_time = r['data']['reportData']['report']['rankings']['data'][0]["duration"]
+        elif x["name"] == "Limit Break":
+            limit_break.append(
+                {
+                    "job": x["icon"],
+                    "player_name": x["name"],
+                    "player_server": None,
+                    "player_id": x["id"],
+                    "pet_ids": pet_ids,
+                    "role": "Limit Break",
+                }
+            )
+
+    fight_time = r["data"]["reportData"]["report"]["rankings"]["data"][0]["duration"]
     fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
     report_start_time = r["data"]["reportData"]["report"]["startTime"]
-    return encounter_id, start_time, jobs, fight_time / 1000, fight_name, report_start_time, r
+    return (
+        encounter_id,
+        start_time,
+        jobs,
+        limit_break,
+        fight_time / 1000,
+        fight_name,
+        report_start_time,
+        r,
+    )
 
-def limit_break_damage(code: str, fight_id: int):
-    variables = {"code": code, "id": [fight_id]}
+
+def limit_break_damage_events(report_id: str, fight_id: int, limit_break_id: int):
+    """
+    Get all LB damage events which successfully landed on its target as a pandas DataFrame.
+    """
+    variables = {"code": report_id, "id": [fight_id], "limitBreakID": limit_break_id}
 
     json_payload = {
         "query": """
-        query LimitBreakDamage(
-            $code: String!
-            $id: [Int]!
-        ) {
+        query LimitBreakDamage($code: String!, $id: [Int]!, $limitBreakID: Int!) {
             reportData {
                 report(code: $code) {
-                    table(fightIDs: $id, dataType: DamageDone, sourceClass: "LimitBreak")
+                    startTime
+                    events(fightIDs: $id, sourceClass:"LimitBreak", sourceID: $limitBreakID){
+                        data
+                    }
                 }
             }
-        }
+}
+
     """,
         "variables": variables,
         "operationName": "LimitBreakDamage",
@@ -148,9 +178,23 @@ def limit_break_damage(code: str, fight_id: int):
     r = requests.post(url=url, json=json_payload, headers=headers)
     r = json.loads(r.text)
 
-    lb_data = r["data"]["reportData"]["report"]["table"]["data"]["entries"]
+    start_time = lb_data = r["data"]["reportData"]["report"]["startTime"]
+    lb_data = r["data"]["reportData"]["report"]["events"]["data"]
 
     if len(lb_data) == 0:
-        return 0
+        return pd.DataFrame(
+            data=[],
+            columns=["report_id", "fight_id", "timestamp", "target_id", "amount"],
+        )
     else:
-        return lb_data[0]["total"]
+        lb_df = pd.DataFrame(lb_data).rename(columns={"targetID": "target_id"})
+        lb_df = lb_df[lb_df["type"] == "calculateddamage"]
+
+        if "unpaired" in lb_df:
+            lb_df[lb_df["unpaired"] != True]
+
+        lb_df["fight_id"] = fight_id
+        lb_df["report_id"] = report_id
+        lb_df = lb_df[["report_id", "fight_id", "timestamp", "target_id", "amount"]]
+        lb_df["timestamp"] += start_time
+        return lb_df
