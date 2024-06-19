@@ -140,8 +140,6 @@ def layout(party_analysis_id=None):
             job_report_df, on=["report_id", "fight_id"], how="inner"
         )
 
-        active_dps_time = job_report_df["active_dps_time"].iloc[0]
-
         encounter_id, kill_time = party_report_df.merge(
             encounter_df, on=["report_id", "fight_id"]
         )[["encounter_id", "kill_time"]].iloc[0]

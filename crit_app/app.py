@@ -19,9 +19,9 @@ app = dash.Dash(
         dbc.icons.BOOTSTRAP,
         dbc.icons.FONT_AWESOME,
     ],
-    long_callback_manager=long_callback_manager
+    long_callback_manager=long_callback_manager,
     # external_stylesheets=[dbc.themes.BOOTSTRAP],
-    # suppress_callback_exceptions=True, # needed because some callbacks use dynamically generated id's
+    suppress_callback_exceptions=~DEBUG, # needed because some callbacks use dynamically generated id's
 )
 
 app.title = "How bad was my crit in FFXIV?"
@@ -50,6 +50,12 @@ header = html.Div(
                     target="_blank",
                 ),
                 ".",
+            ]
+        ),
+        html.P(
+            [
+                "Compute damage distributions for a party and estimate kill time ",
+                html.A("here.", href="/party_analysis"),
             ]
         ),
         html.A("More about this site", href="#", id="about-open"),
@@ -157,6 +163,7 @@ def toggle_about_modal(n1, n2, is_open):
         return not is_open
     return is_open
 
+
 @app.callback(
     Output("party-analysis-modal", "is_open"),
     Input("party-analysis-open", "n_clicks"),
@@ -172,6 +179,7 @@ def toggle_party_analysis_modal(n1, n2, is_open):
     if n1 or n2:
         return not is_open
     return is_open
+
 
 if __name__ == "__main__":
     app.run(debug=DEBUG)
