@@ -15,7 +15,9 @@ import numpy as np
 from dmg_distribution import get_dps_dmg_percentile, summarize_actions
 
 
-def make_rotation_pdf_figure(rotation_obj, rotation_dps, t=1):
+def make_rotation_pdf_figure(
+    rotation_obj, rotation_dps, active_dps_time, analysis_time
+):
     """
     Make a plotly figure showing the DPS distribution for a rotation.
     The actual DPS for the run and first three moments of the DPS distribution are shown.
@@ -23,16 +25,18 @@ def make_rotation_pdf_figure(rotation_obj, rotation_dps, t=1):
     Inputs:
     rotation_obj - Rotation object from ffxiv_stats with damage distributions computed.
     rotation_dps - float, DPS actually dealt.
+    active_dps_time - float, elapsed time in seconds, used to convert damage dealt to DPS.
 
     Returns:
     plotly figure object displaying rotation DPS distribution
     """
-    if t == 1:
+    t_div = active_dps_time / analysis_time
+    if t_div == 1:
         support = rotation_obj.rotation_dps_support
         density = rotation_obj.rotation_dps_distribution
 
     else:
-        support = rotation_obj.rotation_dps_support / t
+        support = rotation_obj.rotation_dps_support / active_dps_time
         density = rotation_obj.rotation_dps_distribution / np.trapz(
             rotation_obj.rotation_dps_distribution, support
         )
@@ -70,8 +74,8 @@ def make_rotation_pdf_figure(rotation_obj, rotation_dps, t=1):
 
     fig.update_xaxes(range=[x_min, x_max])
 
-    mu = rotation_obj.rotation_mean / t
-    sigma = rotation_obj.rotation_std / t
+    mu = rotation_obj.rotation_mean / t_div
+    sigma = rotation_obj.rotation_std / t_div
     fig.update_layout(
         title=f"Rotation DPS distribution: μ = {mu:.0f} DPS, σ = {sigma:.0f} DPS, γ = {rotation_obj.rotation_skewness:.3f}",
         xaxis_title="Damage per second (DPS)",
@@ -97,14 +101,24 @@ def make_rotation_percentile_table(rotation_obj, rotation_percentile):
         [0.1, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.999] + [rotation_percentile]
     )
     percentiles = np.array(percentiles)
-    dx = rotation_obj.rotation_dps_support[1] - rotation_obj.rotation_dps_support[0]
-    F = np.cumsum(rotation_obj.rotation_dps_distribution) * dx
+
+    t_div = rotation_obj.active_dps_t / rotation_obj.analysis_t
+
+    support = rotation_obj.rotation_dps_support
+    density = rotation_obj.rotation_dps_distribution
+
+    if t_div > 1:
+        support /= t_div
+        density = density / np.trapz(density, support)
+
+    dx = support[1] - support[0]
+    F = np.cumsum(density) * dx
     percentile_idx = np.abs(F - percentiles[:, np.newaxis]).argmin(axis=1)
 
     rotation_percentile_df = pd.DataFrame(
         {
             "Percentile": percentiles,
-            "DPS": rotation_obj.rotation_dps_support[percentile_idx],
+            "DPS": support[percentile_idx],
         }
     )
     style_rotation_percentile = [
@@ -138,7 +152,7 @@ def make_rotation_percentile_table(rotation_obj, rotation_percentile):
     return rotation_percentile_table
 
 
-def make_action_pdfs_figure(rotation_obj, action_dps, t_scale=1):
+def make_action_pdfs_figure(rotation_obj, action_dps, active_dps_time, analysis_time):
     """
     Plot damage distributions for each action.
     The actual damage dealt is also plotted.
@@ -150,6 +164,7 @@ def make_action_pdfs_figure(rotation_obj, action_dps, t_scale=1):
     Returns:
     Plotly figure with action DPS distributions plotted
     """
+    t_div = active_dps_time / analysis_time
     fig = px.line(template="plotly_dark")
 
     # Attempt at auto setting x and y limits
@@ -162,18 +177,13 @@ def make_action_pdfs_figure(rotation_obj, action_dps, t_scale=1):
     max_density = rotation_obj.rotation_dps_distribution.max()
 
     for idx, (k, v) in enumerate(rotation_obj.unique_actions_distribution.items()):
-        # Use fewer points if there are more than 5k
-        if len(v["dps_distribution"]) > 5000:
-            support = np.linspace(v["support"][0], v["support"][-1], 2500)
-            density = np.interp(support, v["support"], v["dps_distribution"])
-
-        else:
+        if t_div == 1:
             density = v["dps_distribution"]
             support = v["support"]
 
-        if t_scale > 1:
-            support /= t_scale
-            density = density / np.trapz(density, support)
+        else:
+            support = v["support"] / active_dps_time
+            density = v["dps_distribution"] / np.trapz(v["dps_distribution"], support)
 
         dx = support[1] - support[0]
         F_percentile = np.cumsum(density) * dx
@@ -228,7 +238,7 @@ def make_action_pdfs_figure(rotation_obj, action_dps, t_scale=1):
     return fig
 
 
-def make_action_table(rotation_obj, action_df, t):
+def make_action_table(rotation_obj, action_df):
     """
     Create a table listing an action name, expected DPS, actual DPS dealt, and the corresponding percentile.
 
@@ -241,7 +251,10 @@ def make_action_table(rotation_obj, action_df, t):
     list containing a Dash table with action, expected dps, actual dps, and percentile.
     """
     action_summary_df = summarize_actions(
-        action_df, rotation_obj.unique_actions_distribution, t
+        action_df,
+        rotation_obj.unique_actions_distribution,
+        rotation_obj.active_dps_t,
+        rotation_obj.analysis_t,
     ).sort_values("actual_dps_dealt", ascending=False)
     action_summary_df = action_summary_df.rename(
         columns={
@@ -302,15 +315,16 @@ def make_kill_time_graph(party_rotation_dataclass, kill_time_seconds: int):
         (1 - y.percentile) for y in party_rotation_dataclass.shortened_rotations
     ]
 
-    
-    x_real = [f"2024-01-01 00:{int(kill_time_seconds//60):02}:{int(kill_time_seconds%60):02}.{int(round((kill_time_seconds % 60 % 1) * 1000, 0))}"]
+    x_real = [
+        f"2024-01-01 00:{int(kill_time_seconds//60):02}:{int(kill_time_seconds%60):02}.{int(round((kill_time_seconds % 60 % 1) * 1000, 0))}"
+    ]
     y_real = [(1 - party_rotation_dataclass.percentile)]
 
     y_min, y_max = (np.floor(np.log10(y_theoretical)) - 1).min(), 1e-2
 
     layout = go.Layout(
         yaxis=dict(range=[y_min, y_max], type="log", tickformat="%"),
-        xaxis=dict(tickformat=r"%M:%S"),
+        xaxis=dict(tickformat=r"%M:%S.%L"),
         xaxis_title=dict(text="Kill time (KT)"),
         yaxis_title=dict(text="% of kills faster than KT"),
         template="plotly_dark",
@@ -336,36 +350,35 @@ def make_kill_time_graph(party_rotation_dataclass, kill_time_seconds: int):
                 marker_line_color="#009670",
                 name="Theoretical KT",
             ),
-
         ],
         layout=layout,
     )
 
-    fig.update_layout(
-        xaxis_tickformatstops=[
-            dict(dtickrange=[1, 100], value=".0%"),
-            dict(dtickrange=[0.001, 1], value=".4%"),
-        ]
-    )
+    fig.update_yaxes(tickformat=".2%")
+    fig.update_yaxes(automargin=True)
+    fig.update_xaxes(automargin=True)
+
     return fig
 
 
-def make_party_rotation_pdf_figure(party_support, party_pdf, boss_hp, active_dps_time):
-    support = np.linspace(party_support[0], party_support[-1], num=5500)
-    density = np.interp(support, party_support, party_pdf)
+def make_party_rotation_pdf_figure(party_analysis_data):
+    boss_hp = party_analysis_data.boss_hp
+    party_support = party_analysis_data.party_damage_support
+    party_pdf = party_analysis_data.party_damage_distribution
+    t = party_analysis_data.active_dps_time
 
-    support /= active_dps_time
-    density = density / np.trapz(density, support)
+    party_support /= t
+    party_pdf = party_pdf / np.trapz(party_pdf, party_support)
 
-    max_density = density.max()
-    x_lim = support[density > max_density * 5e-6]
+    max_density = party_pdf.max()
+    x_lim = party_support[party_pdf > max_density * 5e-6]
     x_min, x_max = x_lim[0], x_lim[-1]
 
-    party_dps_x = boss_hp / active_dps_time
-    party_dps_y = density[np.abs(support - party_dps_x).argmin()]
+    party_dps_x = boss_hp / t
+    party_dps_y = party_pdf[np.abs(party_support - party_dps_x).argmin()]
 
-    dx = support[1] - support[0]
-    F_percentile = np.cumsum(density) * dx
+    dx = party_support[1] - party_support[0]
+    F_percentile = np.cumsum(party_pdf) * dx
 
     layout = go.Layout(
         xaxis=dict(range=[x_min, x_max]),
@@ -377,8 +390,8 @@ def make_party_rotation_pdf_figure(party_support, party_pdf, boss_hp, active_dps
     fig = go.Figure(
         data=[
             go.Scatter(
-                x=support,
-                y=density,
+                x=party_support,
+                y=party_pdf,
                 mode="lines",
                 marker={"color": "#009670"},
                 name="DPS distribution",
@@ -389,10 +402,19 @@ def make_party_rotation_pdf_figure(party_support, party_pdf, boss_hp, active_dps
                 y=[party_dps_y],
                 marker={"size": 14, "color": "#009670"},
                 name="Actual DPS",
-                hovertext=f"Percentile: {F_percentile[np.abs(support - party_dps_x).argmin()]:.1%}",
+                hovertext=f"Percentile: {F_percentile[np.abs(party_support - party_dps_x).argmin()]:.1%}",
             ),
         ],
         layout=layout,
+    )
+
+    mu = party_analysis_data.party_mean / t
+    sigma = party_analysis_data.party_std / t
+    skew = party_analysis_data.party_skewness
+    fig.update_layout(
+        title=f"Party rotation DPS distribution: μ = {mu:.0f} DPS, σ = {sigma:.0f} DPS, γ = {skew:.3f}",
+        xaxis_title="Damage per second (DPS)",
+        yaxis_title="Frequency",
     )
 
     return fig

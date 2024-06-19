@@ -45,7 +45,8 @@ class JobStats:
 
 @dataclass
 class JobAnalysis:
-    t: float
+    active_dps_t: float
+    analysis_t: float
     rotation_mean: float
     rotation_variance: float
     rotation_std: float
@@ -53,7 +54,6 @@ class JobAnalysis:
     rotation_dps_distribution: ArrayLike
     rotation_dps_support: ArrayLike
     unique_actions_distribution: Dict
-    # job_stats: JobStats
 
     def interpolate_distributions(self, rotation_n=5000, action_n=5000):
         """Interpolate supplied distributions so the arrays have a fewer number of elements.
@@ -127,7 +127,11 @@ class SplitPartyRotation(KillTime):
 class PartyRotation(KillTime):
     party_id: str
     boss_hp: int
+    active_dps_time: float
     limit_break_events: pd.DataFrame
+    party_mean: float
+    party_std: float
+    party_skewness: float
     party_damage_distribution: ArrayLike
     party_damage_support: ArrayLike
     shortened_rotations: List[SplitPartyRotation]
@@ -200,7 +204,20 @@ class JobRotationClippings:
     analysis_clipping: List[JobAnalysis]
 
 
-def get_dps_dmg_percentile(dps, dmg_distribution, dmg_distribution_support):
+def job_analysis_to_data_class(job_analysis_object, active_dps_time):
+    return JobAnalysis(
+        active_dps_time,
+        job_analysis_object.t,
+        job_analysis_object.rotation_mean,
+        job_analysis_object.rotation_variance,
+        job_analysis_object.rotation_std,
+        job_analysis_object.rotation_skewness,
+        job_analysis_object.rotation_dps_distribution,
+        job_analysis_object.rotation_dps_support,
+        job_analysis_object.unique_actions_distribution
+    )
+
+def get_dps_dmg_percentile(dps, dmg_distribution, dmg_distribution_support, t_div=1):
     """
     Compute the CDF from a PDF and support, then find the corresponding percentile a value has
 
@@ -212,6 +229,10 @@ def get_dps_dmg_percentile(dps, dmg_distribution, dmg_distribution_support):
     returns
     percentile (as a percent)
     """
+    if t_div > 1:
+        dmg_distribution_support /= t_div
+        dmg_distribution = dmg_distribution / np.trapz(dmg_distribution, dmg_distribution_support)        
+
     dx = dmg_distribution_support[1] - dmg_distribution_support[0]
     F = np.cumsum(dmg_distribution) * dx
     return F[(np.abs(dmg_distribution_support - dps)).argmin()] * 100
@@ -223,7 +244,7 @@ def get_dmg_percentile(percentile, dmg_distribution, dmg_distribution_support):
     return dmg_distribution_support[np.abs(F - percentile).argmin()]
 
 
-def summarize_actions(actions_df, unique_actions, t):
+def summarize_actions(actions_df, unique_actions, active_dps_time, analysis_time):
     """
     List the expected DPS, actual DPS dealt, and corresponding percentile.
 
@@ -232,8 +253,14 @@ def summarize_actions(actions_df, unique_actions, t):
     unique_actions - unique_actions_distribution attribute from Job object in `ffxiv_stats`
     t - float, time elapsed. Set t=1 for damage dealt instead of dps.
     """
+    
+    if analysis_time == 1:
+        t_div = active_dps_time
+    else:
+        t_div = 1
+
     action_dps = (
-        actions_df[["ability_name", "amount"]].groupby("ability_name").sum() / t
+        actions_df[["ability_name", "amount"]].groupby("ability_name").sum() / active_dps_time
     )
 
     action_dps = action_dps.reset_index()
@@ -242,6 +269,7 @@ def summarize_actions(actions_df, unique_actions, t):
             x["amount"],
             unique_actions[x["ability_name"]]["dps_distribution"],
             unique_actions[x["ability_name"]]["support"],
+            t_div
         )
         / 100,
         axis=1,
