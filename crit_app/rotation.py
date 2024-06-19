@@ -191,14 +191,15 @@ class ActionTable(object):
                 headers, report_id, fight_id, player_id
             )
             self.actions_df = self.job_specifics.apply_elemental_buffs(self.actions_df)
-            self.actions_df = self.actions_df[self.actions_df["ability_name"] != "attack"]
+            self.actions_df = self.actions_df[
+                self.actions_df["ability_name"] != "attack"
+            ]
 
         elif self.job == "Summoner":
             self.actions_df = self.estimate_ground_effect_multiplier(
                 1002706,
             )
 
-        # FIXME: Update bootshine crit rates / dmg multiplier if opo opo form is present
         # FIXME: I think arm of the destroyer won't get updated but surely no one would use that in savage.
         elif self.job == "Monk":
             self.job_specifics = MonkActions(headers, report_id, fight_id, player_id)
@@ -311,6 +312,7 @@ class ActionTable(object):
                                 data
                                 nextPageTimestamp
                             }
+                            rankings(fightIDs: $id)
                             table(fightIDs: $id, dataType: DamageDone)
                             fights(fightIDs: $id, translate: true) {
                                 encounterID
@@ -341,6 +343,33 @@ class ActionTable(object):
             "nextPageTimestamp"
         ]
         self.actions.extend(r["data"]["reportData"]["report"]["events"]["data"])
+
+        # Get fight time by subtracting downtime from the total time
+        # Downtime wont exist as a key if there is no downtime, so check first.
+        fight_time = r["data"]["reportData"]["report"]["table"]["data"]["totalTime"]
+        if "downtime" in r["data"]["reportData"]["report"]["table"]["data"].keys():
+            downtime = r["data"]["reportData"]["report"]["table"]["data"]["downtime"]
+        else:
+            downtime = 0
+
+        self.fight_time = (fight_time - downtime) / 1000
+        self.fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
+
+        # All other timestamps are relative to this one
+        self.report_start_time = r["data"]["reportData"]["report"]["startTime"]
+        self.fight_end_time = (
+            self.report_start_time
+            + r["data"]["reportData"]["report"]["fights"][0]["endTime"]
+        )
+
+        self.ability_name_mapping = r["data"]["reportData"]["report"]["masterData"][
+            "abilities"
+        ]
+        self.ability_name_mapping = {
+            x["gameID"]: x["name"] for x in self.ability_name_mapping
+        }
+
+        self.has_echo = r["data"]["reportData"]["report"]["fights"][0]["hasEcho"]
 
         # Then remove that because damage done table and fight table doesn't need to be queried for every new page.
         # There might be a more elegant way to do this, but this is good enough.
@@ -376,30 +405,6 @@ class ActionTable(object):
             "startTime": next_timestamp,
             "endTime": int(time.time() * 1000),
         }
-
-        # Get fight time by subtracting downtime from the total time
-        # Downtime wont exist as a key if there is no downtime, so check first.
-        fight_time = r["data"]["reportData"]["report"]["table"]["data"]["totalTime"]
-        if "downtime" in r["data"]["reportData"]["report"]["table"]["data"].keys():
-            downtime = r["data"]["reportData"]["report"]["table"]["data"]["downtime"]
-        else:
-            downtime = 0
-
-        self.fight_time = (fight_time - downtime) / 1000
-        self.fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
-
-        # All other timestamps are relative to this one
-        self.report_start_time = r["data"]["reportData"]["report"]["startTime"]
-
-        # TODO: I think this can be deleted.
-        self.ability_name_mapping = r["data"]["reportData"]["report"]["masterData"][
-            "abilities"
-        ]
-        self.ability_name_mapping = {
-            x["gameID"]: x["name"] for x in self.ability_name_mapping
-        }
-
-        self.has_echo = r["data"]["reportData"]["report"]["fights"][0]["hasEcho"]
 
         # Loop until no more pages
         while next_timestamp is not None:
@@ -926,13 +931,60 @@ class RotationTable(ActionTable):
             & (self.fight_start_time <= potency_table["valid_end"])
             & (potency_table["job"] == job)
         ]
-        self.rotation_df = self.make_rotation_df()
+        self.rotation_df = self.make_rotation_df(self.actions_df)
 
         pass
 
-    def make_rotation_df(self):
+    def make_rotation_df(
+        self,
+        actions_df,
+        t_end_clip=None,
+        t_start_clip=None,
+        return_clipped=False,
+        clipped_portion="end",
+    ):
+        if t_end_clip is None:
+            t_end = self.fight_end_time
+        else:
+            t_end = self.fight_end_time - (t_end_clip * 1000)
+
+        if t_start_clip is None:
+            t_start = self.fight_start_time
+        else:
+            t_start = self.fight_start_time + (t_start_clip * 1000)
+
         # Count how many times each action is performed
 
+        actions_df = actions_df.copy()
+
+        if return_clipped:
+            if clipped_portion == "end":
+                actions_df = actions_df[
+                    actions_df["timestamp"].between(
+                        t_end, self.fight_end_time, inclusive="right"
+                    )
+                ]
+            elif clipped_portion == "middle":
+                actions_df = actions_df[actions_df["timestamp"].between(t_start, t_end)]
+
+            elif clipped_portion == "start":
+                actions_df = actions_df[
+                    actions_df["timestamp"].between(
+                        self.fight_start_time, t_start, inclusive="left"
+                    )
+                ]
+            else:
+                raise ValueError(
+                    f"Accepted values of `clipped_portion` are 'start', 'middle', and 'end', not {clipped_portion}"
+                )
+        else:
+            actions_df = actions_df[actions_df["timestamp"].between(t_start, t_end)]
+
+        if len(actions_df) == 0:
+            return None
+            # raise RuntimeWarning(
+            #     f"Cliping the DataFrame by {t_start_clip} from the start and {t_end_clip} seconds from the end led to any empty DataFrame. Either change the amount to clip the DataFrame by or the portion which is returned"
+            # )
         group_by_columns = [
             "action_name",
             "abilityGameID",
@@ -948,16 +1000,13 @@ class RotationTable(ActionTable):
         ]
 
         # Lists are unhashable, so make as an ordered string.
-        self.actions_df["buff_str"] = (
-            self.actions_df["buffs"]
-            .sort_values()
-            .apply(lambda x: sorted(x))
-            .str.join(".")
+        actions_df["buff_str"] = (
+            actions_df["buffs"].sort_values().apply(lambda x: sorted(x)).str.join(".")
         )
         # And you cant value count nans
-        self.actions_df["bonusPercent"] = self.actions_df["bonusPercent"].fillna(-1)
+        actions_df["bonusPercent"] = actions_df["bonusPercent"].fillna(-1)
         rotation_df = (
-            self.actions_df[group_by_columns]
+            actions_df[group_by_columns]
             .value_counts()
             .reset_index()
             .merge(self.potency_table, left_on="abilityGameID", right_on="ability_id")
@@ -1128,10 +1177,10 @@ if __name__ == "__main__":
 
     RotationTable(
         headers,
-        "JXmA81qar9BYFCLj",
-        1,
-        "Dancer",
-        7,
+        "AwhQcdt89fx4XVbK",
+        30,
+        "Scholar",
+        3,
         2557,
         1432,
         1844,

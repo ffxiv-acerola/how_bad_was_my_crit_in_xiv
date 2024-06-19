@@ -163,3 +163,5 @@ crit_app/config.py
 data/*
 .vscode/
 ffxiv_stats/*
+cache/
+db_updates/

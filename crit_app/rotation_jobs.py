@@ -805,7 +805,7 @@ class BlackMageActions(object):
         self._set_elemental_timings(actions_df)
 
         # Apply enochian multiplier if an elemental status is active
-        self.elemental_status["enochian_multiplier"] = 1
+        self.elemental_status["enochian_multiplier"] = 1.
         self.elemental_status.loc[
             ~self.elemental_status["elemental_status"].isnull(), "enochian_multiplier"
         ] = 1.23

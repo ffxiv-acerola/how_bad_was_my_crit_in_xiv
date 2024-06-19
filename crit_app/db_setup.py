@@ -3,7 +3,8 @@ Create database and tables for saving analyzed rotations so they do not need to 
 """
 
 import sqlite3
-from config import DB_URI, BLOB_URI
+
+from config import BLOB_URI, DB_URI
 
 if not (DB_URI / "../").exists():
     (DB_URI / "../").resolve().mkdir(parents=True, exist_ok=True)
@@ -11,8 +12,11 @@ if not (DB_URI / "../").exists():
 if not (BLOB_URI).exists():
     (BLOB_URI).resolve().mkdir(parents=True)
 
-con = sqlite3.connect(DB_URI)
-cur = con.cursor()
+if not (BLOB_URI / "job-rotation-clippings").exists():
+    (BLOB_URI / "job-rotation-clippings").resolve().mkdir(parents=True)
+
+if not (BLOB_URI / "party-analyses").exists():
+    (BLOB_URI / "party-analyses").resolve().mkdir(parents=True)
 
 create_encounter_table = """
 create table if not exists encounter(
@@ -22,11 +26,12 @@ create table if not exists encounter(
     encounter_name TEXT NOT NULL,
     kill_time REAL NOT NULL,
     player_name TEXT NOT NULL,
-    player_server TEXT NOT NULL,
+    player_server TEXT,
     player_id INTEGER NOT NULL,
     pet_ids TEXT,
     job TEXT NOT NULL,
-    role TEXT NOT NULL
+    role TEXT NOT NULL,
+    primary key (report_id, fight_id, player_id)
 )
 """
 
@@ -55,7 +60,26 @@ create table if not exists report(
     party_bonus REAL NOT NULL,
     etro_id TEXT,
     redo_dps_pdf_flag INTEGER NOT NULL,
-    redo_rotation_flag INTEGER NOT NULL
+    redo_rotation_flag INTEGER NOT NULL,
+    primary key (analysis_id)
+)
+"""
+
+create_party_report_table = """
+create table if not exists party_report(
+    party_analysis_id TEXT NOT NULL,
+    report_id TEXT NOT NULL,
+    fight_id INTEGER NOT NULL,
+    analysis_id_1 TEXT NOT NULL,
+    analysis_id_2 TEXT NOT NULL,
+    analysis_id_3 TEXT NOT NULL,
+    analysis_id_4 TEXT NOT NULL,
+    analysis_id_5 TEXT, 
+    analysis_id_6 TEXT, 
+    analysis_id_7 TEXT, 
+    analysis_id_8 TEXT,
+    redo_analysis_flag INTEGER NOT NULL,
+    primary key (party_analysis_id)
 )
 """
 
@@ -65,8 +89,12 @@ create table if not exists access(
     access_datetime TEXT NOT NULL
 )
 """
+
+con = sqlite3.connect(DB_URI)
+cur = con.cursor()
 cur.execute(create_encounter_table)
 cur.execute(create_report_table)
+cur.execute(create_party_report_table)
 cur.execute(create_access_table)
 cur.close()
 con.close()

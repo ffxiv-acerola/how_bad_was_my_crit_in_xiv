@@ -1,53 +1,59 @@
-import sqlite3
 import datetime
 import pickle
 from uuid import uuid4
-from ast import literal_eval
-
-from ffxiv_stats.jobs import Healer, Tank, MagicalRanged, Melee, PhysicalRanged
 
 import dash
-from dash import Input, Output, State, dcc, html, callback, Patch
-from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-import coreapi
-import pandas as pd
-
-from dmg_distribution import get_dps_dmg_percentile
-from rotation import RotationTable
-from job_data.job_data import weapon_delays
+from api_queries import (
+    get_encounter_job_info,
+    headers,
+    parse_etro_url,
+    parse_fflogs_url,
+)
+from cards import (
+    initialize_action_card,
+    initialize_fflogs_card,
+    initialize_job_build,
+    initialize_results,
+    initialize_rotation_card,
+)
+from config import BLOB_URI, DEBUG, DRY_RUN
+from dash import Input, Output, Patch, State, callback, dcc, html
+from dash.exceptions import PreventUpdate
+from dmg_distribution import (
+    get_dps_dmg_percentile,
+    job_analysis_to_data_class,
+)
+from figures import (
+    make_action_pdfs_figure,
+    make_action_table,
+    make_rotation_pdf_figure,
+    make_rotation_percentile_table,
+)
 from job_data.data import (
-    damage_buff_table,
     critical_hit_rate_table,
+    damage_buff_table,
     direct_hit_rate_table,
     guaranteed_hits_by_action_table,
     guaranteed_hits_by_buff_table,
     potency_table,
 )
-
-from figures import (
-    make_rotation_pdf_figure,
-    make_rotation_percentile_table,
-    make_action_pdfs_figure,
-    make_action_table,
-)
-from api_queries import (
-    parse_etro_url,
-    parse_fflogs_url,
-    get_encounter_job_info,
-    headers,
-)
-from cards import (
-    initialize_job_build,
-    initialize_fflogs_card,
-    initialize_rotation_card,
-    initialize_action_card,
-    initialize_results,
-)
 from job_data.job_warnings import job_warnings
-from job_data.roles import role_stat_dict
-from config import DB_URI, BLOB_URI, ETRO_TOKEN, DRY_RUN, DEBUG
-
+from job_data.roles import role_stat_dict, abbreviated_job_map
+from job_data.valid_encounters import valid_encounters
+from rotation import RotationTable
+from shared_elements import (
+    etro_build,
+    format_kill_time_str,
+    read_encounter_table,
+    read_report_table,
+    rotation_analysis,
+    unflag_redo_rotation,
+    unflag_report_recompute,
+    update_access_table,
+    update_encounter_table,
+    update_report_table,
+)
 
 dash.register_page(
     __name__,
@@ -56,230 +62,103 @@ dash.register_page(
 )
 
 
-def read_report_table():
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-
-    report_df = pd.read_sql_query("select * from report", con)
-
-    cur.close()
-    con.close()
-    return report_df
+### Helper functions ###
 
 
-def read_encounter_table():
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-
-    player_df = pd.read_sql_query("select * from encounter", con)
-
-    cur.close()
-    con.close()
-    player_df["pet_ids"] = player_df["pet_ids"].apply(
-        lambda x: literal_eval(x) if x is not None else x
-    )
-    return player_df
-
-
-def update_report_table(db_row):
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-    cur.execute(
-        """
-    insert into report 
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """,
-        db_row,
-    )
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
-
-def unflag_report_recompute(analysis_id):
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-
-    cur.execute(f"""
-    update report set redo_dps_pdf_flag = 0 where analysis_id = "{analysis_id}"
-    """)
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
-def unflag_redo_rotation(analysis_id):
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-
-    cur.execute(f"""
-    update report set redo_rotation_flag = 0 where analysis_id = "{analysis_id}"
-    """)
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
-def update_encounter_table(db_rows):
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-    cur.executemany(
-        """
-    insert into encounter 
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """,
-        db_rows,
-    )
-    # Drop any duplicate records
-    cur.execute(
-        """
-    delete from encounter 
-     where rowid not in (
-        select min(rowid)
-        from encounter
-        group by report_id, fight_id, player_id
-     )
+def rotation_percentile_text_map(rotation_percentile):
     """
+    Fun text to display depending on the percentile.
+    """
+    if rotation_percentile <= 0.2:
+        return "On second thought, let's pretend this run never happened..."
+    elif (rotation_percentile > 0.2) and (rotation_percentile <= 0.4):
+        return "BADBADNOTGOOD."
+    elif (rotation_percentile > 0.4) and (rotation_percentile <= 0.65):
+        return "Mid."
+    elif (rotation_percentile > 0.65) and (rotation_percentile <= 0.85):
+        return "Actually pretty good."
+    elif (rotation_percentile > 0.85) and (rotation_percentile <= 0.95):
+        return "Really good."
+    elif (rotation_percentile > 0.95) and (rotation_percentile <= 0.99):
+        return "Incredibly good."
+    elif rotation_percentile > 0.99:
+        return "Personally blessed by Yoshi-P himself."
+
+
+def show_job_options(job_information, role):
+    """
+    Show which jobs are available to analyze with radio buttons.
+    """
+    tank_radio_items = []
+    healer_radio_items = []
+    melee_radio_items = []
+    physical_ranged_radio_items = []
+    magical_ranged_radio_items = []
+
+    for d in job_information:
+        label_text = html.P(
+            [
+                html.Span(
+                    [abbreviated_job_map[d["job"]]],
+                    style={
+                        "font-family": "job-icons",
+                        "font-size": "1.4em",
+                        "position": "relative",
+                        "top": "4px",
+                    },
+                ),
+                f" {d['player_name']}",
+            ],
+            style={"position": "relative", "bottom": "9px"},
+        )
+        if d["role"] == "Tank":
+            tank_radio_items.append(
+                {
+                    "label": label_text,
+                    "value": d["player_id"],
+                    "disabled": "Tank" != role,
+                }
+            )
+        elif d["role"] == "Healer":
+            healer_radio_items.append(
+                {
+                    "label": label_text,
+                    "value": d["player_id"],
+                    "disabled": "Healer" != role,
+                }
+            )
+        elif d["role"] == "Melee":
+            melee_radio_items.append(
+                {
+                    "label": label_text,
+                    "value": d["player_id"],
+                    "disabled": "Melee" != role,
+                }
+            )
+        elif d["role"] == "Physical Ranged":
+            physical_ranged_radio_items.append(
+                {
+                    "label": label_text,
+                    "value": d["player_id"],
+                    "disabled": "Physical Ranged" != role,
+                }
+            )
+        elif d["role"] == "Magical Ranged":
+            magical_ranged_radio_items.append(
+                {
+                    "label": label_text,
+                    "value": d["player_id"],
+                    "disabled": "Magical Ranged" != role,
+                }
+            )
+
+    return (
+        tank_radio_items,
+        healer_radio_items,
+        melee_radio_items,
+        physical_ranged_radio_items,
+        magical_ranged_radio_items,
     )
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
-
-def update_access_table(db_row):
-    """
-    Update access table, keeping track of when and how much an analysis ID is accessed.
-
-    Inputs:
-    db_row - tuple, of row to insert. Contains (`analysis_id`, `access_datetime`).
-    """
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-    cur.execute(
-        """
-    insert into access 
-    values (?, ?)
-    """,
-        db_row,
-    )
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
-
-def rotation_analysis(
-    role: str,
-    job_no_space: str,
-    rotation_df,
-    t: float,
-    main_stat: int,
-    secondary_stat: int,
-    determination: int,
-    speed_stat: int,
-    ch: int,
-    dh: int,
-    wd: int,
-    delay: float,
-    main_stat_pre_bonus: int,
-):
-    """Analyze the rotation of a job.
-
-    Args:
-        role (str): Job role, Healer, Tank, Magical Ranged, Melee, or Physical Ranged
-        job_no_space (str): Pascal case job, e.g., "WhiteMage"
-        rotation_df (pandas DataFrame): rotation DataFrame
-        t (float): Active fight time used to compute DPS
-        main_stat (int): Amount of main stat.
-        secondary_stat (int): Amount of secondary stat
-        determination (int): Amount of determination stat.
-        speed_stat (int): Amount of Skill/Spell Speed stat.
-        ch (int): Amount of critical hit stat.
-        dh (int): Amount of direct hit rate stat.
-        wd (int): Amount of weapon damage stat.
-        delay (float): Amount of weapon delay stat.
-        main_stat_pre_bonus (int): Amount of main stat before n% party bonus, for pet attack power.
-
-    Returns:
-        ffxiv_stats job object: Object with analyzed rotation and DPS distributions.
-    """
-
-    if role == "Healer":
-        job_obj = Healer(
-            mind=main_stat,
-            strength=secondary_stat,
-            det=determination,
-            spell_speed=speed_stat,
-            crit_stat=ch,
-            dh_stat=dh,
-            weapon_damage=wd,
-            delay=delay,
-            pet_attack_power=main_stat_pre_bonus,
-        )
-
-    elif role == "Tank":
-        job_obj = Tank(
-            strength=main_stat,
-            det=determination,
-            skill_speed=speed_stat,
-            tenacity=secondary_stat,
-            crit_stat=ch,
-            dh_stat=dh,
-            weapon_damage=wd,
-            delay=delay,
-            job=job_no_space,
-            pet_attack_power=main_stat_pre_bonus,
-            level=90,
-        )
-
-    elif role == "Magical Ranged":
-        job_obj = MagicalRanged(
-            intelligence=main_stat,
-            strength=secondary_stat,
-            det=determination,
-            spell_speed=speed_stat,
-            crit_stat=ch,
-            dh_stat=dh,
-            weapon_damage=wd,
-            delay=delay,
-            pet_attack_power=main_stat_pre_bonus,
-        )
-
-    elif role == "Melee":
-        job_obj = Melee(
-            main_stat=main_stat,
-            det=determination,
-            skill_speed=speed_stat,
-            crit_stat=ch,
-            dh_stat=dh,
-            weapon_damage=wd,
-            delay=delay,
-            job=job_no_space,
-            pet_attack_power=main_stat_pre_bonus,
-            level=90,
-        )
-
-    elif role == "Physical Ranged":
-        job_obj = PhysicalRanged(
-            dexterity=main_stat,
-            det=determination,
-            skill_speed=speed_stat,
-            crit_stat=ch,
-            dh_stat=dh,
-            weapon_damage=wd,
-            delay=delay,
-            pet_attack_power=main_stat_pre_bonus,
-            level=90,
-        )
-    else:
-        raise ValueError("Incorrect role specified.")
-
-    job_obj.attach_rotation(rotation_df, t)
-    job_obj.action_moments = [None] * len(job_obj.action_moments)
-
-    return job_obj
 
 
 def layout(analysis_id=None):
@@ -339,6 +218,7 @@ def layout(analysis_id=None):
             encounter_df = encounter_df[
                 (encounter_df["fight_id"] == analysis_details["fight_id"])
                 & (encounter_df["report_id"] == analysis_details["report_id"])
+                & (encounter_df["role"] != "Limit Break")
             ]
             #### Job build / Etro card setup ####
             if (analysis_details["etro_id"] is not None) and (
@@ -356,19 +236,8 @@ def layout(analysis_id=None):
 
             # Encounter Info
             boss_name = analysis_details["encounter_name"]
-            fight_duration = analysis_details["kill_time"]
-            fight_duration = (
-                f"{int(fight_duration // 60)}:{int(fight_duration % 60):02d}"
-            )
+            fight_duration = format_kill_time_str(analysis_details["kill_time"])
             encounter_info = f"{boss_name} ({fight_duration})"
-
-            # add space to job name
-            encounter_df["job"] = (
-                encounter_df["job"]
-                .str.replace(r"(\w)([A-Z])", r"\1 \2", regex=True)
-                .str.strip()
-            )
-
             # Job selection info
 
             # Player information
@@ -400,20 +269,6 @@ def layout(analysis_id=None):
             recompute_pdf_flag = analysis_details["redo_dps_pdf_flag"]
             # recompute_flag = 1
 
-            #### Damage Distributions ####
-            # Load in action_df and rotation object to display results
-            try:
-                action_df = pd.read_parquet(
-                    BLOB_URI / f"action-df-{analysis_id}.parquet"
-                )
-                with open(BLOB_URI / f"rotation-obj-{analysis_id}.pkl", "rb") as outp:
-                    job_object = pickle.load(outp)
-            except Exception as e:
-                error_children.append(
-                    html.P(f"The following error was encountered: {str(e)}")
-                )
-                return html.Div(error_children)
-
             # Player stat info
             main_stat_pre_bonus = analysis_details["main_stat_pre_bonus"]
             secondary_stat_pre_bonus = (
@@ -421,26 +276,27 @@ def layout(analysis_id=None):
                 if analysis_details["secondary_stat_pre_bonus"] is not None
                 else ""
             )
-            determination = job_object.det
-            speed_stat = job_object.dot_speed_stat
-            crit = job_object.crit_stat
-            direct_hit = job_object.dh_stat
-            weapon_damage = job_object.weapon_damage
-            delay = job_object.delay
+            determination = analysis_details["determination"]
+            speed_stat = analysis_details["speed"]
+            crit = analysis_details["critical_hit"]
+            direct_hit = analysis_details["direct_hit"]
+            weapon_damage = analysis_details["weapon_damage"]
+            delay = analysis_details["delay"]
 
             party_bonus = analysis_details["party_bonus"]
             medication_amt = analysis_details["medication_amount"]
             player_job_no_space = analysis_details["job"]
+            player_id = int(analysis_details["player_id"])
             pet_ids = analysis_details["pet_ids"]
 
             # Get actions and create a rotation again, used if the RotationTable class updates.
             if redo_rotation:
-                rotation = RotationTable(
+                rotation_object = RotationTable(
                     headers,
-                    report_id,
-                    int(fight_id),
+                    analysis_details["report_id"],
+                    int(analysis_details["fight_id"]),
                     player_job_no_space,
-                    int(player_id),
+                    player_id,
                     crit,
                     direct_hit,
                     determination,
@@ -453,24 +309,37 @@ def layout(analysis_id=None):
                     potency_table,
                     pet_ids,
                 )
-                actions_df = rotation.actions_df
-                rotation_df = rotation.rotation_df
 
-                actions_df.to_parquet(BLOB_URI / f"action-df-{analysis_id}.parquet")
-                rotation_df.to_parquet(BLOB_URI / f"rotation-df-{analysis_id}.parquet")
+                action_df = rotation_object.actions_df
+                rotation_df = rotation_object.rotation_df
+
+                with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
+                    pickle.dump(rotation_object, f)
 
                 unflag_redo_rotation(analysis_id)
             else:
-                rotation_df = job_object.rotation_df
+                try:
+                    with open(
+                        BLOB_URI / f"rotation-object-{analysis_id}.pkl", "rb"
+                    ) as outp:
+                        rotation_object = pickle.load(outp)
+                    action_df = rotation_object.actions_df
+                    rotation_df = rotation_object.rotation_df
+
+                except Exception as e:
+                    error_children.append(
+                        html.P(f"The following error was encountered: {str(e)}")
+                    )
+                    return html.Div(error_children)
 
             # Recompute DPS distributions if flagged to do so.
             # Happens if `ffxiv_stats` updates with some sort of correction.
             if recompute_pdf_flag:
-                job_object = rotation_analysis(
+                job_analysis_object = rotation_analysis(
                     role,
                     player_job_no_space,
                     rotation_df,
-                    job_object.t,
+                    rotation_object.fight_time,
                     analysis_details["main_stat"],
                     analysis_details["secondary_stat"],
                     determination,
@@ -482,27 +351,52 @@ def layout(analysis_id=None):
                     main_stat_pre_bonus,
                 )
 
-                with open(BLOB_URI / f"rotation-obj-{analysis_id}.pkl", "wb") as outp:
-                    pickle.dump(job_object, outp, pickle.HIGHEST_PROTOCOL)
+                job_analysis_data = job_analysis_to_data_class(
+                    job_analysis_object, job_analysis_object.t
+                )
+
+                with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
+                    pickle.dump(job_analysis_data, f)
                 unflag_report_recompute(analysis_id)
+
+            else:
+                try:
+                    with open(
+                        BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "rb"
+                    ) as outp:
+                        job_analysis_data = pickle.load(outp)
+
+                except Exception as e:
+                    error_children.append(
+                        html.P(f"The following error was encountered: {str(e)}")
+                    )
+                    return html.Div(error_children)
+
             # DPS of each action + the entire rotation
 
             action_dps = (
                 action_df[["ability_name", "amount"]].groupby("ability_name").sum()
-                / job_object.t
+                / job_analysis_data.active_dps_t
             ).reset_index()
             rotation_dps = action_dps["amount"].sum()
             rotation_percentile = (
                 get_dps_dmg_percentile(
-                    rotation_dps,
-                    job_object.rotation_dps_distribution,
-                    job_object.rotation_dps_support,
+                    rotation_dps
+                    * job_analysis_data.active_dps_t
+                    / job_analysis_data.analysis_t,
+                    job_analysis_data.rotation_dps_distribution,
+                    job_analysis_data.rotation_dps_support,
                 )
                 / 100
             )
 
             ### make rotation card results
-            rotation_fig = make_rotation_pdf_figure(job_object, rotation_dps)
+            rotation_fig = make_rotation_pdf_figure(
+                job_analysis_data,
+                rotation_dps,
+                job_analysis_data.active_dps_t,
+                job_analysis_data.analysis_t,
+            )
             rotation_graph = (
                 dcc.Graph(
                     figure=rotation_fig,
@@ -511,16 +405,19 @@ def layout(analysis_id=None):
             )
 
             rotation_percentile_table = make_rotation_percentile_table(
-                job_object, rotation_percentile
+                job_analysis_data, rotation_percentile
             )
 
             ### make action card results
-            action_fig = make_action_pdfs_figure(job_object, action_dps)
+            action_fig = make_action_pdfs_figure(
+                job_analysis_data,
+                action_dps,
+                job_analysis_data.active_dps_t,
+                job_analysis_data.analysis_t,
+            )
             action_graph = [dcc.Graph(figure=action_fig, id="action-pdf-fig")]
 
-            action_summary_table = make_action_table(
-                job_object, action_df, job_object.t
-            )
+            action_summary_table = make_action_table(job_analysis_data, action_df)
 
             rotation_graph = rotation_graph[0]
             rotation_percentile_table = rotation_percentile_table[0]
@@ -608,11 +505,12 @@ def layout(analysis_id=None):
     State("action-pdf-fig", "figure"),
 )
 def select_actions(actions, action_graph):
+    actions_actual_dps = [a + " (Actual DPS)" for a in actions]
     patched_action_figure = Patch()
     new_data = action_graph["data"]
 
     for n in new_data:
-        if n["name"] in actions:
+        if (n["name"] in actions) or (n["name"] in actions_actual_dps):
             n["visible"] = True
         else:
             n["visible"] = False
@@ -670,14 +568,12 @@ def fill_role_stat_labels(role):
     Output("WD", "value"),
     Output("DEL", "value"),
     Output("party-bonus-warning", "children"),
-    Output("main-stat-slider", "value"),
     Input("etro-url-button", "n_clicks"),
-    State("main-stat-slider", "value"),
     State("etro-url", "value"),
     State("role-select", "value"),
     prevent_initial_call=True,
 )
-def process_etro_url(n_clicks, party_bonus, url, default_role):
+def process_etro_url(n_clicks, url, default_role):
     """
     Get the report/fight ID from an fflogs URL, then determine the encounter ID, start time, and jobs present.
     """
@@ -685,173 +581,59 @@ def process_etro_url(n_clicks, party_bonus, url, default_role):
     if n_clicks is None:
         raise PreventUpdate
 
+    feedback = []
+    invalid_return = [
+        False,
+        True,
+        [],
+        default_role,
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+    ]
+
     gearset_id, error_code = parse_etro_url(url)
 
-    if error_code == 1:
-        feedback = "This isn't an etro.gg link..."
-        return (
-            feedback,
-            False,
-            True,
-            [],
-            default_role,
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            party_bonus,
-        )
+    if error_code == 0:
+        pass
 
-    if error_code == 2:
-        feedback = (
+    elif error_code == 1:
+        feedback = ["This isn't an etro.gg link..."]
+        return tuple(feedback + invalid_return)
+
+    else:
+        feedback = [
             "This doesn't appear to be a valid gearset. Please double check the link."
-        )
-        return (
-            feedback,
-            False,
-            True,
-            [],
-            default_role,
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            party_bonus,
-        )
+        ]
+        return tuple(feedback + invalid_return)
 
-    etro_auth = coreapi.auth.TokenAuthentication(token=ETRO_TOKEN)
+    # Get the build if everything checks out
+    (
+        etro_call_successful,
+        etro_error,
+        build_name,
+        build_role,
+        primary_stat,
+        secondary_stat,
+        determination,
+        speed,
+        ch,
+        dh,
+        wd,
+        delay,
+        etro_party_bonus,
+    ) = etro_build(gearset_id)
 
-    # Initialize a client & load the schema document
-    client = coreapi.Client(auth=etro_auth)
-    schema = client.get("https://etro.gg/api/docs/")
-
-    gearset_action = ["gearsets", "read"]
-    gearset_params = {
-        "id": gearset_id,
-    }
-    build_result = client.action(schema, gearset_action, params=gearset_params)
-    job_abbreviated = build_result["jobAbbrev"]
-    build_name = build_result["name"]
-    build_children = [html.H4(f"Build name: {build_name} ({job_abbreviated})")]
-
-    if job_abbreviated in ("WHM", "AST", "SGE", "SCH"):
-        build_role = "Healer"
-        main_stat_str = "MND"
-        secondary_stat_str = "STR"
-        speed_stat_str = "SPS"
-    elif job_abbreviated in ("WAR", "PLD", "DRK", "GNB"):
-        build_role = "Tank"
-        main_stat_str = "STR"
-        secondary_stat_str = "TEN"
-        speed_stat_str = "SKS"
-    elif job_abbreviated in ("BLM", "SMN", "RDM"):
-        build_role = "Magical Ranged"
-        main_stat_str = "INT"
-        secondary_stat_str = "STR"
-        speed_stat_str = "SPS"
-    elif job_abbreviated in ("MNK", "DRG", "SAM", "RPR", "NIN"):
-        build_role = "Melee"
-        main_stat_str = "STR" if job_abbreviated != "NIN" else "DEX"
-        secondary_stat_str = None
-        speed_stat_str = "SKS"
-    elif job_abbreviated in ("BRD", "DNC", "MCH"):
-        build_role = "Physical Ranged"
-        main_stat_str = "DEX"
-        secondary_stat_str = None
-        speed_stat_str = "SKS"
-
-    else:
-        build_role = "Unsupported"
-
-    if build_role == "Unsupported":
-        feedback = f"{job_abbreviated} is currently not supported."
-        return (
-            feedback,
-            False,
-            True,
-            [],
-            build_role,
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            party_bonus,
-        )
-
-    total_params = {}
-
-    for p in build_result["totalParams"]:
-        item = dict(p)
-        key = item.pop("name")
-        total_params[key] = item
-
-    primary_stat = total_params[main_stat_str]["value"]
-    dh = total_params["DH"]["value"]
-    ch = total_params["CRT"]["value"]
-    determination = total_params["DET"]["value"]
-    speed = total_params[speed_stat_str]["value"]
-    wd = total_params["Weapon Damage"]["value"]
-    etro_party_bonus = build_result["partyBonus"]
-
-    if build_role in ("Healer", "Magical Ranged"):
-        if job_abbreviated == "SCH":
-            secondary_stat = 350
-        elif job_abbreviated == "WHM":
-            secondary_stat = 214
-        elif job_abbreviated == "SGE":
-            secondary_stat = 233
-        elif job_abbreviated == "AST":
-            secondary_stat = 194
-        elif job_abbreviated == "RDM":
-            secondary_stat = 226
-        elif job_abbreviated == "SMN":
-            secondary_stat = 370
-        else:
-            secondary_stat = 194
-
-    elif build_role == "Tank":
-        secondary_stat = total_params[secondary_stat_str]["value"]
-
-    else:
-        secondary_stat = "None"
-
-    # Weapon delay is read differently for normal weapons and relics
-    # If normal weapon if the weapon key exists
-    if build_result["weapon"] is not None:
-        weapon_id = build_result["weapon"]
-        weapon_action = ["equipment", "read"]
-        weapon_params = {"id": weapon_id}
-        weapon_result = client.action(schema, weapon_action, params=weapon_params)
-        delay = weapon_result["delay"] / 1000
-
-    # Relic weapon if the relic key exists
-    elif build_result["relics"] is not None:
-        weapon_id = build_result["relics"]["weapon"]
-        weapon_action = ["relic", "read"]
-        weapon_params = {"id": weapon_id}
-        weapon_result = client.action(schema, weapon_action, params=weapon_params)
-        delay = weapon_result["baseItem"]["delay"] / 1000
-
-    # Fall back to hard-coded values by job if something goes wrong
-    else:
-        delay = weapon_delays[job_abbreviated]
-
-    print(primary_stat, dh, ch, determination, speed, wd, delay, etro_party_bonus)
+    if not etro_call_successful:
+        return tuple([etro_error] + invalid_return)
+    # job_abbreviated = build_result["jobAbbrev"]
+    build_children = [html.H4(f"Build name: {build_name}")]
 
     if etro_party_bonus > 1.0:
         bonus_fmt = etro_party_bonus - 1
@@ -863,23 +645,9 @@ def process_etro_url(n_clicks, party_bonus, url, default_role):
             color="warning",
             className="d-flex align-items-center",
         )
-        return (
-            [],
-            True,
-            False,
-            build_children,
-            build_role,
-            primary_stat,
-            secondary_stat,
-            determination,
-            speed,
-            ch,
-            dh,
-            wd,
-            delay,
-            warning_row,
-            1.0,
-        )
+        primary_stat = int(primary_stat / etro_party_bonus)
+    else:
+        warning_row = []
     return (
         [],
         True,
@@ -894,8 +662,7 @@ def process_etro_url(n_clicks, party_bonus, url, default_role):
         dh,
         wd,
         delay,
-        [],
-        party_bonus,
+        warning_row,
     )
 
 
@@ -909,6 +676,7 @@ def process_etro_url(n_clicks, party_bonus, url, default_role):
     Input("DH", "value"),
     Input("WD", "value"),
     Input("DEL", "value"),
+    Input("role-select", "value"),
     Input("results-div", "hidden"),
 )
 def job_build_defined(
@@ -920,24 +688,33 @@ def job_build_defined(
     direct_hit,
     weapon_damage,
     delay,
+    role,
     results_hidden,
 ):
     """
     Check if any job build elements are missing, hide everything else if they are.
     """
+    secondary_stat_condition = (role in ("Healer", "Tank", "Magical Ranged")) & (
+        secondary_stat is None
+    ) | (
+        (role in ("Melee", "Physical Ranged"))
+        & ((secondary_stat != "None") | (secondary_stat != ""))
+    )
     # TODO: will need to handle None secondary stat for roles without them.
-    job_build_missing = any(
-        (elem is None) or (elem == [])
-        for elem in [
-            main_stat,
-            secondary_stat,
-            determination,
-            speed,
-            crit,
-            direct_hit,
-            weapon_damage,
-            delay,
-        ]
+    job_build_missing = (
+        any(
+            (elem is None) or (elem == [])
+            for elem in [
+                main_stat,
+                determination,
+                speed,
+                crit,
+                direct_hit,
+                weapon_damage,
+                delay,
+            ]
+        )
+        | secondary_stat_condition
     )
     return job_build_missing
 
@@ -960,73 +737,6 @@ def validate_del(delay):
         return True, False
     else:
         return False, True
-
-
-def show_job_options(job_information, role):
-    """
-    Show which jobs are available to analyze with radio buttons.
-    """
-    tank_radio_items = []
-    healer_radio_items = []
-    melee_radio_items = []
-    physical_ranged_radio_items = []
-    magical_ranged_radio_items = []
-
-    for d in job_information:
-        # Add space to job name
-        job_name_space = "".join(
-            " " + char if char.isupper() else char.strip() for char in d["job"]
-        ).strip()
-        label_text = f"{job_name_space} ({d['player_name']})"
-
-        if d["role"] == "Tank":
-            tank_radio_items.append(
-                {
-                    "label": label_text,
-                    "value": d["player_id"],
-                    "disabled": "Tank" != role,
-                }
-            )
-        elif d["role"] == "Healer":
-            healer_radio_items.append(
-                {
-                    "label": label_text,
-                    "value": d["player_id"],
-                    "disabled": "Healer" != role,
-                }
-            )
-        elif d["role"] == "Melee":
-            melee_radio_items.append(
-                {
-                    "label": label_text,
-                    "value": d["player_id"],
-                    "disabled": "Melee" != role,
-                }
-            )
-        elif d["role"] == "Physical Ranged":
-            physical_ranged_radio_items.append(
-                {
-                    "label": label_text,
-                    "value": d["player_id"],
-                    "disabled": "Physical Ranged" != role,
-                }
-            )
-        elif d["role"] == "Magical Ranged":
-            magical_ranged_radio_items.append(
-                {
-                    "label": label_text,
-                    "value": d["player_id"],
-                    "disabled": "Magical Ranged" != role,
-                }
-            )
-
-    return (
-        tank_radio_items,
-        healer_radio_items,
-        melee_radio_items,
-        physical_ranged_radio_items,
-        magical_ranged_radio_items,
-    )
 
 
 @callback(
@@ -1059,73 +769,39 @@ def process_fflogs_url(n_clicks, url, role):
     if url is None:
         raise PreventUpdate
     radio_value = None
+    error_return = [
+        [],
+        [],
+        [],
+        radio_value,
+        [],
+        radio_value,
+        [],
+        radio_value,
+        [],
+        radio_value,
+        [],
+        radio_value,
+        False,
+        True,
+        True,
+    ]
 
     report_id, fight_id, error_code = parse_fflogs_url(url)
     if error_code == 1:
-        return (
-            "This link isn't FFLogs...",
-            [],
-            [],
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            False,
-            True,
-            True,
-        )
-
+        return tuple(["This link isn't FFLogs..."] + error_return)
     if error_code == 2:
         feedback_text = """Please enter a log linked to a specific kill.\nfight=last in the URL is also currently unsupported."""
-        return (
-            feedback_text,
-            [],
-            [],
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            False,
-            True,
-            True,
-        )
+        return tuple([feedback_text] + error_return)
     if error_code == 3:
         feedback_text = "Invalid report ID."
-        return (
-            feedback_text,
-            [],
-            [],
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            False,
-            True,
-            True,
-        )
+        return tuple([feedback_text] + error_return)
 
     (
         encounter_id,
         start_time,
         job_information,
+        limit_break_information,
         kill_time,
         encounter_name,
         start_time,
@@ -1133,28 +809,11 @@ def process_fflogs_url(n_clicks, url, role):
     ) = get_encounter_job_info(report_id, int(fight_id))
 
     print(kill_time)
-    fight_time_str = f"{int(kill_time // 60)}:{int(kill_time % 60):02d}"
+    fight_time_str = format_kill_time_str(kill_time)
 
-    if encounter_id not in [1069, 1070, 88, 89, 90, 91, 92]:
-        feedback_text = "Sorry, only fights from Anabeiseos are currently supported."
-        return (
-            feedback_text,
-            [],
-            [],
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            False,
-            True,
-            True,
-        )
+    if encounter_id not in valid_encounters:
+        feedback_text = f"Sorry, {encounter_name} is not supported."
+        return tuple([feedback_text] + error_return)
 
     (
         tank_radio_items,
@@ -1163,13 +822,6 @@ def process_fflogs_url(n_clicks, url, role):
         physical_ranged_radio_items,
         magical_ranged_radio_items,
     ) = show_job_options(job_information, role)
-
-    # Clear the value if one already existed.
-    # If the selected value from a prior log is a value in the current log,
-    # the value will remain set but appear unselected. It can only appear selected
-    # by click off and clicking back on. This is impossible if an AST is in the party.
-    # This is fixed by just clearing the value. How dumb.
-    # print(encounter_id, start_time, job_information)
 
     db_rows = [
         (
@@ -1265,26 +917,6 @@ def display_compute_button(
         return hide_button
 
 
-def rotation_percentile_text_map(rotation_percentile):
-    """
-    Fun text to display depending on the percentile.
-    """
-    if rotation_percentile <= 0.2:
-        return "On second thought, let's pretend this run never happened..."
-    elif (rotation_percentile > 0.2) and (rotation_percentile <= 0.4):
-        return "BADBADNOTGOOD."
-    elif (rotation_percentile > 0.4) and (rotation_percentile <= 0.65):
-        return "Mid."
-    elif (rotation_percentile > 0.65) and (rotation_percentile <= 0.85):
-        return "Actually pretty good."
-    elif (rotation_percentile > 0.85) and (rotation_percentile <= 0.95):
-        return "Really good."
-    elif (rotation_percentile > 0.95) and (rotation_percentile <= 0.99):
-        return "Incredibly good."
-    elif rotation_percentile > 0.99:
-        return "Personally blessed by Yoshi-P himself."
-
-
 @callback(
     Output("compute-dmg-button", "children"),
     Output("compute-dmg-button", "disabled"),
@@ -1316,7 +948,7 @@ def copy_analysis_link(n, selected):
 
 
 @callback(
-    Output("url", "href"),
+    Output("url", "href", allow_duplicate=True),
     Output("compute-dmg-button", "children", allow_duplicate=True),
     Output("compute-dmg-button", "disabled", allow_duplicate=True),
     Output("crit-result-text", "children"),
@@ -1329,7 +961,6 @@ def copy_analysis_link(n, selected):
     State("DH", "value"),
     State("WD", "value"),
     State("DEL", "value"),
-    State("main-stat-slider", "value"),
     State("tincture-grade", "value"),
     State("fflogs-url", "value"),
     State("etro-url", "value"),
@@ -1350,7 +981,6 @@ def analyze_and_register_rotation(
     dh,
     wd,
     delay,
-    main_stat_multiplier,
     medication_amt,
     fflogs_url,
     etro_url,
@@ -1366,7 +996,6 @@ def analyze_and_register_rotation(
 
     if n_clicks is None:
         raise PreventUpdate
-        # return updated_url, ["Analyze rotation"], False, True, [], [], [], [], []
 
     job_player = [x for x in job_player if x is not None][0]
     report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
@@ -1383,6 +1012,8 @@ def analyze_and_register_rotation(
     player = player_info["player_name"]
     job_no_space = player_info["job"]
     role = player_info["role"]
+
+    main_stat_multiplier = 1 + len(set(encounter_df["role"])) / 100
     main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
     secondary_stat_type = (
         None
@@ -1469,7 +1100,6 @@ def analyze_and_register_rotation(
         else:
             prior_analysis = []
 
-        # FIXME: redirect to variable path
         if len(prior_analysis) >= 1:
             # redirect instead
             analysis_id = prior_analysis["analysis_id"].iloc[0]
@@ -1481,7 +1111,6 @@ def analyze_and_register_rotation(
                 [],
             )
 
-        # FIXME: only analyze and write results, redirect to display results
         if len(prior_analysis) == 0:
             pet_ids = player_info["pet_ids"]
             rotation = RotationTable(
@@ -1503,12 +1132,11 @@ def analyze_and_register_rotation(
                 pet_ids,
             )
 
-            action_df = rotation.actions_df
             rotation_df = rotation.rotation_df
             t = rotation.fight_time
             encounter_name = rotation.fight_name
 
-            job_obj = rotation_analysis(
+            job_analysis_object = rotation_analysis(
                 role,
                 job_no_space,
                 rotation_df,
@@ -1522,17 +1150,21 @@ def analyze_and_register_rotation(
                 wd,
                 delay,
                 main_stat_pre_bonus,
+                action_delta=2,
             )
+
+            job_analysis_data = job_analysis_to_data_class(job_analysis_object, t)
+            job_analysis_data.interpolate_distributions()
 
             analysis_id = str(uuid4())
             redo_rotation_flag = 0
             redo_dps_pdf_flag = 0
 
             if not DRY_RUN:
-                action_df.to_parquet(BLOB_URI / f"action-df-{analysis_id}.parquet")
-                rotation_df.to_parquet(BLOB_URI / f"rotation-df-{analysis_id}.parquet")
-                with open(BLOB_URI / f"rotation-obj-{analysis_id}.pkl", "wb") as outp:
-                    pickle.dump(job_obj, outp, pickle.HIGHEST_PROTOCOL)
+                with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
+                    pickle.dump(rotation, f)
+                with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
+                    pickle.dump(job_analysis_data, f)
 
                 db_row = (
                     analysis_id,
@@ -1566,7 +1198,7 @@ def analyze_and_register_rotation(
                 )
                 update_report_table(db_row)
 
-            del job_obj
+            del job_analysis_object
 
     # Catch any error and display it, then reset the button/prompt
     except Exception as e:
