@@ -27,7 +27,7 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 from dmg_distribution import (
-    JobAnalysis,
+    job_analysis_to_data_class,
     PartyRotation,
     SplitPartyRotation,
     rotation_dps_pdf,
@@ -48,7 +48,7 @@ from job_data.data import (
     potency_table,
 )
 from job_data.roles import abbreviated_job_map, role_mapping, role_stat_dict
-from job_data.valid_encounters import boss_hp
+from job_data.valid_encounters import boss_hp, valid_encounters
 from party_cards import (
     create_fflogs_card,
     create_party_accordion,
@@ -152,6 +152,14 @@ def layout(party_analysis_id=None):
             how="inner",
         )
 
+        # Filter down to jobs in this party analysis
+        # A job in a fight might get analyzed with different builds
+        job_analysis_ids = (
+            party_report_df[[f"analysis_id_{x+1}" for x in range(8)]].iloc[0].to_list()
+        )
+        job_information = job_information[
+            job_information["analysis_id"].isin(job_analysis_ids)
+        ]
         ############################
         ### FFLogs Card Elements ###
         ############################
@@ -236,7 +244,7 @@ def layout(party_analysis_id=None):
                 [
                     html.H3("Enter job builds"),
                     html.P(
-                        "Job builds for all players must be entered. Either enter the Etro link or input each job's stats. Do not include any party composition bonuses to the main stat."
+                        "Job builds for all players must be entered. Either enter the Etro link or input each job's stats. Do not include any party composition bonuses to the main stat, this is automatically calculated."
                     ),
                     create_tincture_input(medication_amount),
                     quick_build_div,
@@ -321,12 +329,7 @@ def layout(party_analysis_id=None):
                         "The graph below shows the DPS distribution for the whole party. Mouse over curves/points to view corresponding percentiles."
                     ),
                     dcc.Graph(
-                        figure=make_party_rotation_pdf_figure(
-                            party_analysis_obj.party_damage_support,
-                            party_analysis_obj.party_damage_distribution,
-                            party_analysis_obj.boss_hp,
-                            active_dps_time,
-                        )
+                        figure=make_party_rotation_pdf_figure(party_analysis_obj)
                     ),
                 ]
             )
@@ -407,14 +410,11 @@ def layout(party_analysis_id=None):
                     id="job-selector",
                     style={
                         "height": "45px",
-                        # "padding-top": "15px",
-                        # "padding-bottom": "-15px",
                     },
                 ),
                 html.Br(),
             ],
         )
-
         job_view_card = html.Div(
             dbc.Card(
                 dbc.CardBody(
@@ -424,7 +424,21 @@ def layout(party_analysis_id=None):
                             html.P(
                                 "Click the drop-down to view the DPS distribution of a specific job. The radio buttons toggle between the overall rotation DPS distribution and the DPS distribution of each action. Mouse over curves/points to view corresponding percentiles."
                             ),
+                            html.A(
+                                [
+                                    "Open job-level analysis page  ",
+                                    html.I(
+                                        className="fas fa-external-link-alt",
+                                        style={"font-size": "0.8em"},
+                                    ),
+                                ],
+                                target="_blank",
+                                id="job-level-analysis",
+                            ),
+                            html.Br(),
+                            html.Br(),
                             job_dps_selection,
+                            html.Br(),
                             dcc.Graph(id="job-rotation-pdf"),
                         ],
                         className="me-1",
@@ -468,19 +482,27 @@ def load_job_rotation_figure(job_analysis_id, graph_type):
     with open(BLOB_URI / f"rotation-object-{job_analysis_id}.pkl", "rb") as f:
         rotation_object = pickle.load(f)
 
-    active_dps_time = rotation_object.fight_time
     actions_df = rotation_object.actions_df
 
     action_dps = (
         actions_df[["ability_name", "amount"]].groupby("ability_name").sum()
-        / active_dps_time
+        / job_object.active_dps_t
     ).reset_index()
     rotation_dps = action_dps["amount"].sum()
 
     if graph_type == "rotation":
-        return make_rotation_pdf_figure(job_object, rotation_dps, active_dps_time)
+        return make_rotation_pdf_figure(
+            job_object, rotation_dps, job_object.active_dps_t, job_object.analysis_t
+        )
     else:
-        return make_action_pdfs_figure(job_object, action_dps, active_dps_time)
+        return make_action_pdfs_figure(
+            job_object, action_dps, job_object.active_dps_t, job_object.analysis_t
+        )
+
+
+@callback(Output("job-level-analysis", "href"), Input("job-selector", "value"))
+def job_analysis_redirect(job_analysis_id):
+    return f"/analysis/{job_analysis_id}"
 
 
 @callback(
@@ -521,6 +543,8 @@ def copy_party_analysis_link(n, selected):
 
 @callback(
     Output("fflogs-url-feedback2", "children"),
+    Output("fflogs-url2", "valid"),
+    Output("fflogs-url2", "invalid"),
     Output("encounter-info", "children"),
     Input("fflogs-url-state2", "n_clicks"),
     State("fflogs-url2", "value"),
@@ -530,17 +554,21 @@ def party_fflogs_process(n_clicks, url):
     if url is None:
         raise PreventUpdate
 
+    invalid_return = [False, True, []]
+
     report_id, fight_id, error_code = parse_fflogs_url(url)
 
     if error_code == 1:
         return "This link isn't FFLogs...", []
     elif error_code == 2:
-        return (
-            """Please enter a log linked to a specific kill.\nfight=last in the URL is also currently unsupported.""",
-            [],
+        return tuple(
+            [
+                """Please enter a log linked to a specific kill.\nfight=last in the URL is also currently unsupported."""
+            ]
+            + invalid_return
         )
     elif error_code == 3:
-        return "Invalid report ID.", []
+        return tuple(["Invalid report ID."] + invalid_return)
     (
         encounter_id,
         start_time,
@@ -551,6 +579,11 @@ def party_fflogs_process(n_clicks, url):
         report_start_time,
         r,
     ) = get_encounter_job_info(report_id, int(fight_id))
+
+    if encounter_id not in valid_encounters:
+        return tuple(
+            [f"Sorry, {encounter_name} is currently not supported."] + invalid_return
+        )
 
     kill_time_str = format_kill_time_str(kill_time)
 
@@ -633,7 +666,7 @@ def party_fflogs_process(n_clicks, url):
             for k in job_information + limit_break_information
         ]
         update_encounter_table(db_rows)
-    return "looking good", encounter_children
+    return [], encounter_children, True, False
 
 
 @callback(
@@ -992,10 +1025,11 @@ def analyze_party_rotation(
         for a in range(len(job))
     ]
 
-    if len(job_analysis_ids) == len(job):
-        party_analysis_id, redo_party_analysis = check_prior_party_analysis(job_analysis_ids, report_id, fight_id, len(job))
-        if redo_party_analysis == 0:
-            return f"/party_analysis/{party_analysis_id}"
+    party_analysis_id, redo_party_analysis = check_prior_party_analysis(
+        job_analysis_ids, report_id, fight_id, len(job)
+    )
+    if redo_party_analysis == 0:
+        return f"/party_analysis/{party_analysis_id}"
 
     # Compute job-level analyses
     for a in range(len(job)):
@@ -1204,16 +1238,10 @@ def analyze_party_rotation(
             pickle.dump(job_rotation_analyses_list[a], f)
 
         # Convert job analysis to data class
-        job_analysis_data = JobAnalysis(
-            job_rotation_pdf_list[a].t,
-            job_rotation_pdf_list[a].rotation_mean,
-            job_rotation_pdf_list[a].rotation_variance,
-            job_rotation_pdf_list[a].rotation_std,
-            job_rotation_pdf_list[a].rotation_skewness,
-            job_rotation_pdf_list[a].rotation_dps_distribution,
-            job_rotation_pdf_list[a].rotation_dps_support,
-            job_rotation_pdf_list[a].unique_actions_distribution,
+        job_analysis_data = job_analysis_to_data_class(
+            job_rotation_pdf_list[a], job_rotation_analyses_list[a].fight_time
         )
+
         job_analysis_data.interpolate_distributions(
             rotation_n=n_data_points, action_n=n_data_points
         )
@@ -1233,10 +1261,23 @@ def analyze_party_rotation(
     if party_analysis_id is None:
         party_analysis_id = str(uuid4())
 
+    party_mean = sum([a.rotation_mean for a in job_rotation_pdf_list])
+    party_std = sum([a.rotation_variance for a in job_rotation_pdf_list]) ** (0.5)
+    party_skewness = sum(
+        [
+            a.rotation_skewness * a.rotation_variance ** (3 / 2)
+            for a in job_rotation_pdf_list
+        ]
+    ) / sum([a.rotation_variance ** (3 / 2) for a in job_rotation_pdf_list])
+
     party_rotation = PartyRotation(
         party_analysis_id,
         boss_hp[encounter_id],
+        job_rotation_analyses_list[0].fight_time,
         lb_damage_events_df,
+        party_mean,
+        party_std,
+        party_skewness,
         rotation_pdf,
         rotation_supp,
         [
