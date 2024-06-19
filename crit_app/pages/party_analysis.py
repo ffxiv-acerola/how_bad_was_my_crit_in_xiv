@@ -664,7 +664,7 @@ def party_fflogs_process(n_clicks, url):
             for k in job_information + limit_break_information
         ]
         update_encounter_table(db_rows)
-    return [], encounter_children, True, False
+    return [], True, False, encounter_children,
 
 
 @callback(
