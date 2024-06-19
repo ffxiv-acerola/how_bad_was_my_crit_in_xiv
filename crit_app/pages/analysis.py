@@ -20,7 +20,10 @@ from cards import (
 from config import BLOB_URI, DEBUG, DRY_RUN
 from dash import Input, Output, Patch, State, callback, dcc, html
 from dash.exceptions import PreventUpdate
-from dmg_distribution import get_dps_dmg_percentile
+from dmg_distribution import (
+    get_dps_dmg_percentile,
+    job_analysis_to_data_class,
+)
 from figures import (
     make_action_pdfs_figure,
     make_action_table,
@@ -37,6 +40,7 @@ from job_data.data import (
 )
 from job_data.job_warnings import job_warnings
 from job_data.roles import role_stat_dict, abbreviated_job_map
+from job_data.valid_encounters import valid_encounters
 from rotation import RotationTable
 from shared_elements import (
     etro_build,
@@ -214,6 +218,7 @@ def layout(analysis_id=None):
             encounter_df = encounter_df[
                 (encounter_df["fight_id"] == analysis_details["fight_id"])
                 & (encounter_df["report_id"] == analysis_details["report_id"])
+                & (encounter_df["role"] != "Limit Break")
             ]
             #### Job build / Etro card setup ####
             if (analysis_details["etro_id"] is not None) and (
@@ -330,11 +335,11 @@ def layout(analysis_id=None):
             # Recompute DPS distributions if flagged to do so.
             # Happens if `ffxiv_stats` updates with some sort of correction.
             if recompute_pdf_flag:
-                job_object = rotation_analysis(
+                job_analysis_object = rotation_analysis(
                     role,
                     player_job_no_space,
                     rotation_df,
-                    analysis_details["active_dps_time"],
+                    rotation_object.fight_time,
                     analysis_details["main_stat"],
                     analysis_details["secondary_stat"],
                     determination,
@@ -346,18 +351,20 @@ def layout(analysis_id=None):
                     main_stat_pre_bonus,
                 )
 
-                with open(
-                    BLOB_URI / f"job-analysis-object-{analysis_id}.pkl", "wb"
-                ) as f:
-                    pickle.dump(job_object, f)
+                job_analysis_data = job_analysis_to_data_class(
+                    job_analysis_object, job_analysis_object.t
+                )
+
+                with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
+                    pickle.dump(job_analysis_data, f)
                 unflag_report_recompute(analysis_id)
 
             else:
                 try:
                     with open(
-                        BLOB_URI / f"job-analysis-object-{analysis_id}.pkl", "rb"
+                        BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "rb"
                     ) as outp:
-                        job_object = pickle.load(outp)
+                        job_analysis_data = pickle.load(outp)
 
                 except Exception as e:
                     error_children.append(
@@ -369,20 +376,27 @@ def layout(analysis_id=None):
 
             action_dps = (
                 action_df[["ability_name", "amount"]].groupby("ability_name").sum()
-                / job_object.t
+                / job_analysis_data.active_dps_t
             ).reset_index()
             rotation_dps = action_dps["amount"].sum()
             rotation_percentile = (
                 get_dps_dmg_percentile(
-                    rotation_dps,
-                    job_object.rotation_dps_distribution,
-                    job_object.rotation_dps_support,
+                    rotation_dps
+                    * job_analysis_data.active_dps_t
+                    / job_analysis_data.analysis_t,
+                    job_analysis_data.rotation_dps_distribution,
+                    job_analysis_data.rotation_dps_support,
                 )
                 / 100
             )
 
             ### make rotation card results
-            rotation_fig = make_rotation_pdf_figure(job_object, rotation_dps)
+            rotation_fig = make_rotation_pdf_figure(
+                job_analysis_data,
+                rotation_dps,
+                job_analysis_data.active_dps_t,
+                job_analysis_data.analysis_t,
+            )
             rotation_graph = (
                 dcc.Graph(
                     figure=rotation_fig,
@@ -391,16 +405,19 @@ def layout(analysis_id=None):
             )
 
             rotation_percentile_table = make_rotation_percentile_table(
-                job_object, rotation_percentile
+                job_analysis_data, rotation_percentile
             )
 
             ### make action card results
-            action_fig = make_action_pdfs_figure(job_object, action_dps)
+            action_fig = make_action_pdfs_figure(
+                job_analysis_data,
+                action_dps,
+                job_analysis_data.active_dps_t,
+                job_analysis_data.analysis_t,
+            )
             action_graph = [dcc.Graph(figure=action_fig, id="action-pdf-fig")]
 
-            action_summary_table = make_action_table(
-                job_object, action_df, job_object.t
-            )
+            action_summary_table = make_action_table(job_analysis_data, action_df)
 
             rotation_graph = rotation_graph[0]
             rotation_percentile_table = rotation_percentile_table[0]
@@ -678,8 +695,8 @@ def job_build_defined(
     Check if any job build elements are missing, hide everything else if they are.
     """
     secondary_stat_condition = (role in ("Healer", "Tank", "Magical Ranged")) & (
-        secondary_stat is not None
-    ) | ((role in ("Melee", "Physical Ranged")) & (secondary_stat is None))
+        secondary_stat is None
+    ) | ((role in ("Melee", "Physical Ranged")) & (secondary_stat != "None"))
     # TODO: will need to handle None secondary stat for roles without them.
     job_build_missing = (
         any(
@@ -694,7 +711,7 @@ def job_build_defined(
                 delay,
             ]
         )
-        & secondary_stat_condition
+        | secondary_stat_condition
     )
     return job_build_missing
 
@@ -749,73 +766,39 @@ def process_fflogs_url(n_clicks, url, role):
     if url is None:
         raise PreventUpdate
     radio_value = None
+    error_return = [
+        [],
+        [],
+        [],
+        radio_value,
+        [],
+        radio_value,
+        [],
+        radio_value,
+        [],
+        radio_value,
+        [],
+        radio_value,
+        False,
+        True,
+        True,
+    ]
 
     report_id, fight_id, error_code = parse_fflogs_url(url)
     if error_code == 1:
-        return (
-            "This link isn't FFLogs...",
-            [],
-            [],
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            False,
-            True,
-            True,
-        )
-
+        return tuple(["This link isn't FFLogs..."] + error_return)
     if error_code == 2:
         feedback_text = """Please enter a log linked to a specific kill.\nfight=last in the URL is also currently unsupported."""
-        return (
-            feedback_text,
-            [],
-            [],
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            False,
-            True,
-            True,
-        )
+        return tuple([feedback_text] + error_return)
     if error_code == 3:
         feedback_text = "Invalid report ID."
-        return (
-            feedback_text,
-            [],
-            [],
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            False,
-            True,
-            True,
-        )
+        return tuple([feedback_text] + error_return)
 
     (
         encounter_id,
         start_time,
         job_information,
+        limit_break_information,
         kill_time,
         encounter_name,
         start_time,
@@ -825,26 +808,9 @@ def process_fflogs_url(n_clicks, url, role):
     print(kill_time)
     fight_time_str = format_kill_time_str(kill_time)
 
-    if encounter_id not in [1069, 1070, 88, 89, 90, 91, 92]:
-        feedback_text = "Sorry, only fights from Anabeiseos are currently supported."
-        return (
-            feedback_text,
-            [],
-            [],
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            [],
-            radio_value,
-            False,
-            True,
-            True,
-        )
+    if encounter_id not in valid_encounters:
+        feedback_text = f"Sorry, {encounter_name} is not supported."
+        return tuple([feedback_text] + error_return)
 
     (
         tank_radio_items,
@@ -1142,7 +1108,6 @@ def analyze_and_register_rotation(
                 [],
             )
 
-        # FIXME: only analyze and write results, redirect to display results
         if len(prior_analysis) == 0:
             pet_ids = player_info["pet_ids"]
             rotation = RotationTable(
@@ -1168,7 +1133,7 @@ def analyze_and_register_rotation(
             t = rotation.fight_time
             encounter_name = rotation.fight_name
 
-            job_obj = rotation_analysis(
+            job_analysis_object = rotation_analysis(
                 role,
                 job_no_space,
                 rotation_df,
@@ -1182,7 +1147,11 @@ def analyze_and_register_rotation(
                 wd,
                 delay,
                 main_stat_pre_bonus,
+                action_delta=2
             )
+
+            job_analysis_data = job_analysis_to_data_class(job_analysis_object, t)
+            job_analysis_data.interpolate_distributions()
 
             analysis_id = str(uuid4())
             redo_rotation_flag = 0
@@ -1191,10 +1160,8 @@ def analyze_and_register_rotation(
             if not DRY_RUN:
                 with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
                     pickle.dump(rotation, f)
-                with open(
-                    BLOB_URI / f"job-analysis-object-{analysis_id}.pkl", "wb"
-                ) as f:
-                    pickle.dump(job_obj, f)
+                with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
+                    pickle.dump(job_analysis_data, f)
 
                 db_row = (
                     analysis_id,
@@ -1228,7 +1195,7 @@ def analyze_and_register_rotation(
                 )
                 update_report_table(db_row)
 
-            del job_obj
+            del job_analysis_object
 
     # Catch any error and display it, then reset the button/prompt
     except Exception as e:
