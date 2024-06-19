@@ -252,22 +252,10 @@ def update_report_table(db_row):
     cur = con.cursor()
     cur.execute(
         """
-    insert into report 
+    insert or replace into report 
     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         db_row,
-    )
-    con.commit()
-    # Drop any duplicate records
-    cur.execute(
-        """
-    delete from report 
-     where rowid not in (
-        select min(rowid)
-        from report
-        group by analysis_id
-     )
-    """
     )
     con.commit()
     cur.close()
@@ -280,23 +268,12 @@ def update_party_report_table(db_row):
     cur = con.cursor()
     cur.execute(
         """
-    insert into party_report 
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """,
+        insert
+        or replace into party_report
+        values
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
         db_row,
-    )
-    con.commit()
- 
-    # Drop any duplicate records
-    cur.execute(
-        """
-    delete from party_report 
-     where rowid not in (
-        select min(rowid)
-        from party_report
-        group by party_analysis_id
-     )
-    """
     )
     con.commit()
     cur.close()
@@ -351,23 +328,13 @@ def unflag_party_report_recompute(analysis_id):
 def update_encounter_table(db_rows):
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
-    cur.executemany(
-        """
-    insert into encounter 
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """,
-        db_rows,
-    )
-    # Drop any duplicate records
-    cur.execute(
-        """
-    delete from encounter 
-     where rowid not in (
-        select min(rowid)
-        from encounter
-        group by report_id, fight_id, player_id
-     )
-    """
+    cur.executemany("""
+        insert
+        or replace into encounter
+        values
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        db_rows
     )
     con.commit()
     cur.close()

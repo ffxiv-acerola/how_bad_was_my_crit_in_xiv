@@ -30,7 +30,8 @@ create table if not exists encounter(
     player_id INTEGER NOT NULL,
     pet_ids TEXT,
     job TEXT NOT NULL,
-    role TEXT NOT NULL
+    role TEXT NOT NULL,
+    primary key (report_id, fight_id, player_id)
 )
 """
 
@@ -59,7 +60,8 @@ create table if not exists report(
     party_bonus REAL NOT NULL,
     etro_id TEXT,
     redo_dps_pdf_flag INTEGER NOT NULL,
-    redo_rotation_flag INTEGER NOT NULL
+    redo_rotation_flag INTEGER NOT NULL,
+    primary key (analysis_id)
 )
 """
 
@@ -76,7 +78,8 @@ create table if not exists party_report(
     analysis_id_6 TEXT, 
     analysis_id_7 TEXT, 
     analysis_id_8 TEXT,
-    redo_analysis_flag INTEGER NOT NULL
+    redo_analysis_flag INTEGER NOT NULL,
+    primary key (party_analysis_id)
 )
 """
 
