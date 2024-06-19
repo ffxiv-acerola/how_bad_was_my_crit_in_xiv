@@ -696,7 +696,10 @@ def job_build_defined(
     """
     secondary_stat_condition = (role in ("Healer", "Tank", "Magical Ranged")) & (
         secondary_stat is None
-    ) | ((role in ("Melee", "Physical Ranged")) & (secondary_stat != "None"))
+    ) | (
+        (role in ("Melee", "Physical Ranged"))
+        & ((secondary_stat != "None") | (secondary_stat != ""))
+    )
     # TODO: will need to handle None secondary stat for roles without them.
     job_build_missing = (
         any(
@@ -1147,7 +1150,7 @@ def analyze_and_register_rotation(
                 wd,
                 delay,
                 main_stat_pre_bonus,
-                action_delta=2
+                action_delta=2,
             )
 
             job_analysis_data = job_analysis_to_data_class(job_analysis_object, t)
