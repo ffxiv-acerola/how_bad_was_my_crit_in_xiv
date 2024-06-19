@@ -366,7 +366,7 @@ def initialize_job_build(
                 [
                     html.H2("Select a role and enter job build"),
                     html.P(
-                        "A job build must be fully entered before a log can be analyzed. A build from an Etro URL can be loaded in or values can be manually entered. A role must be selected so the correct main/secondary stats can be used. If an Etro build is used, the role will be automatically selected."
+                        "A job build must be fully entered before a log can be analyzed. A build from an Etro URL can be loaded in or values can be manually entered. A role must be selected so the correct main/secondary stats can be used. If an Etro build is used, the role will be automatically selected. Do not include any percent bonus to main stat, this is automatically calculated."
                     ),
                     dbc.Form(
                         [
