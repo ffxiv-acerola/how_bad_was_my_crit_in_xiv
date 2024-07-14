@@ -722,6 +722,9 @@ class ActionTable(object):
 
         if "unpaired" in actions_df.columns:
             action_df_columns.append("unpaired")
+
+        if "directHit" not in actions_df.columns:
+            actions_df["directHit"] = False
         # Only include player ID and any of their associated pet IDs
 
         if "bonusPercent" not in actions_df.columns:
