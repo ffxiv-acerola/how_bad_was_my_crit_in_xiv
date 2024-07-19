@@ -136,7 +136,7 @@ def initialize_job_build(
                 type="number",
                 placeholder=None,
                 min=100,
-                max=4000,
+                max=6000,
                 id="main-stat",
             )
         ),
@@ -147,7 +147,7 @@ def initialize_job_build(
                 type="number",
                 placeholder=None,
                 min=100,
-                max=4000,
+                max=5000,
                 id="secondary-stat",
             )
         ),
@@ -158,7 +158,7 @@ def initialize_job_build(
                 type="number",
                 placeholder="Determination",
                 min=100,
-                max=4000,
+                max=5000,
                 id="DET",
             )
         ),
@@ -193,7 +193,7 @@ def initialize_job_build(
                 type="number",
                 placeholder=None,
                 min=100,
-                max=4000,
+                max=5000,
                 id="speed-stat",
             )
         ),
@@ -207,7 +207,7 @@ def initialize_job_build(
                 type="number",
                 placeholder="Critical Hit",
                 min=100,
-                max=4000,
+                max=5000,
                 id="CRT",
             )
         ),
@@ -218,7 +218,7 @@ def initialize_job_build(
                 type="number",
                 placeholder="Direct Hit",
                 min=100,
-                max=4000,
+                max=5000,
                 id="DH",
             )
         ),
@@ -229,7 +229,7 @@ def initialize_job_build(
                 type="number",
                 placeholder="Weapon Damage",
                 min=100,
-                max=4000,
+                max=500,
                 id="WD",
             )
         ),

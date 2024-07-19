@@ -39,7 +39,7 @@ from figures import (
     make_party_rotation_pdf_figure,
     make_rotation_pdf_figure,
 )
-from job_data.data import (
+from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
     damage_buff_table,
     direct_hit_rate_table,
@@ -57,7 +57,7 @@ from party_cards import (
     create_tincture_input,
     party_analysis_assumptions_modal,
 )
-from rotation import RotationTable
+from fflogs_rotation.rotation import RotationTable
 from shared_elements import (
     check_prior_job_analyses,
     check_prior_party_analysis,

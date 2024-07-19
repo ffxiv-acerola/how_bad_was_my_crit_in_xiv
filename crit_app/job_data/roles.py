@@ -87,9 +87,11 @@ role_mapping = {
     "Ninja": "Melee",
     "Samurai": "Melee",
     "Reaper": "Melee",
+    "Viper": "Melee",
     "BlackMage": "Magical Ranged",
     "Summoner": "Magical Ranged",
     "RedMage": "Magical Ranged",
+    "Pictomancer": "Magical Ranged",
 }
 
 abbreviated_job_map = {
@@ -107,9 +109,11 @@ abbreviated_job_map = {
     "Dragoon": "drg",
     "Monk": "mnk",
     "Ninja": "nin",
+    "Viper": "vpr",
     "Samurai": "sam",
     "Reaper": "rpr",
     "BlackMage": "blm",
     "Summoner": "smn",
     "RedMage": "rdm",
+    "Pictomancer": "pct",
 }

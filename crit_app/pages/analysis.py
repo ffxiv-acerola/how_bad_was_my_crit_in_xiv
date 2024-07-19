@@ -30,18 +30,9 @@ from figures import (
     make_rotation_pdf_figure,
     make_rotation_percentile_table,
 )
-from job_data.data import (
-    critical_hit_rate_table,
-    damage_buff_table,
-    direct_hit_rate_table,
-    guaranteed_hits_by_action_table,
-    guaranteed_hits_by_buff_table,
-    potency_table,
-)
 from job_data.job_warnings import job_warnings
-from job_data.roles import role_stat_dict, abbreviated_job_map
+from job_data.roles import abbreviated_job_map, role_stat_dict
 from job_data.valid_encounters import valid_encounters
-from rotation import RotationTable
 from shared_elements import (
     etro_build,
     format_kill_time_str,
@@ -54,6 +45,16 @@ from shared_elements import (
     update_encounter_table,
     update_report_table,
 )
+from crit_app.job_data.valid_encounters import encounter_level
+from fflogs_rotation.job_data.data import (
+    critical_hit_rate_table,
+    damage_buff_table,
+    direct_hit_rate_table,
+    guaranteed_hits_by_action_table,
+    guaranteed_hits_by_buff_table,
+    potency_table,
+)
+from fflogs_rotation.rotation import RotationTable
 
 dash.register_page(
     __name__,
@@ -246,6 +247,8 @@ def layout(analysis_id=None):
             character = analysis_details["player_name"]
             player_id = analysis_details["player_id"]
             role = analysis_details["role"]
+            encounter_id = encounter_df["encounter_id"].iloc[0]
+            level = encounter_level[encounter_id]
 
             job_radio_options = show_job_options(encounter_df.to_dict("records"), role)
             job_radio_options_dict = {
@@ -301,6 +304,7 @@ def layout(analysis_id=None):
                     direct_hit,
                     determination,
                     medication_amt,
+                    level,
                     damage_buff_table,
                     critical_hit_rate_table,
                     direct_hit_rate_table,
@@ -694,12 +698,11 @@ def job_build_defined(
     """
     Check if any job build elements are missing, hide everything else if they are.
     """
-    secondary_stat_condition = (role in ("Healer", "Tank", "Magical Ranged")) & (
-        secondary_stat is None
-    ) | (
-        (role in ("Melee", "Physical Ranged"))
-        & ((secondary_stat != "None") | (secondary_stat != ""))
+    secondary_stat_condition = (
+        (role in ("Healer", "Tank", "Magical Ranged")) & (secondary_stat is None)
     )
+    if role in ("Melee", "Physical Ranged"):
+        secondary_stat = False
     # TODO: will need to handle None secondary stat for roles without them.
     job_build_missing = (
         any(
@@ -1012,6 +1015,8 @@ def analyze_and_register_rotation(
     player = player_info["player_name"]
     job_no_space = player_info["job"]
     role = player_info["role"]
+    encounter_id = player_info["encounter_id"]
+    level = encounter_level[encounter_id]
 
     main_stat_multiplier = 1 + len(set(encounter_df["role"])) / 100
     main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
@@ -1123,6 +1128,7 @@ def analyze_and_register_rotation(
                 dh,
                 determination,
                 medication_amt,
+                level,
                 damage_buff_table,
                 critical_hit_rate_table,
                 direct_hit_rate_table,
@@ -1150,7 +1156,8 @@ def analyze_and_register_rotation(
                 wd,
                 delay,
                 main_stat_pre_bonus,
-                action_delta=2,
+                action_delta=4,
+                level=level,
             )
 
             job_analysis_data = job_analysis_to_data_class(job_analysis_object, t)
