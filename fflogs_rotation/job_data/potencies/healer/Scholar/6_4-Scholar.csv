@@ -1,0 +1,7 @@
+job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency
+Scholar,25865,Broil IV,90,,295,direct,,,,,,
+Scholar,17870,Ruin II,90,,220,direct,,,,,,
+Scholar,1001895,Biolysis (tick),90,,70,magic-dot,,,,,,
+Scholar,167,Energy Drain,90,,100,direct,,,,,,
+Scholar,7,Attack,90,,90,auto,,,,,,
+Scholar,25866,Art of War II,90,,180,direct,,,,,,
