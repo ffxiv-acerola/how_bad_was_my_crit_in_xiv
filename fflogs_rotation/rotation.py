@@ -6,21 +6,21 @@ import pandas as pd
 import numpy as np
 from ffxiv_stats import Rate
 
-from .rotation_jobs_old import (
+from fflogs_rotation.rotation_jobs_old import (
     DarkKnightActions,
     PaladinActions,
     BlackMageActions,
     MonkActions,
     ReaperActions,
-    DragoonActions,
     SamuraiActions,
     MachinistActions,
     BardActions,
 )
 
-from .ninja import NinjaActions
+from fflogs_rotation.ninja import NinjaActions
+from fflogs_rotation.dragoon import DragoonActions
 
-from .job_data.data import (
+from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
     direct_hit_rate_table,
     damage_buff_table,
@@ -28,7 +28,7 @@ from .job_data.data import (
     guaranteed_hits_by_buff_table,
     potency_table,
 )
-from .job_data.game_data import patch_times
+from fflogs_rotation.job_data.game_data import patch_times
 
 from crit_app.config import FFLOGS_TOKEN
 url = "https://www.fflogs.com/api/v2/client"
@@ -223,10 +223,15 @@ class ActionTable(object):
             pass
 
         elif self.job == "Dragoon":
-            self.job_specifics = DragoonActions(headers, report_id, fight_id, player_id)
-            self.actions_df = self.job_specifics.apply_combo_finisher_potencies(
-                self.actions_df
-            )
+            self.job_specifics = DragoonActions(headers, report_id, fight_id, player_id, self.patch_number)
+            # if self.patch_number >= 7.0:
+            #     self.actions_df = self.job_specifics.apply_dawntrail_life_of_the_dragon_buffs(
+            #         self.actions_df
+            #     )
+            if self.patch_number < 7.0:
+                self.actions_df = self.job_specifics.apply_endwalker_combo_finisher_potencies(
+                    self.actions_df
+                )
 
         elif self.job == "Reaper":
             self.job_specifics = ReaperActions(headers, report_id, fight_id, player_id)
@@ -1194,14 +1199,15 @@ if __name__ == "__main__":
 
     RotationTable(
         headers,
-        "F4Z8zaCxKMWpJRd1",
-        2,
-        "Ninja",
-        3,
-        2557,
-        1432,
-        1844,
-        254,
+        "n92HcfwVWKGCq8Jm",
+        1,
+        "Dragoon",
+        1,
+        4341,
+        2032,
+        2064,
+        351,
+        100,
         damage_buff_table,
         critical_hit_rate_table,
         direct_hit_rate_table,
