@@ -60,3 +60,22 @@ def test_dt_kazematoi_gauge():
     assert_frame_equal(
         test_output, expected_df, check_like=True
     )
+
+    # RotationTable(
+    #     headers,
+    #     "F4Z8zaCxKMWpJRd1",
+    #     2,
+    #     "Ninja",
+    #     3,
+    #     2557,
+    #     1432,
+    #     1844,
+    #     254,
+    #     damage_buff_table,
+    #     critical_hit_rate_table,
+    #     direct_hit_rate_table,
+    #     guaranteed_hits_by_action_table,
+    #     guaranteed_hits_by_buff_table,
+    #     potency_table,
+    #     pet_ids=None,
+    # )
