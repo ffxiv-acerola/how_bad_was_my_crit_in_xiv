@@ -17,8 +17,10 @@ url = "https://www.fflogs.com/api/v2/client"
 # This gets used to apply the any buff,
 # where the number of "between" conditions could be variable
 
+
 def disjunction(*conditions):
     return reduce(np.logical_or, conditions)
+
 
 class BuffQuery(object):
     def __init__(
@@ -805,7 +807,7 @@ class BlackMageActions(object):
         self._set_elemental_timings(actions_df)
 
         # Apply enochian multiplier if an elemental status is active
-        self.elemental_status["enochian_multiplier"] = 1.
+        self.elemental_status["enochian_multiplier"] = 1.0
         self.elemental_status.loc[
             ~self.elemental_status["elemental_status"].isnull(), "enochian_multiplier"
         ] = 1.23
@@ -870,6 +872,7 @@ class BlackMageActions(object):
 
         return blm_actions_df[actions_df.columns]
 
+
 class SamuraiActions(BuffQuery):
     def __init__(
         self,
@@ -923,6 +926,16 @@ class SamuraiActions(BuffQuery):
         pass
 
     def apply_enhanced_enpi(self, actions_df):
+        """Apply enhanced enpi buff actions DataFrame. If no enhanced enpi is present, return the unaltered DataFrame
+
+        Args:
+            actions_df (_type_): DataFrame of actions.
+
+        """
+
+        if self.enhanced_enpi_times.size == 0:
+            return actions_df
+
         enhanced_enpi_betweens = list(
             actions_df["timestamp"].between(b[0], b[1], inclusive="right")
             for b in self.enhanced_enpi_times
@@ -1153,7 +1166,6 @@ class ReaperActions(BuffQuery):
         )
 
         return actions_df
-
 
 
 if __name__ == "__main__":
