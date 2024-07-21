@@ -18,7 +18,7 @@ def initialize_job_build(
     weapon_damage=None,
     delay=None,
     party_bonus=1.05,
-    medication_amt=262,
+    medication_amt=351,
 ):
     """
     Create the job build div, optionally setting initial values for them.
@@ -110,6 +110,10 @@ def initialize_job_build(
                         name="POT:",
                         id="tincture-grade",
                         options=[
+                            {
+                                "label": "Grade 1 Gemdraught (+361)",
+                                "value": 351
+                            },
                             {
                                 "label": "Grade 8 Tincture (+262)",
                                 "value": 262,
