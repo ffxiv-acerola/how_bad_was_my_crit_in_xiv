@@ -10,7 +10,6 @@ from fflogs_rotation.rotation_jobs_old import (
     DarkKnightActions,
     PaladinActions,
     BlackMageActions,
-    MonkActions,
     ReaperActions,
     SamuraiActions,
     MachinistActions,
@@ -19,6 +18,7 @@ from fflogs_rotation.rotation_jobs_old import (
 
 from fflogs_rotation.ninja import NinjaActions
 from fflogs_rotation.dragoon import DragoonActions
+from fflogs_rotation.monk import MonkActions
 
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
@@ -207,13 +207,20 @@ class ActionTable(object):
 
         # FIXME: I think arm of the destroyer won't get updated but surely no one would use that in savage.
         elif self.job == "Monk":
-            self.job_specifics = MonkActions(headers, report_id, fight_id, player_id)
-            self.actions_df = self.job_specifics.apply_mnk_buffs(self.actions_df)
+            self.job_specifics = MonkActions(headers, report_id, fight_id, player_id, self.patch_number)
+
+            if self.patch_number < 7.0:
+                self.actions_df = self.job_specifics.apply_endwalker_mnk_buffs(self.actions_df)
+            else:
+                self.actions_df = self.job_specifics.apply_dawntrail_mnk_buffs(self.actions_df)
+
+
             self.actions_df = self.job_specifics.apply_bootshine_autocrit(
                 self.actions_df,
                 self.critical_hit_stat,
                 self.direct_hit_stat,
                 self.critical_hit_rate_buffs,
+                self.level
             )
             pass
 
@@ -1178,34 +1185,15 @@ if __name__ == "__main__":
     #     potency_table,
     #     pet_ids=None,
     # )
-    # RotationTable(
-    #     headers,
-    #     "9DHznqxcAGLbjpgh",
-    #     7,
-    #     "Monk",
-    #     4,
-    #     2567,
-    #     1396,
-    #     1870,
-    #     254,
-    #     damage_buff_table,
-    #     critical_hit_rate_table,
-    #     direct_hit_rate_table,
-    #     guaranteed_hits_by_action_table,
-    #     guaranteed_hits_by_buff_table,
-    #     potency_table,
-    #     pet_ids=None,
-    # )
-
     RotationTable(
         headers,
-        "n92HcfwVWKGCq8Jm",
-        1,
-        "Dragoon",
-        1,
-        4341,
-        2032,
-        2064,
+        "gVkPC9HXaz7tjWbn",
+        5,
+        "Monk",
+        59,
+        2208,
+        1976,
+        1897,
         351,
         100,
         damage_buff_table,
@@ -1216,3 +1204,23 @@ if __name__ == "__main__":
         potency_table,
         pet_ids=None,
     )
+
+    # RotationTable(
+    #     headers,
+    #     "n92HcfwVWKGCq8Jm",
+    #     1,
+    #     "Dragoon",
+    #     1,
+    #     4341,
+    #     2032,
+    #     2064,
+    #     351,
+    #     100,
+    #     damage_buff_table,
+    #     critical_hit_rate_table,
+    #     direct_hit_rate_table,
+    #     guaranteed_hits_by_action_table,
+    #     guaranteed_hits_by_buff_table,
+    #     potency_table,
+    #     pet_ids=None,
+    # )

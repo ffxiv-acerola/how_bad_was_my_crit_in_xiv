@@ -110,9 +110,8 @@ class NinjaActions(BuffQuery):
                 [self.aeolian_edge_id, self.armor_crush_id]
             )
         ][["elapsed_time", "abilityGameID", "ability_name"]].sort_values("elapsed_time")
-        kazematoi_df["change"] = 2
-        kazematoi_df.loc[kazematoi_df["abilityGameID"] == 2255, "change"] = -1
 
+        # FIXME: Create general gauge function
         kazematoi_df["change"] = 2
         kazematoi_df.loc[kazematoi_df["abilityGameID"] == 2255, "change"] = -1
 
