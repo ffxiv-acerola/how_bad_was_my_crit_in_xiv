@@ -19,8 +19,8 @@ from fflogs_rotation.job_data.game_data import patch_times
 from fflogs_rotation.machinist import MachinistActions
 from fflogs_rotation.monk import MonkActions
 from fflogs_rotation.ninja import NinjaActions
+from fflogs_rotation.bard import BardActions
 from fflogs_rotation.rotation_jobs_old import (
-    BardActions,
     BlackMageActions,
     DarkKnightActions,
     PaladinActions,
@@ -278,6 +278,8 @@ class ActionTable(object):
             self.actions_df = self.job_specifics.estimate_pitch_perfect_potency(
                 self.actions_df
             )
+            if self.patch_number >= 7.0:
+                self.actions_df = self.job_specifics.estimate_radiant_encore_potency(self.actions_df)
         # Unpaired didn't have damage go off, filter these out.
         # This column wont exist if there aren't any unpaired actions though.
         # This is done at the very end because unpaired actions can still give gauge,
