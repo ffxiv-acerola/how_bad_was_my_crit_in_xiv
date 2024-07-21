@@ -1,36 +1,34 @@
 import json
 import time
 
-import requests
-import pandas as pd
 import numpy as np
-from ffxiv_stats import Rate
+import pandas as pd
+import requests
 
-from fflogs_rotation.rotation_jobs_old import (
-    DarkKnightActions,
-    PaladinActions,
-    BlackMageActions,
-    ReaperActions,
-    SamuraiActions,
-    MachinistActions,
-    BardActions,
-)
-
-from fflogs_rotation.ninja import NinjaActions
+from crit_app.config import FFLOGS_TOKEN
 from fflogs_rotation.dragoon import DragoonActions
-from fflogs_rotation.monk import MonkActions
-
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
-    direct_hit_rate_table,
     damage_buff_table,
+    direct_hit_rate_table,
     guaranteed_hits_by_action_table,
     guaranteed_hits_by_buff_table,
     potency_table,
 )
 from fflogs_rotation.job_data.game_data import patch_times
+from fflogs_rotation.machinist import MachinistActions
+from fflogs_rotation.monk import MonkActions
+from fflogs_rotation.ninja import NinjaActions
+from fflogs_rotation.rotation_jobs_old import (
+    BardActions,
+    BlackMageActions,
+    DarkKnightActions,
+    PaladinActions,
+    ReaperActions,
+    SamuraiActions,
+)
+from ffxiv_stats import Rate
 
-from crit_app.config import FFLOGS_TOKEN
 url = "https://www.fflogs.com/api/v2/client"
 api_key = FFLOGS_TOKEN  # or copy/paste your key here
 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
@@ -207,37 +205,48 @@ class ActionTable(object):
 
         # FIXME: I think arm of the destroyer won't get updated but surely no one would use that in savage.
         elif self.job == "Monk":
-            self.job_specifics = MonkActions(headers, report_id, fight_id, player_id, self.patch_number)
+            self.job_specifics = MonkActions(
+                headers, report_id, fight_id, player_id, self.patch_number
+            )
 
             if self.patch_number < 7.0:
-                self.actions_df = self.job_specifics.apply_endwalker_mnk_buffs(self.actions_df)
+                self.actions_df = self.job_specifics.apply_endwalker_mnk_buffs(
+                    self.actions_df
+                )
             else:
-                self.actions_df = self.job_specifics.apply_dawntrail_mnk_buffs(self.actions_df)
-
+                self.actions_df = self.job_specifics.apply_dawntrail_mnk_buffs(
+                    self.actions_df
+                )
 
             self.actions_df = self.job_specifics.apply_bootshine_autocrit(
                 self.actions_df,
                 self.critical_hit_stat,
                 self.direct_hit_stat,
                 self.critical_hit_rate_buffs,
-                self.level
+                self.level,
             )
             pass
 
         elif self.job == "Ninja":
-            self.job_specifics = NinjaActions(headers, report_id, fight_id, player_id, self.patch_number)
+            self.job_specifics = NinjaActions(
+                headers, report_id, fight_id, player_id, self.patch_number
+            )
             self.actions_df = self.job_specifics.apply_ninja_buff(self.actions_df)
             pass
 
         elif self.job == "Dragoon":
-            self.job_specifics = DragoonActions(headers, report_id, fight_id, player_id, self.patch_number)
+            self.job_specifics = DragoonActions(
+                headers, report_id, fight_id, player_id, self.patch_number
+            )
             # if self.patch_number >= 7.0:
             #     self.actions_df = self.job_specifics.apply_dawntrail_life_of_the_dragon_buffs(
             #         self.actions_df
             #     )
             if self.patch_number < 7.0:
-                self.actions_df = self.job_specifics.apply_endwalker_combo_finisher_potencies(
-                    self.actions_df
+                self.actions_df = (
+                    self.job_specifics.apply_endwalker_combo_finisher_potencies(
+                        self.actions_df
+                    )
                 )
 
         elif self.job == "Reaper":
@@ -283,10 +292,11 @@ class ActionTable(object):
         pass
 
     def what_patch_is_it(self):
-        """Map log start timestamp to its associated patch. Patches are used to to apply the correct potencies and job gauge mechanics.
-        """
+        """Map log start timestamp to its associated patch. Patches are used to to apply the correct potencies and job gauge mechanics."""
         for k, v in patch_times.items():
-            if (self.fight_start_time >= v["start"]) & (self.fight_start_time <= v["end"]):
+            if (self.fight_start_time >= v["start"]) & (
+                self.fight_start_time <= v["end"]
+            ):
                 return k
 
     def damage_events(self, headers):
@@ -849,7 +859,8 @@ class ActionTable(object):
                     )
 
                 # All AST cards are lumped as either 6% buff or 3% buff.
-                if s in ranged_cards + melee_cards:
+                # only do for pre-Dawntrail.
+                if (self.patch_number < 7.0) & (s in ranged_cards + melee_cards):
                     buff_id[idx][b_idx] = self.ast_card_buff(s)[0]
 
             # Check if action has a guaranteed hit type, potentially under a hit type buff.
@@ -1167,33 +1178,15 @@ if __name__ == "__main__":
     #     pet_ids=[15],
     # )
 
-    # RotationTable(
-    #     headers,
-    #     "gbkzXDBTFAQqjxpL",
-    #     34,
-    #     "BlackMage",
-    #     8,
-    #     2452,
-    #     1330,
-    #     1552,
-    #     254,
-    #     damage_buff_table,
-    #     critical_hit_rate_table,
-    #     direct_hit_rate_table,
-    #     guaranteed_hits_by_action_table,
-    #     guaranteed_hits_by_buff_table,
-    #     potency_table,
-    #     pet_ids=None,
-    # )
     RotationTable(
         headers,
-        "gVkPC9HXaz7tjWbn",
-        5,
-        "Monk",
-        59,
-        2208,
-        1976,
-        1897,
+        "bLcB1DYCKxq8tdf6",
+        6,
+        "Machinist",
+        7,
+        2002,
+        2220,
+        2607,
         351,
         100,
         damage_buff_table,
@@ -1202,7 +1195,7 @@ if __name__ == "__main__":
         guaranteed_hits_by_action_table,
         guaranteed_hits_by_buff_table,
         potency_table,
-        pet_ids=None,
+        pet_ids=[13],
     )
 
     # RotationTable(
