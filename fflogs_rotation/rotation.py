@@ -20,11 +20,11 @@ from fflogs_rotation.machinist import MachinistActions
 from fflogs_rotation.monk import MonkActions
 from fflogs_rotation.ninja import NinjaActions
 from fflogs_rotation.bard import BardActions
+from fflogs_rotation.reaper import ReaperActions
 from fflogs_rotation.rotation_jobs_old import (
     BlackMageActions,
     DarkKnightActions,
     PaladinActions,
-    ReaperActions,
     SamuraiActions,
 )
 from ffxiv_stats import Rate

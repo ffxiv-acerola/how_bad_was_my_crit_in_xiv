@@ -1,6 +1,6 @@
 ﻿job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency
 RedMage,7519,Contre Sixte,90,,380,direct,,,,,,
-RedMage,7506,Corps-a-corps,90,,130,direct,,,,,,
+RedMage,7506,Corps-a-Corps,90,,130,direct,,,,,,
 RedMage,7530,Enchanted Moulinet,90,,130,direct,,,,,,
 RedMage,7529,Enchanted Redoublement,90,,130,direct,74,500,,,,
 RedMage,7527,Enchanted Riposte,90,,280,direct,,,,,,
