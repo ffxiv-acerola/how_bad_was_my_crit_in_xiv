@@ -20,9 +20,9 @@ from fflogs_rotation.machinist import MachinistActions
 from fflogs_rotation.monk import MonkActions
 from fflogs_rotation.ninja import NinjaActions
 from fflogs_rotation.bard import BardActions
+from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.reaper import ReaperActions
 from fflogs_rotation.rotation_jobs_old import (
-    BlackMageActions,
     DarkKnightActions,
     PaladinActions,
     SamuraiActions,
@@ -191,11 +191,11 @@ class ActionTable(object):
 
         elif self.job == "BlackMage":
             self.job_specifics = BlackMageActions(
-                headers, report_id, fight_id, player_id
+                headers, report_id, fight_id, player_id, self.level, self.patch_number
             )
             self.actions_df = self.job_specifics.apply_elemental_buffs(self.actions_df)
             self.actions_df = self.actions_df[
-                self.actions_df["ability_name"] != "attack"
+                self.actions_df["ability_name"] != "Attack"
             ]
 
         elif self.job == "Summoner":
@@ -1180,35 +1180,15 @@ if __name__ == "__main__":
     #     pet_ids=[15],
     # )
 
-    RotationTable(
-        headers,
-        "bLcB1DYCKxq8tdf6",
-        6,
-        "Machinist",
-        7,
-        2002,
-        2220,
-        2607,
-        351,
-        100,
-        damage_buff_table,
-        critical_hit_rate_table,
-        direct_hit_rate_table,
-        guaranteed_hits_by_action_table,
-        guaranteed_hits_by_buff_table,
-        potency_table,
-        pet_ids=[13],
-    )
-
     # RotationTable(
     #     headers,
-    #     "n92HcfwVWKGCq8Jm",
-    #     1,
-    #     "Dragoon",
-    #     1,
-    #     4341,
-    #     2032,
-    #     2064,
+    #     "bLcB1DYCKxq8tdf6",
+    #     6,
+    #     "Machinist",
+    #     7,
+    #     2002,
+    #     2220,
+    #     2607,
     #     351,
     #     100,
     #     damage_buff_table,
@@ -1217,5 +1197,45 @@ if __name__ == "__main__":
     #     guaranteed_hits_by_action_table,
     #     guaranteed_hits_by_buff_table,
     #     potency_table,
+    #     pet_ids=[13],
+    # )
+
+    # RotationTable(
+    #     headers,
+    #     "TxzfCRDj9WrkGp6H",
+    #     14,
+    #     "BlackMage",
+    #     4,
+    #     4341,
+    #     2032,
+    #     2064,
+    #     351,
+    #     90,
+    #     damage_buff_table,
+    #     critical_hit_rate_table,
+    #     direct_hit_rate_table,
+    #     guaranteed_hits_by_action_table,
+    #     guaranteed_hits_by_buff_table,
+    #     potency_table,
     #     pet_ids=None,
     # )
+
+    RotationTable(
+        headers,
+        "N1rJByQCKjzkTnG9",
+        18,
+        "BlackMage",
+        1238,
+        4341,
+        2032,
+        2064,
+        351,
+        100,
+        damage_buff_table,
+        critical_hit_rate_table,
+        direct_hit_rate_table,
+        guaranteed_hits_by_action_table,
+        guaranteed_hits_by_buff_table,
+        potency_table,
+        pet_ids=None,
+    )
