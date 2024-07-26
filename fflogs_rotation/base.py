@@ -50,7 +50,7 @@ class BuffQuery(object):
                 pd.DataFrame(aura[0]["bands"]) + (self.report_start * absolute_time)
             ).to_numpy()
         else:
-            return np.array([[]])
+            return np.array([[0, 0]])
 
     def _apply_buffs(self, actions_df, condition, buff_id):
         """Apply a buff to an actions DataFrame.

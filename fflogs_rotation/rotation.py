@@ -22,6 +22,7 @@ from fflogs_rotation.ninja import NinjaActions
 from fflogs_rotation.bard import BardActions
 from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.reaper import ReaperActions
+from fflogs_rotation.viper import ViperActions
 from fflogs_rotation.rotation_jobs_old import (
     DarkKnightActions,
     PaladinActions,
@@ -253,6 +254,10 @@ class ActionTable(object):
             self.job_specifics = ReaperActions(headers, report_id, fight_id, player_id)
             self.actions_df = self.job_specifics.apply_enhanced_buffs(self.actions_df)
             pass
+
+        elif self.job == "Viper":
+            self.job_specifics = ViperActions(headers, report_id, fight_id, player_id)
+            self.actions_df = self.job_specifics.apply_viper_buffs(self.actions_df)
 
         elif self.job == "Samurai":
             self.job_specifics = SamuraiActions(headers, report_id, fight_id, player_id)
@@ -1222,10 +1227,10 @@ if __name__ == "__main__":
 
     RotationTable(
         headers,
-        "N1rJByQCKjzkTnG9",
-        18,
-        "BlackMage",
-        1238,
+        "ZTHC2AVM3wcxXhKz",
+        2,
+        "Viper",
+        7,
         4341,
         2032,
         2064,
