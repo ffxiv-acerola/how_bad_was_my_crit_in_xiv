@@ -1209,15 +1209,51 @@ def analyze_and_register_rotation(
 
     # Catch any error and display it, then reset the button/prompt
     except Exception as e:
-        print(e)
+        info = (
+            report_id,
+            fight_id,
+            encounter_id,
+            job_no_space,
+            player,
+            int(main_stat_pre_bonus),
+            int(main_stat),
+            main_stat_type,
+            None
+            if role in ("Melee", "Physical Ranged")
+            else int(secondary_stat_pre_bonus),
+            None if role in ("Melee", "Physical Ranged") else int(secondary_stat),
+            secondary_stat_type,
+            int(determination),
+            int(speed_stat),
+            int(ch),
+            int(dh),
+            int(wd),
+            delay,
+            medication_amt,
+            main_stat_multiplier,
+        )
+
+        error_information = {"inputted_info": info, "exception": e}
+
+        with open(
+            BLOB_URI / "error-logs" / f"{datetime.datetime.now()}-error.pkl", "wb"
+        ) as f:
+            pickle.dump(error_information, f)
+
         return (
-            updated_url["Analyze rotation"],
+            updated_url,
+            ["Analyze rotation"],
             False,
             [
                 dbc.Alert(
                     [
-                        html.P("The following error was encountered:"),
+                        html.P(
+                            "Oops, the following error was encountered while creating and analyzing your rotation:"
+                        ),
                         str(e),
+                        html.P(
+                            "This error has been logged and will be fixed when possible. No further action is required."
+                        ),
                     ],
                     color="danger",
                 )

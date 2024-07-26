@@ -18,6 +18,9 @@ if not (BLOB_URI / "job-rotation-clippings").exists():
 if not (BLOB_URI / "party-analyses").exists():
     (BLOB_URI / "party-analyses").resolve().mkdir(parents=True)
 
+if not (BLOB_URI / "error-logs").exists():
+    (BLOB_URI / "error-logs").resolve().mkdir(parents=True)
+
 create_encounter_table = """
 create table if not exists encounter(
     report_id TEXT NOT NULL,
