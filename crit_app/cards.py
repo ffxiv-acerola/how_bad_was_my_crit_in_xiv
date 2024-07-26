@@ -97,7 +97,8 @@ def initialize_job_build(
                         },
                     ),
                     dbc.Tooltip(
-                        "Medication/potion. If no medication was used, " "keep the default value selected.",
+                        "Medication/potion. If no medication was used, "
+                        "keep the default value selected.",
                         target="tincture-tooltip",
                     ),
                 ],
@@ -110,10 +111,7 @@ def initialize_job_build(
                         name="POT:",
                         id="tincture-grade",
                         options=[
-                            {
-                                "label": "Grade 1 Gemdraught (+361)",
-                                "value": 351
-                            },
+                            {"label": "Grade 1 Gemdraught (+361)", "value": 351},
                             {
                                 "label": "Grade 8 Tincture (+262)",
                                 "value": 262,
@@ -630,6 +628,7 @@ def initialize_results(
     rotation_card=[],
     action_card=[],
     analysis_url=None,
+    xiv_analysis_url=None,
     results_hidden=True,
 ):
     if player_name is not None:
@@ -681,6 +680,22 @@ def initialize_results(
                                         align="center",
                                         width=1,
                                     ),
+                                ]
+                            ),
+                            html.Br(),
+                            dbc.Row(
+                                [
+                                    html.A(
+                                        [
+                                            "Analyze rotation in xivanalysis ",
+                                            html.I(
+                                                className="fas fa-external-link-alt",
+                                                style={"font-size": "0.8em"},
+                                            ),
+                                        ],
+                                        href=xiv_analysis_url,
+                                        target="_blank",
+                                    )
                                 ]
                             ),
                             html.Br(),

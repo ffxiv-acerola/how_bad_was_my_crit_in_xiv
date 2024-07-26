@@ -45,6 +45,7 @@ from shared_elements import (
     update_encounter_table,
     update_report_table,
 )
+
 from crit_app.job_data.valid_encounters import encounter_level
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
@@ -448,6 +449,8 @@ def layout(analysis_id=None):
             else:
                 alert_child = []
 
+            xiv_analysis_url = f"https://xivanalysis.com/fflogs/{report_id}/{fight_id}/{player_id}"
+
             ### Make all the divs
             job_build = initialize_job_build(
                 etro_url,
@@ -484,6 +487,7 @@ def layout(analysis_id=None):
                 rotation_card,
                 action_card,
                 analysis_url,
+                xiv_analysis_url,
                 False,
             )
 
@@ -698,8 +702,8 @@ def job_build_defined(
     """
     Check if any job build elements are missing, hide everything else if they are.
     """
-    secondary_stat_condition = (
-        (role in ("Healer", "Tank", "Magical Ranged")) & (secondary_stat is None)
+    secondary_stat_condition = (role in ("Healer", "Tank", "Magical Ranged")) & (
+        secondary_stat is None
     )
     if role in ("Melee", "Physical Ranged"):
         secondary_stat = False
