@@ -4,43 +4,24 @@ import time
 import numpy as np
 import pandas as pd
 import requests
+from ffxiv_stats import Rate
 
-from crit_app.config import FFLOGS_TOKEN
+from fflogs_rotation.bard import BardActions
+from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.dragoon import DragoonActions
-from fflogs_rotation.job_data.data import (
-    critical_hit_rate_table,
-    damage_buff_table,
-    direct_hit_rate_table,
-    guaranteed_hits_by_action_table,
-    guaranteed_hits_by_buff_table,
-    potency_table,
-)
 from fflogs_rotation.job_data.game_data import patch_times
 from fflogs_rotation.machinist import MachinistActions
 from fflogs_rotation.monk import MonkActions
 from fflogs_rotation.ninja import NinjaActions
-from fflogs_rotation.bard import BardActions
-from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.reaper import ReaperActions
-from fflogs_rotation.viper import ViperActions
-from fflogs_rotation.rotation_jobs_old import (
+from fflogs_rotation.rotation_jobs import (
     DarkKnightActions,
     PaladinActions,
     SamuraiActions,
 )
-from ffxiv_stats import Rate
+from fflogs_rotation.viper import ViperActions
 
 url = "https://www.fflogs.com/api/v2/client"
-api_key = FFLOGS_TOKEN  # or copy/paste your key here
-headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-
-
-ranged_cards = damage_buff_table[
-    damage_buff_table["buff_name"].isin(["The Bole", "The Spire", "The Ewer"])
-]["buff_id"].tolist()
-melee_cards = damage_buff_table[
-    damage_buff_table["buff_name"].isin(["The Arrow", "The Balance", "The Spear"])
-]["buff_id"].tolist()
 
 
 class ActionTable(object):
@@ -168,6 +149,17 @@ class ActionTable(object):
             .to_dict()
         )
 
+        self.ranged_cards = self.damage_buffs[
+            self.damage_buffs["buff_name"].isin(
+                ["The Bole", "The Spire", "The Ewer"]
+            )
+        ]["buff_id"].tolist()
+        self.melee_cards = self.damage_buffs[
+            self.damage_buffs["buff_name"].isin(
+                ["The Arrow", "The Balance", "The Spear"]
+            )
+        ]["buff_id"].tolist()
+
         self.actions_df = self.create_action_df()
 
         # Use delegation to handle job-specific mechanics,
@@ -203,6 +195,11 @@ class ActionTable(object):
             self.actions_df = self.estimate_ground_effect_multiplier(
                 1002706,
             )
+
+        elif self.job == "Pictomancer":
+            self.actions_df = self.actions_df[
+                self.actions_df["ability_name"] != "Attack"
+            ]
 
         # FIXME: I think arm of the destroyer won't get updated but surely no one would use that in savage.
         elif self.job == "Monk":
@@ -284,7 +281,9 @@ class ActionTable(object):
                 self.actions_df
             )
             if self.patch_number >= 7.0:
-                self.actions_df = self.job_specifics.estimate_radiant_encore_potency(self.actions_df)
+                self.actions_df = self.job_specifics.estimate_radiant_encore_potency(
+                    self.actions_df
+                )
         # Unpaired didn't have damage go off, filter these out.
         # This column wont exist if there aren't any unpaired actions though.
         # This is done at the very end because unpaired actions can still give gauge,
@@ -510,8 +509,8 @@ class ActionTable(object):
             "Paladin",
         ]
 
-        if (self.job in ranged_jobs and card_id in ranged_cards) or (
-            self.job in melee_jobs and card_id in melee_cards
+        if (self.job in ranged_jobs and card_id in self.ranged_cards) or (
+            self.job in melee_jobs and card_id in self.melee_cards
         ):
             card_strength = 6
         else:
@@ -867,7 +866,9 @@ class ActionTable(object):
 
                 # All AST cards are lumped as either 6% buff or 3% buff.
                 # only do for pre-Dawntrail.
-                if (self.patch_number < 7.0) & (s in ranged_cards + melee_cards):
+                if (self.patch_number < 7.0) & (
+                    s in self.ranged_cards + self.melee_cards
+                ):
                     buff_id[idx][b_idx] = self.ast_card_buff(s)[0]
 
             # Check if action has a guaranteed hit type, potentially under a hit type buff.
@@ -1164,6 +1165,18 @@ class RotationTable(ActionTable):
 
 
 if __name__ == "__main__":
+    from crit_app.config import FFLOGS_TOKEN
+    from fflogs_rotation.job_data.data import (
+        critical_hit_rate_table,
+        damage_buff_table,
+        direct_hit_rate_table,
+        guaranteed_hits_by_action_table,
+        guaranteed_hits_by_buff_table,
+        potency_table,
+    )
+
+    api_key = FFLOGS_TOKEN  # or copy/paste your key here
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     job = "DarkKnight"
     # TODO: turn these into tests
     # RotationTable(
