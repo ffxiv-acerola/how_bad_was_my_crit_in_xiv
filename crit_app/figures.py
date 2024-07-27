@@ -2,16 +2,13 @@
 Functions to create figures and tables after a damage distributions are computed.
 """
 
+import numpy as np
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-
 from dash import dash_table
 from dash.dash_table import FormatTemplate
 from dash.dash_table.Format import Format, Scheme
-
-import pandas as pd
-import numpy as np
-
 from dmg_distribution import get_dps_dmg_percentile, summarize_actions
 
 
@@ -150,6 +147,135 @@ def make_rotation_percentile_table(rotation_obj, rotation_percentile):
         )
     ]
     return rotation_percentile_table
+
+
+def how_tall_should_the_action_box_plot_be(n_actions):
+    if n_actions <= 7:
+        return 95
+    elif (n_actions > 7) & (n_actions <= 10):
+        return 75
+    elif (n_actions > 10) & (n_actions <= 15):
+        return 65
+    else:
+        return 55
+
+
+def make_action_box_and_whisker_figure(
+    rotation_data, action_dps, active_dps_time, analysis_time
+):
+    """
+    Show DPS distributions for actions as a collection of box and whisker plots.
+    """
+    t_div = active_dps_time / analysis_time
+
+    n_actions = len(rotation_data.unique_actions_distribution)
+    l_fence = np.zeros(shape=(n_actions))
+    q1 = np.zeros(shape=(n_actions))
+    q2 = np.zeros(shape=(n_actions))
+    q3 = np.zeros(shape=(n_actions))
+    u_fence = np.zeros(shape=(n_actions))
+    y = np.zeros(shape=(n_actions))
+
+    actual_dps = np.zeros(shape=(n_actions))
+    actual_dps_percentile = np.zeros(shape=(n_actions))
+
+    action_names = list(rotation_data.unique_actions_distribution.keys())
+
+    # Loop through actions and compute percentiles for box plots
+    for idx, (k, v) in enumerate(rotation_data.unique_actions_distribution.items()):
+        if t_div == 1:
+            density = v["dps_distribution"]
+            support = v["support"]
+
+        else:
+            support = v["support"] / active_dps_time
+            density = v["dps_distribution"] / np.trapz(v["dps_distribution"], support)
+
+        # Percentiles
+        dx = support[1] - support[0]
+        F_percentile = np.cumsum(density) * dx
+
+        y[idx] = idx
+        l_fence[idx] = int(support[np.abs(F_percentile - 0.10).argmin()])
+        q1[idx] = int(support[np.abs(F_percentile - 0.25).argmin()])
+        q2[idx] = int(support[np.abs(F_percentile - 0.5).argmin()])
+        q3[idx] = int(support[np.abs(F_percentile - 0.75).argmin()])
+        u_fence[idx] = int(support[np.abs(F_percentile - 0.90).argmin()])
+
+        actual_dps[idx] = action_dps.loc[
+            action_dps["ability_name"] == k, "amount"
+        ].iloc[0]
+        actual_dps_percentile[idx] = F_percentile[
+            np.abs(actual_dps[idx] - support).argmin()
+        ]
+
+    # Order by descending median
+    idx_order = np.argsort(q2)
+    ytick_labels = {int(idx): action_names[a] for idx, a in enumerate(idx_order)}
+
+    box_percentiles = {
+        "lowerfence": l_fence[idx_order],
+        "q1": q1[idx_order],
+        "median": q2[idx_order],
+        "q3": q3[idx_order],
+        "upperfence": u_fence[idx_order],
+    }
+
+    # Hover styling
+    custom_data = pd.DataFrame(box_percentiles)
+    custom_data["actual_percentile"] = actual_dps_percentile[idx_order]
+    custom_data["name"] = list(ytick_labels.values())
+    hovertemplate_text = (
+        "<b>%{customdata[6]}</b><br><br>" + "Actual DPS: %{x:,.0f} DPS<br>"
+        "Percentile: %{customdata[5]:.1%}<br><br>"
+        "10th %: %{customdata[0]:,.0f} DPS<br>"
+        + "25th %: %{customdata[1]:,.0f} DPS<br>"
+        + "50th %: %{customdata[2]:,.0f} DPS<br>"
+        + "75th %: %{customdata[3]:,.0f} DPS<br>"
+        + "90th %: %{customdata[4]:,.0f} DPS<br>"
+    )
+
+    # Actual figure time
+    layout = go.Layout(
+        template="plotly_dark",
+        height=n_actions * how_tall_should_the_action_box_plot_be(n_actions),
+    )
+    fig = go.Figure(layout=layout)
+
+    # Box plots
+    fig.add_trace(
+        go.Box(
+            y=list(range(n_actions)),
+            name="DPS Distribution",
+            marker_color="#009670",
+            hoverinfo="skip",
+            **box_percentiles,
+        )
+    )
+
+    # Actual DPS as points
+    fig.add_trace(
+        go.Scatter(
+            x=actual_dps[idx_order],
+            y=list(range(n_actions)),
+            mode="markers",
+            name="Actual DPS",
+            marker=dict(size=9, color="#FFA15A"),
+            customdata=custom_data,
+            hovertemplate=hovertemplate_text,
+        )
+    )
+
+    fig.update_yaxes(labelalias=ytick_labels, dtick=1, range=[-0.5, n_actions - 0.5])
+    fig.update_xaxes(title="Damage per second (DPS)")
+
+    # Title and place the legend at the top
+    # Horizonal space much more constrained than vertical.
+    fig.update_layout(
+        title="DPS distributions by action",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+    )
+    return fig
 
 
 def make_action_pdfs_figure(rotation_obj, action_dps, active_dps_time, analysis_time):

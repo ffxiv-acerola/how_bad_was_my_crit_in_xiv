@@ -620,6 +620,22 @@ def initialize_action_card(
     )
     return action_dmg_pdf_card
 
+def initialize_new_action_card(
+    action_figure=None
+):
+    action_dmg_pdf_card = dbc.Card(
+        dbc.CardBody(
+            [
+                html.H2("Action DPS distributions"),
+                html.P(
+                    "The DPS distribution for each action is shown below as box and whisker plots. Whiskers represent the 10th and 90th percentiles, respectively. Hover over a box plot to see the corresponding percentile, along with select other percentiles."
+                ),
+                html.Div(children=action_figure, id="action-pdf-fig-div"),
+            ],
+            className="mb-3",
+        ),
+    )
+    return action_dmg_pdf_card
 
 def initialize_results(
     player_name=None,

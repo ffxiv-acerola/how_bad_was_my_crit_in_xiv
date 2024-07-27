@@ -14,6 +14,7 @@ from cards import (
     initialize_action_card,
     initialize_fflogs_card,
     initialize_job_build,
+    initialize_new_action_card,
     initialize_results,
     initialize_rotation_card,
 )
@@ -25,6 +26,7 @@ from dmg_distribution import (
     job_analysis_to_data_class,
 )
 from figures import (
+    make_action_box_and_whisker_figure,
     make_action_pdfs_figure,
     make_action_table,
     make_rotation_pdf_figure,
@@ -420,7 +422,16 @@ def layout(analysis_id=None):
                 job_analysis_data.active_dps_t,
                 job_analysis_data.analysis_t,
             )
+
+            new_action_fig = make_action_box_and_whisker_figure(
+                job_analysis_data,
+                action_dps,
+                job_analysis_data.active_dps_t,
+                job_analysis_data.analysis_t,
+            )
+
             action_graph = [dcc.Graph(figure=action_fig, id="action-pdf-fig")]
+            action_graph = [dcc.Graph(figure=new_action_fig, id="action-pdf-fig-new")]
 
             action_summary_table = make_action_table(job_analysis_data, action_df)
 
@@ -449,7 +460,9 @@ def layout(analysis_id=None):
             else:
                 alert_child = []
 
-            xiv_analysis_url = f"https://xivanalysis.com/fflogs/{report_id}/{fight_id}/{player_id}"
+            xiv_analysis_url = (
+                f"https://xivanalysis.com/fflogs/{report_id}/{fight_id}/{player_id}"
+            )
 
             ### Make all the divs
             job_build = initialize_job_build(
@@ -477,9 +490,10 @@ def layout(analysis_id=None):
             rotation_card = initialize_rotation_card(
                 rotation_graph, rotation_percentile_table
             )
-            action_card = initialize_action_card(
-                action_graph, action_summary_table, action_options, action_values
-            )
+            # action_card = initialize_action_card(
+            #     action_graph, action_summary_table, action_options, action_values
+            # )
+            action_card = initialize_new_action_card(action_graph)
             result_card = initialize_results(
                 character,
                 crit_text,
