@@ -149,15 +149,26 @@ def make_rotation_percentile_table(rotation_obj, rotation_percentile):
     return rotation_percentile_table
 
 
-def how_tall_should_the_action_box_plot_be(n_actions):
+def how_tall_should_the_action_box_plot_be(n_actions:int):
+    """Alter height of the box figure so it can fit and look good.
+    More actions and the width of a single bar chart.
+
+    Args:
+        n_actions (int): Number of total actions being plotted.
+
+    Returns:
+        int: Approximate height of each bar chart in pixels.
+    """
     if n_actions <= 7:
         return 95
     elif (n_actions > 7) & (n_actions <= 10):
         return 75
     elif (n_actions > 10) & (n_actions <= 15):
         return 65
-    else:
+    elif (n_actions > 15) & (n_actions <= 20):
         return 55
+    else:
+        return 45
 
 
 def make_action_box_and_whisker_figure(

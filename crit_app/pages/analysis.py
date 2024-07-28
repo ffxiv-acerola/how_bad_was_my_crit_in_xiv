@@ -34,7 +34,7 @@ from figures import (
 )
 from job_data.job_warnings import job_warnings
 from job_data.roles import abbreviated_job_map, role_stat_dict
-from job_data.valid_encounters import valid_encounters
+from job_data.valid_encounters import valid_encounters, patch_times
 from shared_elements import (
     etro_build,
     format_kill_time_str,
@@ -89,7 +89,28 @@ def rotation_percentile_text_map(rotation_percentile):
         return "Personally blessed by Yoshi-P himself."
 
 
-def show_job_options(job_information, role):
+def ad_hoc_job_invalid(job: str, log_time: int):
+    """Collection of various conditions to make certain jobs un-analyzable.
+    For example, 7.0 - 7.01 Monk's job gauge is not modeled, so it cannot be analyzed.
+
+    These *should* be fairly rare.
+
+    Args:
+        job (str): Job name, FFLogs case style
+        time (int): Start time of the log, to determine patch number.
+    """
+
+    if (
+        (job == "Monk")
+        & (log_time > patch_times[7.0]["start"])
+        & (log_time < patch_times[7.0]["end"])
+    ):
+        return True
+    else:
+        return False
+
+
+def show_job_options(job_information, role, start_time):
     """
     Show which jobs are available to analyze with radio buttons.
     """
@@ -100,6 +121,7 @@ def show_job_options(job_information, role):
     magical_ranged_radio_items = []
 
     for d in job_information:
+        invalid = ad_hoc_job_invalid(d["job"], start_time)
         label_text = html.P(
             [
                 html.Span(
@@ -112,6 +134,7 @@ def show_job_options(job_information, role):
                     },
                 ),
                 f" {d['player_name']}",
+                " [Unsupported]" if invalid else "",
             ],
             style={"position": "relative", "bottom": "9px"},
         )
@@ -120,7 +143,7 @@ def show_job_options(job_information, role):
                 {
                     "label": label_text,
                     "value": d["player_id"],
-                    "disabled": "Tank" != role,
+                    "disabled": ("Tank" != role) or invalid,
                 }
             )
         elif d["role"] == "Healer":
@@ -128,7 +151,7 @@ def show_job_options(job_information, role):
                 {
                     "label": label_text,
                     "value": d["player_id"],
-                    "disabled": "Healer" != role,
+                    "disabled": ("Healer" != role) or invalid,
                 }
             )
         elif d["role"] == "Melee":
@@ -136,7 +159,7 @@ def show_job_options(job_information, role):
                 {
                     "label": label_text,
                     "value": d["player_id"],
-                    "disabled": "Melee" != role,
+                    "disabled": ("Melee" != role) or invalid,
                 }
             )
         elif d["role"] == "Physical Ranged":
@@ -144,7 +167,7 @@ def show_job_options(job_information, role):
                 {
                     "label": label_text,
                     "value": d["player_id"],
-                    "disabled": "Physical Ranged" != role,
+                    "disabled": ("Physical Ranged" != role) or invalid,
                 }
             )
         elif d["role"] == "Magical Ranged":
@@ -152,7 +175,7 @@ def show_job_options(job_information, role):
                 {
                     "label": label_text,
                     "value": d["player_id"],
-                    "disabled": "Magical Ranged" != role,
+                    "disabled": ("Magical Ranged" != role) or invalid,
                 }
             )
 
@@ -252,24 +275,6 @@ def layout(analysis_id=None):
             role = analysis_details["role"]
             encounter_id = encounter_df["encounter_id"].iloc[0]
             level = encounter_level[encounter_id]
-
-            job_radio_options = show_job_options(encounter_df.to_dict("records"), role)
-            job_radio_options_dict = {
-                "Tank": job_radio_options[0],
-                "Healer": job_radio_options[1],
-                "Melee": job_radio_options[2],
-                "Physical Ranged": job_radio_options[3],
-                "Magical Ranged": job_radio_options[4],
-            }
-            job_radio_value_dict = {
-                "Tank": None,
-                "Healer": None,
-                "Melee": None,
-                "Physical Ranged": None,
-                "Magical Ranged": None,
-            }
-
-            job_radio_value_dict[role] = player_id
 
             redo_rotation = analysis_details["redo_rotation_flag"]
             recompute_pdf_flag = analysis_details["redo_dps_pdf_flag"]
@@ -463,6 +468,26 @@ def layout(analysis_id=None):
             xiv_analysis_url = (
                 f"https://xivanalysis.com/fflogs/{report_id}/{fight_id}/{player_id}"
             )
+
+            job_radio_options = show_job_options(
+                encounter_df.to_dict("records"), role, rotation_object.fight_start_time
+            )
+            job_radio_options_dict = {
+                "Tank": job_radio_options[0],
+                "Healer": job_radio_options[1],
+                "Melee": job_radio_options[2],
+                "Physical Ranged": job_radio_options[3],
+                "Magical Ranged": job_radio_options[4],
+            }
+            job_radio_value_dict = {
+                "Tank": None,
+                "Healer": None,
+                "Melee": None,
+                "Physical Ranged": None,
+                "Magical Ranged": None,
+            }
+
+            job_radio_value_dict[role] = player_id
 
             ### Make all the divs
             job_build = initialize_job_build(
@@ -842,7 +867,7 @@ def process_fflogs_url(n_clicks, url, role):
         melee_radio_items,
         physical_ranged_radio_items,
         magical_ranged_radio_items,
-    ) = show_job_options(job_information, role)
+    ) = show_job_options(job_information, role, start_time)
 
     db_rows = [
         (
