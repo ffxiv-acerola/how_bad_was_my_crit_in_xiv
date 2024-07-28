@@ -743,60 +743,6 @@ def etro_process(
         True,
     ]
 
-    # Manual validation if no url is provided
-    # All stats present
-    # If role is tank/healer/caster, secondary stat is also present
-    if url is None:
-        secondary_stat_condition = (
-            (role in ("Tank", "Healer", "Magical Ranged"))
-            & (secondary_stat is not None)
-        ) or (role in ("Melee", "Physical Ranged"))
-        if (
-            all(
-                [
-                    main_stat is not None,
-                    determination is not None,
-                    speed is not None,
-                    critical_hit is not None,
-                    direct_hit is not None,
-                    weapon_damage is not None,
-                    delay is not None,
-                ]
-            )
-            & secondary_stat_condition
-        ):
-            # Validate each stat
-            validation = [
-                validate_meldable_stat("Main stat", main_stat),
-                validate_secondary_stat(role, secondary_stat),
-                validate_meldable_stat("Determination", determination),
-                validate_speed_stat(speed),
-                validate_meldable_stat("Critical hit", critical_hit),
-                validate_meldable_stat("Direct hit rate", direct_hit),
-                validate_weapon_damage(weapon_damage),
-                validate_delay(delay),
-            ]
-            if all([v[0] for v in validation]):
-                return (
-                    main_stat,
-                    secondary_stat,
-                    determination,
-                    speed,
-                    critical_hit,
-                    direct_hit,
-                    weapon_damage,
-                    delay,
-                    [],
-                    True,
-                    False,
-                    [],
-                )
-
-            else:
-                feedback = " ".join([v[1] for v in validation if v[1] is not None])
-                invalid_return.append(feedback)
-                return tuple(invalid_return)
-
     gearset_id, error_code = parse_etro_url(url)
 
     if error_code == 0:
@@ -816,43 +762,101 @@ def etro_process(
             etro_party_bonus,
         ) = etro_build(gearset_id)
 
-        if not etro_call_successful:
-            invalid_return.append(etro_error)
-            return tuple(invalid_return)
+        if etro_call_successful:
+            # If a party bonus is applied in etro, undo it.
+            if etro_party_bonus > 1:
+                primary_stat = int(primary_stat / etro_party_bonus)
+                # Undo STR for healer/caster
+                if build_role in ("Healer", "Magical Ranged"):
+                    secondary_stat = int(secondary_stat / etro_party_bonus)
+            
+            time.sleep(1)
+            return (
+                primary_stat,
+                secondary_stat,
+                determination,
+                speed,
+                critical_hit,
+                direct_hit,
+                weapon_damage,
+                delay,
+                f"Build name: {build_name}",
+                True,
+                False,
+                [],
+            )
 
-        # Make sure correct build is used
-        if build_role != role:
-            feedback = f"A non-{role} etro build was used."
+    # Manual validation if no url is provided/etro fails
+    # All stats present
+    # If role is tank/healer/caster, secondary stat is also present
+    # if url is None:
+    (
+        main_stat,
+        secondary_stat,
+        determination,
+        speed,
+        critical_hit,
+        direct_hit,
+        weapon_damage,
+        delay
+    ) = invalid_return[0:8]
+    secondary_stat_condition = (
+        (role in ("Tank", "Healer", "Magical Ranged"))
+        & (secondary_stat is not None)
+    ) or (role in ("Melee", "Physical Ranged"))
+    if (
+        all(
+            [
+                main_stat is not None,
+                determination is not None,
+                speed is not None,
+                critical_hit is not None,
+                direct_hit is not None,
+                weapon_damage is not None,
+                delay is not None,
+            ]
+        )
+        & secondary_stat_condition
+    ):
+        # Validate each stat
+        validation = [
+            validate_meldable_stat("Main stat", main_stat),
+            validate_secondary_stat(role, secondary_stat),
+            validate_meldable_stat("Determination", determination),
+            validate_speed_stat(speed),
+            validate_meldable_stat("Critical hit", critical_hit),
+            validate_meldable_stat("Direct hit rate", direct_hit),
+            validate_weapon_damage(weapon_damage),
+            validate_delay(delay),
+        ]
+        if all([v[0] for v in validation]):
+            return (
+                main_stat,
+                secondary_stat,
+                determination,
+                speed,
+                critical_hit,
+                direct_hit,
+                weapon_damage,
+                delay,
+                [],
+                True,
+                False,
+                [],
+            )
+
+        else:
+            feedback = " ".join([v[1] for v in validation if v[1] is not None])
             invalid_return.append(feedback)
             return tuple(invalid_return)
 
-        # If a party bonus is applied in etro, undo it.
-        if etro_party_bonus > 1:
-            primary_stat = int(primary_stat / etro_party_bonus)
-            # Undo STR for healer/caster
-            if build_role in ("Healer", "Magical Ranged"):
-                secondary_stat = int(secondary_stat / etro_party_bonus)
-
-        time.sleep(1)
-        return (
-            primary_stat,
-            secondary_stat,
-            determination,
-            speed,
-            critical_hit,
-            direct_hit,
-            weapon_damage,
-            delay,
-            f"Build name: {build_name}",
-            True,
-            False,
-            [],
-        )
-
+    # Non-etro link
     elif error_code == 1:
         feedback = "This isn't an etro.gg link..."
         invalid_return.append(feedback)
         return tuple(invalid_return)
+    
+    # Etro link but not to a gearset
     elif error_code == 2:
         feedback = (
             "This doesn't appear to be a valid gearset. Please double check the link."
@@ -860,6 +864,16 @@ def etro_process(
         invalid_return.append(feedback)
         return tuple(invalid_return)
 
+    # Etro link error, usualy 404
+    if not etro_call_successful:
+        invalid_return.append(etro_error)
+        return tuple(invalid_return)
+
+    # Make sure correct build is used
+    if build_role != role:
+        feedback = f"A non-{role} etro build was used."
+        invalid_return.append(feedback)
+        return tuple(invalid_return)
 
 @callback(
     Output("party-compute-div", "hidden"),

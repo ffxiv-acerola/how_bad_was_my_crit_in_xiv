@@ -161,10 +161,10 @@ def etro_build(gearset_id):
 
 
 def validate_meldable_stat(stat_name, stat_value):
-    if (stat_value > 380) and (stat_value < 4500):
+    if (stat_value >= 380) and (stat_value < 5500):
         return True, None
     else:
-        return False, f"{stat_name} must be between 380-4500."
+        return False, f"{stat_name} must be between 380-5500."
 
 
 def validate_secondary_stat(role, stat_value):
@@ -174,7 +174,7 @@ def validate_secondary_stat(role, stat_value):
         else:
             return False, "Strength must be between 100-400."
     elif role == "Tank":
-        if (stat_value > 380) & (stat_value < 4500):
+        if (stat_value >= 380) & (stat_value < 4500):
             return True, None
         else:
             return False, "Tenacity must be between 380-4500."
