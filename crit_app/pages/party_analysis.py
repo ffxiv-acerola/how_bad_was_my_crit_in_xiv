@@ -27,25 +27,18 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 from dmg_distribution import (
-    job_analysis_to_data_class,
     PartyRotation,
     SplitPartyRotation,
+    job_analysis_to_data_class,
     rotation_dps_pdf,
     unconvovle_clipped_pdf,
 )
 from figures import (
+    make_action_box_and_whisker_figure,
     make_action_pdfs_figure,
     make_kill_time_graph,
     make_party_rotation_pdf_figure,
     make_rotation_pdf_figure,
-)
-from fflogs_rotation.job_data.data import (
-    critical_hit_rate_table,
-    damage_buff_table,
-    direct_hit_rate_table,
-    guaranteed_hits_by_action_table,
-    guaranteed_hits_by_buff_table,
-    potency_table,
 )
 from job_data.roles import abbreviated_job_map, role_mapping, role_stat_dict
 from job_data.valid_encounters import boss_hp, valid_encounters
@@ -57,7 +50,6 @@ from party_cards import (
     create_tincture_input,
     party_analysis_assumptions_modal,
 )
-from fflogs_rotation.rotation import RotationTable
 from shared_elements import (
     check_prior_job_analyses,
     check_prior_party_analysis,
@@ -79,6 +71,17 @@ from shared_elements import (
     validate_speed_stat,
     validate_weapon_damage,
 )
+
+from crit_app.job_data.valid_encounters import encounter_level
+from fflogs_rotation.job_data.data import (
+    critical_hit_rate_table,
+    damage_buff_table,
+    direct_hit_rate_table,
+    guaranteed_hits_by_action_table,
+    guaranteed_hits_by_buff_table,
+    potency_table,
+)
+from fflogs_rotation.rotation import RotationTable
 
 reverse_abbreviated_role_map = dict(
     zip(abbreviated_job_map.values(), abbreviated_job_map.keys())
@@ -493,7 +496,7 @@ def load_job_rotation_figure(job_analysis_id, graph_type):
             job_object, rotation_dps, job_object.active_dps_t, job_object.analysis_t
         )
     else:
-        return make_action_pdfs_figure(
+        return make_action_box_and_whisker_figure(
             job_object, action_dps, job_object.active_dps_t, job_object.analysis_t
         )
 
@@ -664,7 +667,12 @@ def party_fflogs_process(n_clicks, url):
             for k in job_information + limit_break_information
         ]
         update_encounter_table(db_rows)
-    return [], True, False, encounter_children,
+    return (
+        [],
+        True,
+        False,
+        encounter_children,
+    )
 
 
 @callback(
@@ -966,7 +974,7 @@ def analyze_party_rotation(
     ]
     pet_ids = matched_encounter.set_index("player_id")["pet_ids"].to_dict()
     encounter_id = matched_encounter["encounter_id"].iloc[0]
-
+    level = encounter_level[encounter_id]
     # Get Limit Break instances
     # Check if LB was used, get its ID if it was
     if len(matched_encounter[matched_encounter["job"] == "LimitBreak"]) > 0:
@@ -1057,6 +1065,7 @@ def analyze_party_rotation(
                 dh[a],
                 determination[a],
                 medication_amt,
+                level,
                 damage_buff_table,
                 critical_hit_rate_table,
                 direct_hit_rate_table,
@@ -1086,6 +1095,7 @@ def analyze_party_rotation(
                 rotation_delta=rotation_delta,
                 action_delta=action_delta,
                 compute_mgf=False,
+                level=level,
             )
         )
 
