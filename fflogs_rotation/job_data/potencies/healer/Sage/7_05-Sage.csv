@@ -1,0 +1,10 @@
+job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency
+Sage,24312,Dosis III,100,,360,direct,,,,,,
+Sage,1002616,Eukrasian Dosis III (tick),100,,75,magic-dot,,,,,,
+Sage,24315,Dyskrasia II,100,,170,direct,,,,,,
+Sage,24316,Toxikon II,100,,360,direct,,,,,,
+Sage,24318,Pneuma,100,,360,direct,,,,,,
+Sage,24313,Phlegma III,100,,600,direct,,,,,,
+Sage,7,Attack,100,,90,auto,,,,,,
+Sage,37032,Eukrasian Dyskrasia (tick),100,,40,magic-dot,,,,,,
+Sage,37033,Psyche,100,,600,direct,,,,,,
