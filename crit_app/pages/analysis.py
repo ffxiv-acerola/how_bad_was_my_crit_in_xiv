@@ -281,9 +281,15 @@ def layout(analysis_id=None):
             # recompute_flag = 1
 
             # Player stat info
+            main_stat = int(analysis_details["main_stat"])
             main_stat_pre_bonus = analysis_details["main_stat_pre_bonus"]
             secondary_stat_pre_bonus = (
-                analysis_details["secondary_stat_pre_bonus"]
+                int(float(analysis_details["secondary_stat_pre_bonus"]))
+                if analysis_details["secondary_stat_pre_bonus"] is not None
+                else ""
+            )
+            secondary_stat = (
+                int(float(analysis_details["secondary_stat"]))
                 if analysis_details["secondary_stat_pre_bonus"] is not None
                 else ""
             )
@@ -352,8 +358,8 @@ def layout(analysis_id=None):
                     player_job_no_space,
                     rotation_df,
                     rotation_object.fight_time,
-                    analysis_details["main_stat"],
-                    analysis_details["secondary_stat"],
+                    main_stat,
+                    secondary_stat,
                     determination,
                     speed_stat,
                     crit,
@@ -361,6 +367,7 @@ def layout(analysis_id=None):
                     weapon_damage,
                     delay,
                     main_stat_pre_bonus,
+                    level=level
                 )
 
                 job_analysis_data = job_analysis_to_data_class(

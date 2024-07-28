@@ -237,7 +237,7 @@ def read_encounter_table():
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
 
-    player_df = pd.read_sql_query("select * from encounter", con)
+    player_df = pd.read_sql_query("select * from encounter", con).drop_duplicates()
 
     cur.close()
     con.close()
