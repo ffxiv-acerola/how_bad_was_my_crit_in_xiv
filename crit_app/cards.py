@@ -18,7 +18,7 @@ def initialize_job_build(
     weapon_damage=None,
     delay=None,
     party_bonus=1.05,
-    medication_amt=262,
+    medication_amt=351,
 ):
     """
     Create the job build div, optionally setting initial values for them.
@@ -97,7 +97,8 @@ def initialize_job_build(
                         },
                     ),
                     dbc.Tooltip(
-                        "Medication/potion. If no medication was used, " "keep the default value selected.",
+                        "Medication/potion. If no medication was used, "
+                        "keep the default value selected.",
                         target="tincture-tooltip",
                     ),
                 ],
@@ -110,6 +111,7 @@ def initialize_job_build(
                         name="POT:",
                         id="tincture-grade",
                         options=[
+                            {"label": "Grade 1 Gemdraught (+361)", "value": 351},
                             {
                                 "label": "Grade 8 Tincture (+262)",
                                 "value": 262,
@@ -136,7 +138,7 @@ def initialize_job_build(
                 type="number",
                 placeholder=None,
                 min=100,
-                max=4000,
+                max=6000,
                 id="main-stat",
             )
         ),
@@ -147,7 +149,7 @@ def initialize_job_build(
                 type="number",
                 placeholder=None,
                 min=100,
-                max=4000,
+                max=5000,
                 id="secondary-stat",
             )
         ),
@@ -158,7 +160,7 @@ def initialize_job_build(
                 type="number",
                 placeholder="Determination",
                 min=100,
-                max=4000,
+                max=5000,
                 id="DET",
             )
         ),
@@ -193,7 +195,7 @@ def initialize_job_build(
                 type="number",
                 placeholder=None,
                 min=100,
-                max=4000,
+                max=5000,
                 id="speed-stat",
             )
         ),
@@ -207,7 +209,7 @@ def initialize_job_build(
                 type="number",
                 placeholder="Critical Hit",
                 min=100,
-                max=4000,
+                max=5000,
                 id="CRT",
             )
         ),
@@ -218,7 +220,7 @@ def initialize_job_build(
                 type="number",
                 placeholder="Direct Hit",
                 min=100,
-                max=4000,
+                max=5000,
                 id="DH",
             )
         ),
@@ -229,7 +231,7 @@ def initialize_job_build(
                 type="number",
                 placeholder="Weapon Damage",
                 min=100,
-                max=4000,
+                max=500,
                 id="WD",
             )
         ),
@@ -618,6 +620,22 @@ def initialize_action_card(
     )
     return action_dmg_pdf_card
 
+def initialize_new_action_card(
+    action_figure=None
+):
+    action_dmg_pdf_card = dbc.Card(
+        dbc.CardBody(
+            [
+                html.H2("Action DPS distributions"),
+                html.P(
+                    "The DPS distribution for each action is shown below as box and whisker plots. Whiskers represent the 10th and 90th percentiles, respectively. Hover over a box plot to see the corresponding percentile, along with select other percentiles."
+                ),
+                html.Div(children=action_figure, id="action-pdf-fig-div"),
+            ],
+            className="mb-3",
+        ),
+    )
+    return action_dmg_pdf_card
 
 def initialize_results(
     player_name=None,
@@ -626,6 +644,7 @@ def initialize_results(
     rotation_card=[],
     action_card=[],
     analysis_url=None,
+    xiv_analysis_url=None,
     results_hidden=True,
 ):
     if player_name is not None:
@@ -677,6 +696,22 @@ def initialize_results(
                                         align="center",
                                         width=1,
                                     ),
+                                ]
+                            ),
+                            html.Br(),
+                            dbc.Row(
+                                [
+                                    html.A(
+                                        [
+                                            "Analyze rotation in xivanalysis ",
+                                            html.I(
+                                                className="fas fa-external-link-alt",
+                                                style={"font-size": "0.8em"},
+                                            ),
+                                        ],
+                                        href=xiv_analysis_url,
+                                        target="_blank",
+                                    )
                                 ]
                             ),
                             html.Br(),

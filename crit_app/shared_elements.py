@@ -161,10 +161,10 @@ def etro_build(gearset_id):
 
 
 def validate_meldable_stat(stat_name, stat_value):
-    if (stat_value > 380) and (stat_value < 4500):
+    if (stat_value >= 380) and (stat_value < 5500):
         return True, None
     else:
-        return False, f"{stat_name} must be between 380-4500."
+        return False, f"{stat_name} must be between 380-5500."
 
 
 def validate_secondary_stat(role, stat_value):
@@ -174,7 +174,7 @@ def validate_secondary_stat(role, stat_value):
         else:
             return False, "Strength must be between 100-400."
     elif role == "Tank":
-        if (stat_value > 380) & (stat_value < 4500):
+        if (stat_value >= 380) & (stat_value < 4500):
             return True, None
         else:
             return False, "Tenacity must be between 380-4500."
@@ -328,13 +328,14 @@ def unflag_party_report_recompute(analysis_id):
 def update_encounter_table(db_rows):
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
-    cur.executemany("""
+    cur.executemany(
+        """
         insert
         or replace into encounter
         values
             (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        db_rows
+        db_rows,
     )
     con.commit()
     cur.close()
@@ -479,6 +480,7 @@ def rotation_analysis(
     rotation_step: int = 0.5,
     action_delta: int = 10,
     compute_mgf: bool = False,
+    level=100,
 ):
     """Analyze the rotation of a job.
 
@@ -512,6 +514,7 @@ def rotation_analysis(
             weapon_damage=wd,
             delay=delay,
             pet_attack_power=main_stat_pre_bonus,
+            level=level,
         )
 
     elif role == "Tank":
@@ -526,7 +529,7 @@ def rotation_analysis(
             delay=delay,
             job=job_no_space,
             pet_attack_power=main_stat_pre_bonus,
-            level=90,
+            level=level,
         )
 
     elif role == "Magical Ranged":
@@ -540,6 +543,7 @@ def rotation_analysis(
             weapon_damage=wd,
             delay=delay,
             pet_attack_power=main_stat_pre_bonus,
+            level=level,
         )
 
     elif role == "Melee":
@@ -553,7 +557,7 @@ def rotation_analysis(
             delay=delay,
             job=job_no_space,
             pet_attack_power=main_stat_pre_bonus,
-            level=90,
+            level=level,
         )
 
     elif role == "Physical Ranged":
@@ -566,7 +570,7 @@ def rotation_analysis(
             weapon_damage=wd,
             delay=delay,
             pet_attack_power=main_stat_pre_bonus,
-            level=90,
+            level=level,
         )
     else:
         raise ValueError("Incorrect role specified.")
@@ -580,6 +584,5 @@ def rotation_analysis(
         purge_action_moments=True,
         compute_mgf=compute_mgf,
     )
-    # job_obj.action_moments = [None] * len(job_obj.action_moments)
 
     return job_obj

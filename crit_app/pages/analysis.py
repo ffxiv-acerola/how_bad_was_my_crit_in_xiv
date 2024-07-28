@@ -14,6 +14,7 @@ from cards import (
     initialize_action_card,
     initialize_fflogs_card,
     initialize_job_build,
+    initialize_new_action_card,
     initialize_results,
     initialize_rotation_card,
 )
@@ -25,23 +26,15 @@ from dmg_distribution import (
     job_analysis_to_data_class,
 )
 from figures import (
+    make_action_box_and_whisker_figure,
     make_action_pdfs_figure,
     make_action_table,
     make_rotation_pdf_figure,
     make_rotation_percentile_table,
 )
-from job_data.data import (
-    critical_hit_rate_table,
-    damage_buff_table,
-    direct_hit_rate_table,
-    guaranteed_hits_by_action_table,
-    guaranteed_hits_by_buff_table,
-    potency_table,
-)
 from job_data.job_warnings import job_warnings
-from job_data.roles import role_stat_dict, abbreviated_job_map
-from job_data.valid_encounters import valid_encounters
-from rotation import RotationTable
+from job_data.roles import abbreviated_job_map, role_stat_dict
+from job_data.valid_encounters import valid_encounters, patch_times
 from shared_elements import (
     etro_build,
     format_kill_time_str,
@@ -54,6 +47,17 @@ from shared_elements import (
     update_encounter_table,
     update_report_table,
 )
+
+from crit_app.job_data.valid_encounters import encounter_level
+from fflogs_rotation.job_data.data import (
+    critical_hit_rate_table,
+    damage_buff_table,
+    direct_hit_rate_table,
+    guaranteed_hits_by_action_table,
+    guaranteed_hits_by_buff_table,
+    potency_table,
+)
+from fflogs_rotation.rotation import RotationTable
 
 dash.register_page(
     __name__,
@@ -85,7 +89,28 @@ def rotation_percentile_text_map(rotation_percentile):
         return "Personally blessed by Yoshi-P himself."
 
 
-def show_job_options(job_information, role):
+def ad_hoc_job_invalid(job: str, log_time: int):
+    """Collection of various conditions to make certain jobs un-analyzable.
+    For example, 7.0 - 7.01 Monk's job gauge is not modeled, so it cannot be analyzed.
+
+    These *should* be fairly rare.
+
+    Args:
+        job (str): Job name, FFLogs case style
+        time (int): Start time of the log, to determine patch number.
+    """
+
+    if (
+        (job == "Monk")
+        & (log_time > patch_times[7.0]["start"])
+        & (log_time < patch_times[7.0]["end"])
+    ):
+        return True
+    else:
+        return False
+
+
+def show_job_options(job_information, role, start_time):
     """
     Show which jobs are available to analyze with radio buttons.
     """
@@ -96,6 +121,7 @@ def show_job_options(job_information, role):
     magical_ranged_radio_items = []
 
     for d in job_information:
+        invalid = ad_hoc_job_invalid(d["job"], start_time)
         label_text = html.P(
             [
                 html.Span(
@@ -108,6 +134,7 @@ def show_job_options(job_information, role):
                     },
                 ),
                 f" {d['player_name']}",
+                " [Unsupported]" if invalid else "",
             ],
             style={"position": "relative", "bottom": "9px"},
         )
@@ -116,7 +143,7 @@ def show_job_options(job_information, role):
                 {
                     "label": label_text,
                     "value": d["player_id"],
-                    "disabled": "Tank" != role,
+                    "disabled": ("Tank" != role) or invalid,
                 }
             )
         elif d["role"] == "Healer":
@@ -124,7 +151,7 @@ def show_job_options(job_information, role):
                 {
                     "label": label_text,
                     "value": d["player_id"],
-                    "disabled": "Healer" != role,
+                    "disabled": ("Healer" != role) or invalid,
                 }
             )
         elif d["role"] == "Melee":
@@ -132,7 +159,7 @@ def show_job_options(job_information, role):
                 {
                     "label": label_text,
                     "value": d["player_id"],
-                    "disabled": "Melee" != role,
+                    "disabled": ("Melee" != role) or invalid,
                 }
             )
         elif d["role"] == "Physical Ranged":
@@ -140,7 +167,7 @@ def show_job_options(job_information, role):
                 {
                     "label": label_text,
                     "value": d["player_id"],
-                    "disabled": "Physical Ranged" != role,
+                    "disabled": ("Physical Ranged" != role) or invalid,
                 }
             )
         elif d["role"] == "Magical Ranged":
@@ -148,7 +175,7 @@ def show_job_options(job_information, role):
                 {
                     "label": label_text,
                     "value": d["player_id"],
-                    "disabled": "Magical Ranged" != role,
+                    "disabled": ("Magical Ranged" != role) or invalid,
                 }
             )
 
@@ -246,24 +273,8 @@ def layout(analysis_id=None):
             character = analysis_details["player_name"]
             player_id = analysis_details["player_id"]
             role = analysis_details["role"]
-
-            job_radio_options = show_job_options(encounter_df.to_dict("records"), role)
-            job_radio_options_dict = {
-                "Tank": job_radio_options[0],
-                "Healer": job_radio_options[1],
-                "Melee": job_radio_options[2],
-                "Physical Ranged": job_radio_options[3],
-                "Magical Ranged": job_radio_options[4],
-            }
-            job_radio_value_dict = {
-                "Tank": None,
-                "Healer": None,
-                "Melee": None,
-                "Physical Ranged": None,
-                "Magical Ranged": None,
-            }
-
-            job_radio_value_dict[role] = player_id
+            encounter_id = encounter_df["encounter_id"].iloc[0]
+            level = encounter_level[encounter_id]
 
             redo_rotation = analysis_details["redo_rotation_flag"]
             recompute_pdf_flag = analysis_details["redo_dps_pdf_flag"]
@@ -301,6 +312,7 @@ def layout(analysis_id=None):
                     direct_hit,
                     determination,
                     medication_amt,
+                    level,
                     damage_buff_table,
                     critical_hit_rate_table,
                     direct_hit_rate_table,
@@ -415,7 +427,16 @@ def layout(analysis_id=None):
                 job_analysis_data.active_dps_t,
                 job_analysis_data.analysis_t,
             )
+
+            new_action_fig = make_action_box_and_whisker_figure(
+                job_analysis_data,
+                action_dps,
+                job_analysis_data.active_dps_t,
+                job_analysis_data.analysis_t,
+            )
+
             action_graph = [dcc.Graph(figure=action_fig, id="action-pdf-fig")]
+            action_graph = [dcc.Graph(figure=new_action_fig, id="action-pdf-fig-new")]
 
             action_summary_table = make_action_table(job_analysis_data, action_df)
 
@@ -444,6 +465,30 @@ def layout(analysis_id=None):
             else:
                 alert_child = []
 
+            xiv_analysis_url = (
+                f"https://xivanalysis.com/fflogs/{report_id}/{fight_id}/{player_id}"
+            )
+
+            job_radio_options = show_job_options(
+                encounter_df.to_dict("records"), role, rotation_object.fight_start_time
+            )
+            job_radio_options_dict = {
+                "Tank": job_radio_options[0],
+                "Healer": job_radio_options[1],
+                "Melee": job_radio_options[2],
+                "Physical Ranged": job_radio_options[3],
+                "Magical Ranged": job_radio_options[4],
+            }
+            job_radio_value_dict = {
+                "Tank": None,
+                "Healer": None,
+                "Melee": None,
+                "Physical Ranged": None,
+                "Magical Ranged": None,
+            }
+
+            job_radio_value_dict[role] = player_id
+
             ### Make all the divs
             job_build = initialize_job_build(
                 etro_url,
@@ -470,9 +515,10 @@ def layout(analysis_id=None):
             rotation_card = initialize_rotation_card(
                 rotation_graph, rotation_percentile_table
             )
-            action_card = initialize_action_card(
-                action_graph, action_summary_table, action_options, action_values
-            )
+            # action_card = initialize_action_card(
+            #     action_graph, action_summary_table, action_options, action_values
+            # )
+            action_card = initialize_new_action_card(action_graph)
             result_card = initialize_results(
                 character,
                 crit_text,
@@ -480,6 +526,7 @@ def layout(analysis_id=None):
                 rotation_card,
                 action_card,
                 analysis_url,
+                xiv_analysis_url,
                 False,
             )
 
@@ -696,10 +743,9 @@ def job_build_defined(
     """
     secondary_stat_condition = (role in ("Healer", "Tank", "Magical Ranged")) & (
         secondary_stat is None
-    ) | (
-        (role in ("Melee", "Physical Ranged"))
-        & ((secondary_stat != "None") | (secondary_stat != ""))
     )
+    if role in ("Melee", "Physical Ranged"):
+        secondary_stat = False
     # TODO: will need to handle None secondary stat for roles without them.
     job_build_missing = (
         any(
@@ -821,7 +867,7 @@ def process_fflogs_url(n_clicks, url, role):
         melee_radio_items,
         physical_ranged_radio_items,
         magical_ranged_radio_items,
-    ) = show_job_options(job_information, role)
+    ) = show_job_options(job_information, role, start_time)
 
     db_rows = [
         (
@@ -1012,6 +1058,8 @@ def analyze_and_register_rotation(
     player = player_info["player_name"]
     job_no_space = player_info["job"]
     role = player_info["role"]
+    encounter_id = player_info["encounter_id"]
+    level = encounter_level[encounter_id]
 
     main_stat_multiplier = 1 + len(set(encounter_df["role"])) / 100
     main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
@@ -1123,6 +1171,7 @@ def analyze_and_register_rotation(
                 dh,
                 determination,
                 medication_amt,
+                level,
                 damage_buff_table,
                 critical_hit_rate_table,
                 direct_hit_rate_table,
@@ -1150,7 +1199,8 @@ def analyze_and_register_rotation(
                 wd,
                 delay,
                 main_stat_pre_bonus,
-                action_delta=2,
+                action_delta=4,
+                level=level,
             )
 
             job_analysis_data = job_analysis_to_data_class(job_analysis_object, t)
@@ -1202,15 +1252,51 @@ def analyze_and_register_rotation(
 
     # Catch any error and display it, then reset the button/prompt
     except Exception as e:
-        print(e)
+        info = (
+            report_id,
+            fight_id,
+            encounter_id,
+            job_no_space,
+            player,
+            int(main_stat_pre_bonus),
+            int(main_stat),
+            main_stat_type,
+            None
+            if role in ("Melee", "Physical Ranged")
+            else int(secondary_stat_pre_bonus),
+            None if role in ("Melee", "Physical Ranged") else int(secondary_stat),
+            secondary_stat_type,
+            int(determination),
+            int(speed_stat),
+            int(ch),
+            int(dh),
+            int(wd),
+            delay,
+            medication_amt,
+            main_stat_multiplier,
+        )
+
+        error_information = {"inputted_info": info, "exception": e}
+
+        with open(
+            BLOB_URI / "error-logs" / f"{datetime.datetime.now()}-error.pkl", "wb"
+        ) as f:
+            pickle.dump(error_information, f)
+
         return (
-            updated_url["Analyze rotation"],
+            updated_url,
+            ["Analyze rotation"],
             False,
             [
                 dbc.Alert(
                     [
-                        html.P("The following error was encountered:"),
+                        html.P(
+                            "Oops, the following error was encountered while creating and analyzing your rotation:"
+                        ),
                         str(e),
+                        html.P(
+                            "This error has been logged and will be fixed when possible. No further action is required."
+                        ),
                     ],
                     color="danger",
                 )

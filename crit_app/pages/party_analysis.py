@@ -27,25 +27,18 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 from dmg_distribution import (
-    job_analysis_to_data_class,
     PartyRotation,
     SplitPartyRotation,
+    job_analysis_to_data_class,
     rotation_dps_pdf,
     unconvovle_clipped_pdf,
 )
 from figures import (
+    make_action_box_and_whisker_figure,
     make_action_pdfs_figure,
     make_kill_time_graph,
     make_party_rotation_pdf_figure,
     make_rotation_pdf_figure,
-)
-from job_data.data import (
-    critical_hit_rate_table,
-    damage_buff_table,
-    direct_hit_rate_table,
-    guaranteed_hits_by_action_table,
-    guaranteed_hits_by_buff_table,
-    potency_table,
 )
 from job_data.roles import abbreviated_job_map, role_mapping, role_stat_dict
 from job_data.valid_encounters import boss_hp, valid_encounters
@@ -57,7 +50,6 @@ from party_cards import (
     create_tincture_input,
     party_analysis_assumptions_modal,
 )
-from rotation import RotationTable
 from shared_elements import (
     check_prior_job_analyses,
     check_prior_party_analysis,
@@ -79,6 +71,17 @@ from shared_elements import (
     validate_speed_stat,
     validate_weapon_damage,
 )
+
+from crit_app.job_data.valid_encounters import encounter_level
+from fflogs_rotation.job_data.data import (
+    critical_hit_rate_table,
+    damage_buff_table,
+    direct_hit_rate_table,
+    guaranteed_hits_by_action_table,
+    guaranteed_hits_by_buff_table,
+    potency_table,
+)
+from fflogs_rotation.rotation import RotationTable
 
 reverse_abbreviated_role_map = dict(
     zip(abbreviated_job_map.values(), abbreviated_job_map.keys())
@@ -493,7 +496,7 @@ def load_job_rotation_figure(job_analysis_id, graph_type):
             job_object, rotation_dps, job_object.active_dps_t, job_object.analysis_t
         )
     else:
-        return make_action_pdfs_figure(
+        return make_action_box_and_whisker_figure(
             job_object, action_dps, job_object.active_dps_t, job_object.analysis_t
         )
 
@@ -664,7 +667,12 @@ def party_fflogs_process(n_clicks, url):
             for k in job_information + limit_break_information
         ]
         update_encounter_table(db_rows)
-    return [], True, False, encounter_children,
+    return (
+        [],
+        True,
+        False,
+        encounter_children,
+    )
 
 
 @callback(
@@ -735,60 +743,6 @@ def etro_process(
         True,
     ]
 
-    # Manual validation if no url is provided
-    # All stats present
-    # If role is tank/healer/caster, secondary stat is also present
-    if url is None:
-        secondary_stat_condition = (
-            (role in ("Tank", "Healer", "Magical Ranged"))
-            & (secondary_stat is not None)
-        ) or (role in ("Melee", "Physical Ranged"))
-        if (
-            all(
-                [
-                    main_stat is not None,
-                    determination is not None,
-                    speed is not None,
-                    critical_hit is not None,
-                    direct_hit is not None,
-                    weapon_damage is not None,
-                    delay is not None,
-                ]
-            )
-            & secondary_stat_condition
-        ):
-            # Validate each stat
-            validation = [
-                validate_meldable_stat("Main stat", main_stat),
-                validate_secondary_stat(role, secondary_stat),
-                validate_meldable_stat("Determination", determination),
-                validate_speed_stat(speed),
-                validate_meldable_stat("Critical hit", critical_hit),
-                validate_meldable_stat("Direct hit rate", direct_hit),
-                validate_weapon_damage(weapon_damage),
-                validate_delay(delay),
-            ]
-            if all([v[0] for v in validation]):
-                return (
-                    main_stat,
-                    secondary_stat,
-                    determination,
-                    speed,
-                    critical_hit,
-                    direct_hit,
-                    weapon_damage,
-                    delay,
-                    [],
-                    True,
-                    False,
-                    [],
-                )
-
-            else:
-                feedback = " ".join([v[1] for v in validation if v[1] is not None])
-                invalid_return.append(feedback)
-                return tuple(invalid_return)
-
     gearset_id, error_code = parse_etro_url(url)
 
     if error_code == 0:
@@ -808,43 +762,101 @@ def etro_process(
             etro_party_bonus,
         ) = etro_build(gearset_id)
 
-        if not etro_call_successful:
-            invalid_return.append(etro_error)
-            return tuple(invalid_return)
+        if etro_call_successful:
+            # If a party bonus is applied in etro, undo it.
+            if etro_party_bonus > 1:
+                primary_stat = int(primary_stat / etro_party_bonus)
+                # Undo STR for healer/caster
+                if build_role in ("Healer", "Magical Ranged"):
+                    secondary_stat = int(secondary_stat / etro_party_bonus)
+            
+            time.sleep(1)
+            return (
+                primary_stat,
+                secondary_stat,
+                determination,
+                speed,
+                critical_hit,
+                direct_hit,
+                weapon_damage,
+                delay,
+                f"Build name: {build_name}",
+                True,
+                False,
+                [],
+            )
 
-        # Make sure correct build is used
-        if build_role != role:
-            feedback = f"A non-{role} etro build was used."
+    # Manual validation if no url is provided/etro fails
+    # All stats present
+    # If role is tank/healer/caster, secondary stat is also present
+    # if url is None:
+    (
+        main_stat,
+        secondary_stat,
+        determination,
+        speed,
+        critical_hit,
+        direct_hit,
+        weapon_damage,
+        delay
+    ) = invalid_return[0:8]
+    secondary_stat_condition = (
+        (role in ("Tank", "Healer", "Magical Ranged"))
+        & (secondary_stat is not None)
+    ) or (role in ("Melee", "Physical Ranged"))
+    if (
+        all(
+            [
+                main_stat is not None,
+                determination is not None,
+                speed is not None,
+                critical_hit is not None,
+                direct_hit is not None,
+                weapon_damage is not None,
+                delay is not None,
+            ]
+        )
+        & secondary_stat_condition
+    ):
+        # Validate each stat
+        validation = [
+            validate_meldable_stat("Main stat", main_stat),
+            validate_secondary_stat(role, secondary_stat),
+            validate_meldable_stat("Determination", determination),
+            validate_speed_stat(speed),
+            validate_meldable_stat("Critical hit", critical_hit),
+            validate_meldable_stat("Direct hit rate", direct_hit),
+            validate_weapon_damage(weapon_damage),
+            validate_delay(delay),
+        ]
+        if all([v[0] for v in validation]):
+            return (
+                main_stat,
+                secondary_stat,
+                determination,
+                speed,
+                critical_hit,
+                direct_hit,
+                weapon_damage,
+                delay,
+                [],
+                True,
+                False,
+                [],
+            )
+
+        else:
+            feedback = " ".join([v[1] for v in validation if v[1] is not None])
             invalid_return.append(feedback)
             return tuple(invalid_return)
 
-        # If a party bonus is applied in etro, undo it.
-        if etro_party_bonus > 1:
-            primary_stat = int(primary_stat / etro_party_bonus)
-            # Undo STR for healer/caster
-            if build_role in ("Healer", "Magical Ranged"):
-                secondary_stat = int(secondary_stat / etro_party_bonus)
-
-        time.sleep(1)
-        return (
-            primary_stat,
-            secondary_stat,
-            determination,
-            speed,
-            critical_hit,
-            direct_hit,
-            weapon_damage,
-            delay,
-            f"Build name: {build_name}",
-            True,
-            False,
-            [],
-        )
-
+    # Non-etro link
     elif error_code == 1:
         feedback = "This isn't an etro.gg link..."
         invalid_return.append(feedback)
         return tuple(invalid_return)
+    
+    # Etro link but not to a gearset
     elif error_code == 2:
         feedback = (
             "This doesn't appear to be a valid gearset. Please double check the link."
@@ -852,6 +864,16 @@ def etro_process(
         invalid_return.append(feedback)
         return tuple(invalid_return)
 
+    # Etro link error, usualy 404
+    if not etro_call_successful:
+        invalid_return.append(etro_error)
+        return tuple(invalid_return)
+
+    # Make sure correct build is used
+    if build_role != role:
+        feedback = f"A non-{role} etro build was used."
+        invalid_return.append(feedback)
+        return tuple(invalid_return)
 
 @callback(
     Output("party-compute-div", "hidden"),
@@ -966,7 +988,7 @@ def analyze_party_rotation(
     ]
     pet_ids = matched_encounter.set_index("player_id")["pet_ids"].to_dict()
     encounter_id = matched_encounter["encounter_id"].iloc[0]
-
+    level = encounter_level[encounter_id]
     # Get Limit Break instances
     # Check if LB was used, get its ID if it was
     if len(matched_encounter[matched_encounter["job"] == "LimitBreak"]) > 0:
@@ -1057,6 +1079,7 @@ def analyze_party_rotation(
                 dh[a],
                 determination[a],
                 medication_amt,
+                level,
                 damage_buff_table,
                 critical_hit_rate_table,
                 direct_hit_rate_table,
@@ -1086,6 +1109,7 @@ def analyze_party_rotation(
                 rotation_delta=rotation_delta,
                 action_delta=action_delta,
                 compute_mgf=False,
+                level=level,
             )
         )
 

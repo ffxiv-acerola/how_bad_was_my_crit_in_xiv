@@ -1,12 +1,10 @@
 import dash
-from dash import dcc, html, Input, Output, State
-from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-
-from config import DEBUG
-
-from dash.long_callback import DiskcacheLongCallbackManager
 import diskcache
+from config import DEBUG
+from dash import Input, Output, State, dcc, html
+from dash.exceptions import PreventUpdate
+from dash.long_callback import DiskcacheLongCallbackManager
 
 cache = diskcache.Cache("./cache")
 long_callback_manager = DiskcacheLongCallbackManager(cache)
@@ -21,7 +19,7 @@ app = dash.Dash(
     ],
     long_callback_manager=long_callback_manager,
     # external_stylesheets=[dbc.themes.BOOTSTRAP],
-    suppress_callback_exceptions=~DEBUG, # needed because some callbacks use dynamically generated id's
+    suppress_callback_exceptions=~DEBUG,  # needed because some callbacks use dynamically generated id's
 )
 
 app.title = "How bad was my crit in FFXIV?"
@@ -43,7 +41,7 @@ header = html.Div(
         ),
         html.P(
             [
-                "This site is being actively developed, so there might be some sharp edges. Only fights from Anabeiseos and the two latest Extreme trials are currently supported. Only fights from Anabeiseos and the final two Extreme trials from Endwalker are currently supported. If you have any suggestions, come across bugs, or would like to contribute, join the ",
+                "This site supports analysis from Anabeiseos, Dawntrail's EX2, and AAC Light-Heavyweight. If you have any suggestions, come across bugs, or would like to contribute, join the ",
                 html.A(
                     "Discord server",
                     href="https://discord.gg/8eezSgy3sC",
