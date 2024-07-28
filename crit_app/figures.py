@@ -160,9 +160,9 @@ def how_tall_should_the_action_box_plot_be(n_actions:int):
         int: Approximate height of each bar chart in pixels.
     """
     if n_actions <= 7:
-        return 95
+        return 105
     elif (n_actions > 7) & (n_actions <= 10):
-        return 75
+        return 85
     elif (n_actions > 10) & (n_actions <= 15):
         return 65
     elif (n_actions > 15) & (n_actions <= 20):
