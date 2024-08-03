@@ -1,5 +1,5 @@
 ﻿job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency
-Dragoon,7,Attack,100,,90,auto,,,,,,
+Dragoon,7,Attack,100,,110,auto,,,,,,
 Dragoon,25772,Chaotic Spring,100,,140,direct,53,300,22,180,58,340
 Dragoon,1002719,Chaotic Spring (tick),100,,45,physical-dot,,,,,,
 Dragoon,16477,Coerthan Torment,100,,100,direct,33,150,,,,
@@ -14,12 +14,12 @@ Dragoon,7400,Nastrond,100,,360,direct,,,,,,
 Dragoon,90,Piercing Talon,100,,150,direct,,,,,,
 Dragoon,16479,Raiden Thrust,100,,320,direct,,,,,,
 Dragoon,7397,Sonic Thrust,100,,100,direct,16,120,,,,
-Dragoon,16480,Stardiver,100,,620,direct,,,,,,
+Dragoon,16480,Stardiver,100,,720,direct,,,,,,
 Dragoon,3556,Wheeling Thrust,100,,140,direct,53,300,22,180,58,340
 Dragoon,75,True Thrust,100,,230,direct,,,,,,
 Dragoon,25773,Wyrmwind Thrust,100,,420,direct,,,,,,
 Dragoon,36953,Rise of the Dragon,100,,550,direct,,,,,,
 Dragoon,36954,Lance Barrage,100,,130,direct,61,340,,,,
 Dragoon,36955,Spiral Blow,100,,140,direct,53,300,,,,
-Dragoon,36956,Starcross,100,,700,direct,,,,,,
+Dragoon,36956,Starcross,100,,900,direct,,,,,,
 Dragoon,36952,Drakesbane,100,,440,direct,,,,,,

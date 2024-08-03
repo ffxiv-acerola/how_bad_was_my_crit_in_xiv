@@ -335,7 +335,7 @@ def create_job_build_content(
     )
 
 
-def create_tincture_input(medication_amt=262, id_name="party-tincture-grade"):
+def create_tincture_input(medication_amt=392, id_name="party-tincture-grade"):
     tincture_input = html.Div(
         [
             html.H4("Medication"),
@@ -350,6 +350,14 @@ def create_tincture_input(medication_amt=262, id_name="party-tincture-grade"):
                                 name="POT:",
                                 id=id_name,
                                 options=[
+                                    {
+                                        "label": "Grade 2 Gemdraught (+392)",
+                                        "value": 392,
+                                    },
+                                    {
+                                        "label": "Grade 1 Gemdraught (+361)",
+                                        "value": 351,
+                                    },
                                     {
                                         "label": "Grade 8 Tincture (+262)",
                                         "value": 262,
