@@ -34,7 +34,7 @@ from figures import (
 )
 from job_data.job_warnings import job_warnings
 from job_data.roles import abbreviated_job_map, role_stat_dict
-from job_data.valid_encounters import valid_encounters, patch_times
+from job_data.valid_encounters import patch_times, valid_encounters
 from shared_elements import (
     etro_build,
     format_kill_time_str,
@@ -367,7 +367,7 @@ def layout(analysis_id=None):
                     weapon_damage,
                     delay,
                     main_stat_pre_bonus,
-                    level=level
+                    level=level,
                 )
 
                 job_analysis_data = job_analysis_to_data_class(
@@ -445,15 +445,15 @@ def layout(analysis_id=None):
             action_graph = [dcc.Graph(figure=action_fig, id="action-pdf-fig")]
             action_graph = [dcc.Graph(figure=new_action_fig, id="action-pdf-fig-new")]
 
-            action_summary_table = make_action_table(job_analysis_data, action_df)
+            # action_summary_table = make_action_table(job_analysis_data, action_df)
 
             rotation_graph = rotation_graph[0]
             rotation_percentile_table = rotation_percentile_table[0]
             action_graph = action_graph[0]
-            action_summary_table = action_summary_table[0]
+            # action_summary_table = action_summary_table[0]
 
-            action_options = action_dps["ability_name"].tolist()
-            action_values = action_dps["ability_name"].tolist()
+            # action_options = action_dps["ability_name"].tolist()
+            # action_values = action_dps["ability_name"].tolist()
 
             # Crit result text
             crit_text = rotation_percentile_text_map(rotation_percentile)
@@ -1005,6 +1005,7 @@ def copy_analysis_link(n, selected):
     Output("compute-dmg-button", "children", allow_duplicate=True),
     Output("compute-dmg-button", "disabled", allow_duplicate=True),
     Output("crit-result-text", "children"),
+    Output("results-div", "hidden"),
     Input("compute-dmg-button", "n_clicks"),
     State("main-stat", "value"),
     State("secondary-stat", "value"),
@@ -1067,6 +1068,9 @@ def analyze_and_register_rotation(
     role = player_info["role"]
     encounter_id = player_info["encounter_id"]
     level = encounter_level[encounter_id]
+
+    # Higher level = bigger damage = bigger discretization step size
+    delta_map = {90: 4, 100: 10}
 
     main_stat_multiplier = 1 + len(set(encounter_df["role"])) / 100
     main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
@@ -1164,6 +1168,7 @@ def analyze_and_register_rotation(
                 ["Analyze rotation"],
                 False,
                 [],
+                False,
             )
 
         if len(prior_analysis) == 0:
@@ -1206,7 +1211,7 @@ def analyze_and_register_rotation(
                 wd,
                 delay,
                 main_stat_pre_bonus,
-                action_delta=4,
+                action_delta=delta_map[level],
                 level=level,
             )
 
@@ -1308,6 +1313,7 @@ def analyze_and_register_rotation(
                     color="danger",
                 )
             ],
+            False,
         )
     updated_url = f"/analysis/{analysis_id}"
-    return (updated_url, ["Analyze rotation"], False, [])
+    return (updated_url, ["Analyze rotation"], False, [], False)
