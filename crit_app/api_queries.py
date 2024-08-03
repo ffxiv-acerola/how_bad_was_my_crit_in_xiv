@@ -198,3 +198,37 @@ def limit_break_damage_events(report_id: str, fight_id: int, limit_break_id: int
         lb_df = lb_df[["report_id", "fight_id", "timestamp", "target_id", "amount"]]
         lb_df["timestamp"] += start_time
         return lb_df
+
+def boss_healing_amount(report_id: str, fight_id: int):
+    """Get boss healing events, which affects total HP/damage dealt.
+    Used for party analysis.
+
+    Args:
+        report_id (str): FFLogs report ID
+        fight_id (int): FFLogs fight ID
+    """
+
+    variables = {"code": report_id, "id": [fight_id]}
+
+    json_payload = {
+        "query": """
+            query bossHealing($code: String!, $id: [Int]!) {
+                reportData {
+                    report(code: $code) {
+                        startTime
+                        table(dataType: Healing, fightIDs: $id, hostilityType: Enemies)
+                    }
+                }
+            }
+    """,
+        "variables": variables,
+        "operationName": "bossHealing",
+    }
+    r = requests.post(url=url, json=json_payload, headers=headers)
+    r = json.loads(r.text)
+
+    healing_amount = r['data']['reportData']['report']['table']['data']['entries']
+    if len(healing_amount) == 0:
+        return 0
+    else:
+        return sum([h["total"] for h in healing_amount])

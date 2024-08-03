@@ -65,7 +65,7 @@ def make_rotation_pdf_figure(
         y=[y],
         mode="markers",
         name="Actual DPS",
-        marker={"size": 14, "color": "#009670"},
+        marker={"size": 14, "color": "#FFA15A"},
         hovertext=f"Percentile = {get_dps_dmg_percentile(x, density, support):.1f}%",
     )
 
@@ -77,6 +77,7 @@ def make_rotation_pdf_figure(
         title=f"Rotation DPS distribution: μ = {mu:.0f} DPS, σ = {sigma:.0f} DPS, γ = {rotation_obj.rotation_skewness:.3f}",
         xaxis_title="Damage per second (DPS)",
         yaxis_title="Frequency",
+        height=500
     )
 
     return fig
@@ -185,6 +186,7 @@ def make_action_box_and_whisker_figure(
     q2 = np.zeros(shape=(n_actions))
     q3 = np.zeros(shape=(n_actions))
     u_fence = np.zeros(shape=(n_actions))
+    uu_fence = np.zeros(shape=(n_actions)) # 99th %
     y = np.zeros(shape=(n_actions))
 
     actual_dps = np.zeros(shape=(n_actions))
@@ -212,6 +214,7 @@ def make_action_box_and_whisker_figure(
         q2[idx] = int(support[np.abs(F_percentile - 0.5).argmin()])
         q3[idx] = int(support[np.abs(F_percentile - 0.75).argmin()])
         u_fence[idx] = int(support[np.abs(F_percentile - 0.90).argmin()])
+        uu_fence[idx] = int(support[np.abs(F_percentile - 0.99).argmin()])
 
         actual_dps[idx] = action_dps.loc[
             action_dps["ability_name"] == k, "amount"
@@ -234,16 +237,18 @@ def make_action_box_and_whisker_figure(
 
     # Hover styling
     custom_data = pd.DataFrame(box_percentiles)
+    custom_data["95th_percentile"] = uu_fence[idx_order]
     custom_data["actual_percentile"] = actual_dps_percentile[idx_order]
     custom_data["name"] = list(ytick_labels.values())
     hovertemplate_text = (
-        "<b>%{customdata[6]}</b><br><br>" + "Actual DPS: %{x:,.0f} DPS<br>"
-        "Percentile: %{customdata[5]:.1%}<br><br>"
+        "<b>%{customdata[7]}</b><br><br>" + "Actual DPS: %{x:,.0f} DPS<br>"
+        "Percentile: %{customdata[6]:.1%}<br><br>"
         "10th %: %{customdata[0]:,.0f} DPS<br>"
         + "25th %: %{customdata[1]:,.0f} DPS<br>"
         + "50th %: %{customdata[2]:,.0f} DPS<br>"
         + "75th %: %{customdata[3]:,.0f} DPS<br>"
         + "90th %: %{customdata[4]:,.0f} DPS<br>"
+        + "99th %: %{customdata[5]:,.0f} DPS<br>"
     )
 
     # Actual figure time
@@ -471,6 +476,12 @@ def make_kill_time_graph(party_rotation_dataclass, kill_time_seconds: int):
         {"kill_time": x_theoretical, "percent_kills_faster": y_theoretical}
     )
     df = pd.DataFrame({"kill_time": x_real, "percent_kills_faster": y_real})
+
+    hovertemplate_text = (
+        "<b>Kill time: %{x}</b><br><br>"
+        "% of kills faster than %{x}: %{y}"
+    )
+
     fig = go.Figure(
         data=[
             go.Bar(
@@ -479,6 +490,7 @@ def make_kill_time_graph(party_rotation_dataclass, kill_time_seconds: int):
                 marker_color="#7b6cb2",
                 marker_line_color="#7b6cb2",
                 name="Actual KT",
+                hovertemplate=hovertemplate_text,
             ),
             go.Bar(
                 x=df_theoretical["kill_time"],
@@ -486,6 +498,7 @@ def make_kill_time_graph(party_rotation_dataclass, kill_time_seconds: int):
                 marker_color="#009670",
                 marker_line_color="#009670",
                 name="Theoretical KT",
+                hovertemplate=hovertemplate_text,
             ),
         ],
         layout=layout,
@@ -537,7 +550,7 @@ def make_party_rotation_pdf_figure(party_analysis_data):
             go.Scatter(
                 x=[party_dps_x],
                 y=[party_dps_y],
-                marker={"size": 14, "color": "#009670"},
+                marker={"size": 14, "color": "#FFA15A"},
                 name="Actual DPS",
                 hovertext=f"Percentile: {F_percentile[np.abs(party_support - party_dps_x).argmin()]:.1%}",
             ),

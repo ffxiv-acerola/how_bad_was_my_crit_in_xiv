@@ -9,6 +9,7 @@ from api_queries import (
     get_encounter_job_info,
     headers,
     limit_break_damage_events,
+    boss_healing_amount,
     parse_etro_url,
     parse_fflogs_url,
 )
@@ -361,15 +362,16 @@ def layout(party_analysis_id=None):
         )
 
         # Job-level view
+        job_selector = party_report_df[["report_id", "fight_id"]].merge(
+            job_report_df, on=["report_id", "fight_id"]
+        )[["job", "player_name", "analysis_id"]]
+
+        # Filter down to job analyses only in the party analysis.
         job_selector = (
-            party_report_df[["report_id", "fight_id"]]
-            .merge(job_report_df, on=["report_id", "fight_id"])[
-                ["job", "player_name", "analysis_id"]
-            ]
+            job_selector[job_selector["analysis_id"].isin(job_analysis_ids)]
             .to_numpy()
             .tolist()
         )
-
         job_selector_options = [
             {
                 "label": html.Span(
@@ -769,7 +771,7 @@ def etro_process(
                 # Undo STR for healer/caster
                 if build_role in ("Healer", "Magical Ranged"):
                     secondary_stat = int(secondary_stat / etro_party_bonus)
-            
+
             time.sleep(1)
             return (
                 primary_stat,
@@ -798,11 +800,10 @@ def etro_process(
         critical_hit,
         direct_hit,
         weapon_damage,
-        delay
+        delay,
     ) = invalid_return[0:8]
     secondary_stat_condition = (
-        (role in ("Tank", "Healer", "Magical Ranged"))
-        & (secondary_stat is not None)
+        (role in ("Tank", "Healer", "Magical Ranged")) & (secondary_stat is not None)
     ) or (role in ("Melee", "Physical Ranged"))
     if (
         all(
@@ -855,7 +856,7 @@ def etro_process(
         feedback = "This isn't an etro.gg link..."
         invalid_return.append(feedback)
         return tuple(invalid_return)
-    
+
     # Etro link but not to a gearset
     elif error_code == 2:
         feedback = (
@@ -874,6 +875,7 @@ def etro_process(
         feedback = f"A non-{role} etro build was used."
         invalid_return.append(feedback)
         return tuple(invalid_return)
+
 
 @callback(
     Output("party-compute-div", "hidden"),
@@ -989,6 +991,18 @@ def analyze_party_rotation(
     pet_ids = matched_encounter.set_index("player_id")["pet_ids"].to_dict()
     encounter_id = matched_encounter["encounter_id"].iloc[0]
     level = encounter_level[encounter_id]
+    level_step_map = {
+        90: {
+            "rotation_dmg_step": 20,
+            "action_delta": 2,
+            "rotation_delta": 10,
+        },
+        100: {
+            "rotation_dmg_step": 20,
+            "action_delta": 5,
+            "rotation_delta": 15,
+        },
+    }
     # Get Limit Break instances
     # Check if LB was used, get its ID if it was
     if len(matched_encounter[matched_encounter["job"] == "LimitBreak"]) > 0:
@@ -1003,14 +1017,21 @@ def analyze_party_rotation(
         lb_damage_events_df = pd.DataFrame(columns=["timestamp"])
         lb_damage = 0
 
+    # Our queen can heal herself, which affects her max HP. Gotta get that
+    if encounter_id in (94,):
+        boss_healing = boss_healing_amount(report_id, fight_id)
+    else:
+        boss_healing = 0
+
+    boss_total_hp = boss_hp[encounter_id] + boss_healing
     # Party bonus to main stat
     main_stat_multiplier = 1 + len(set(main_stat_label)) / 100
 
     t_clips = [2.5, 5, 7.5, 10]
     # Damage step size for
-    rotation_dmg_step = 20
-    action_delta = 2
-    rotation_delta = 10
+    rotation_dmg_step = level_step_map[level]["rotation_dmg_step"]
+    action_delta = level_step_map[level]["action_delta"]
+    rotation_delta = level_step_map[level]["rotation_delta"]
     n_data_points = 5000
 
     ######
@@ -1294,7 +1315,7 @@ def analyze_party_rotation(
 
     party_rotation = PartyRotation(
         party_analysis_id,
-        boss_hp[encounter_id],
+        boss_total_hp,
         job_rotation_analyses_list[0].fight_time,
         lb_damage_events_df,
         party_mean,
@@ -1305,7 +1326,7 @@ def analyze_party_rotation(
         [
             SplitPartyRotation(
                 t,
-                boss_hp[encounter_id],
+                boss_total_hp,
                 truncated_party_distribution[t]["pdf"],
                 truncated_party_distribution[t]["support"],
                 party_distribution_clipping[t]["pdf"],

@@ -28,8 +28,10 @@ class BlackMageActions(BuffQuery):
 
         if self.level < 96:
             self.enochian_buff = 1.23
-        elif self.level >= 96:
+        elif (self.level >= 96) & (self.patch_number < 7.05):
             self.enochian_buff = 1.3
+        else:
+            self.enochian_buff = 1.33
 
         # Paradox and transpose are exlcuded because they affect both fire and ice
         # Checks are explicitly applied for these actions
@@ -56,7 +58,7 @@ class BlackMageActions(BuffQuery):
             "Fire IV",
             "Despair",
             "High Fire II",
-            "Flare Star"
+            "Flare Star",
         )
         self.ice_actions = (
             "Blizzard",

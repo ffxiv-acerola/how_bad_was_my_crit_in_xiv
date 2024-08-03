@@ -2,11 +2,11 @@ import sqlite3
 from ast import literal_eval
 
 import coreapi
+import numpy as np
 import pandas as pd
 from config import DB_URI
-from job_data.job_data import weapon_delays
-
 from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
+from job_data.job_data import weapon_delays
 
 
 def etro_build(gearset_id):
@@ -168,6 +168,8 @@ def validate_meldable_stat(stat_name, stat_value):
 
 
 def validate_secondary_stat(role, stat_value):
+    if isinstance(stat_value, str):
+        stat_value = float(stat_value)
     if role in ("Healer", "Magical Ranged"):
         if (stat_value > 100) & (stat_value < 400):
             return True, None
@@ -219,6 +221,19 @@ def read_report_table():
 
     cur.close()
     con.close()
+    report_df["secondary_stat"] = (
+        report_df["secondary_stat"]
+        .replace("None", np.nan)
+        .astype(float)
+        .astype("Int64")
+    )
+    report_df["secondary_stat_pre_bonus"] = (
+        report_df["secondary_stat_pre_bonus"]
+        .replace("None", np.nan)
+        .astype(float)
+        .astype("Int64")
+    )
+
     return report_df
 
 
@@ -403,7 +418,10 @@ def check_prior_job_analyses(
 
     build_comparison = (
         (same_fight["main_stat_pre_bonus"] == main_stat_pre_bonus)
-        & (same_fight["secondary_stat_pre_bonus"] == secondary_stat_pre_bonus)
+        & (
+            (same_fight["secondary_stat_pre_bonus"] == secondary_stat_pre_bonus)
+            | same_fight["secondary_stat_pre_bonus"].isna()
+        )
         & (same_fight["determination"] == determination)
         & (same_fight["speed"] == speed)
         & (same_fight["critical_hit"] == critical_hit)

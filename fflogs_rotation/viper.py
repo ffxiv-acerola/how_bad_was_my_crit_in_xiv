@@ -16,6 +16,8 @@ class ViperActions(BuffQuery):
         swiftskins_venom_id: int = 1003658,
         poised_twinfang_id: int = 1003665,
         poised_twinblood_id: int = 1003666,
+        honed_reavers_id: int = 1003772,
+        honed_steel_id: int = 1003672,
     ) -> None:
         self.report_id = report_id
         self.fight_id = fight_id
@@ -30,6 +32,8 @@ class ViperActions(BuffQuery):
         self.swiftskins_venom_id = swiftskins_venom_id
         self.poised_twinfang_id = poised_twinfang_id
         self.poised_twinblood_id = poised_twinblood_id
+        self.honed_reavers_id = honed_reavers_id
+        self.honed_steel_id = honed_steel_id
 
         # AoE buff IDs
         self.fellskins_venom_id = 1003660
@@ -50,6 +54,10 @@ class ViperActions(BuffQuery):
             self.fellhunters_venom_id: 34638,
             self.grimhunters_venom_id: 34618,
             self.grimskins_venom_id: 34619,
+            self.honed_steel_id: 34606,
+            # self.honed_steel_id: 34614,
+            self.honed_reavers_id: 34607,
+            # self.honed_reavers_id: 34615,
         }
 
         # Used to check Nth generation combo was performed.
@@ -114,10 +122,6 @@ class ViperActions(BuffQuery):
             $code: String!
             $id: [Int]!
             $playerID: Int!
-            $flankstungID: Float!
-            $flanksbaneID: Float!
-            $hindstungID: Float!
-            $hindsbaneID: Float!
             $huntersID: Float!
             $swiftskinsID: Float!
             $poisedTwinfangID: Float!
@@ -126,34 +130,12 @@ class ViperActions(BuffQuery):
             $fellhuntersID: Float!
             $grimhuntersID: Float!
             $grimskinsID: Float!
+            $honedReaversID: Float!
+            $honedSteelID: Float!
         ) {
             reportData {
                 report(code: $code) {
                     startTime
-                    flankstung: table(
-                        fightIDs: $id
-                        dataType: Buffs
-                        sourceID: $playerID
-                        abilityID: $flankstungID
-                    )
-                    flanksbane: table(
-                        fightIDs: $id
-                        dataType: Buffs
-                        sourceID: $playerID
-                        abilityID: $flanksbaneID
-                    )
-                    hindstung: table(
-                        fightIDs: $id
-                        dataType: Buffs
-                        sourceID: $playerID
-                        abilityID: $hindstungID
-                    )
-                    hindsbane: table(
-                        fightIDs: $id
-                        dataType: Buffs
-                        sourceID: $playerID
-                        abilityID: $hindsbaneID
-                    )
                     hunters: table(
                         fightIDs: $id
                         dataType: Buffs
@@ -202,6 +184,18 @@ class ViperActions(BuffQuery):
                         sourceID: $playerID
                         abilityID: $grimskinsID
                     )		
+                    honedReavers: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $honedReaversID
+                    )		
+                    honedSteel: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: $honedSteelID
+                    )		
                 }
             }
         }
@@ -211,10 +205,6 @@ class ViperActions(BuffQuery):
             "code": self.report_id,
             "id": [self.fight_id],
             "playerID": self.player_id,
-            "flanksbaneID": self.flanksbane_venom_id,
-            "flankstungID": self.flankstung_venom_id,
-            "hindstungID": self.hindstung_venom_id,
-            "hindsbaneID": self.hindsbane_venom_id,
             "huntersID": self.hunters_venom_id,
             "swiftskinsID": self.swiftskins_venom_id,
             "poisedTwinfangID": self.poised_twinfang_id,
@@ -223,14 +213,14 @@ class ViperActions(BuffQuery):
             "fellhuntersID": self.fellhunters_venom_id,
             "grimhuntersID": self.grimhunters_venom_id,
             "grimskinsID": self.grimskins_venom_id,
+            "honedReaversID": self.honed_reavers_id,
+            "honedSteelID": self.honed_steel_id,
         }
 
         self._perform_graph_ql_query(headers, query, variables, "ViperBuffs")
 
-        self.flanksbane_venom_times = self._get_buff_times("flanksbane")
-        self.flankstung_venom_times = self._get_buff_times("flankstung")
-        self.hindstung_venom_times = self._get_buff_times("hindstung")
-        self.hindsbane_venom_times = self._get_buff_times("hindsbane")
+        self.honed_reavers_times = self._get_buff_times("honedReavers")
+        self.honed_steel_times = self._get_buff_times("honedSteel")
         self.hunters_venom_times = self._get_buff_times("hunters")
         self.swiftskins_venom_times = self._get_buff_times("swiftskins")
         self.poised_twinfang_times = self._get_buff_times("poisedTwinfang")
@@ -293,10 +283,6 @@ class ViperActions(BuffQuery):
 
         # Loop through and apply all the buffs to each action
         for k, times in {
-            self.flanksbane_venom_id: self.flanksbane_venom_times,
-            self.flankstung_venom_id: self.flankstung_venom_times,
-            self.hindsbane_venom_id: self.hindsbane_venom_times,
-            self.hindstung_venom_id: self.hindstung_venom_times,
             self.swiftskins_venom_id: self.swiftskins_venom_times,
             self.hunters_venom_id: self.hunters_venom_times,
             self.poised_twinblood_id: self.poised_twinblood_times,
@@ -305,6 +291,8 @@ class ViperActions(BuffQuery):
             self.fellskins_venom_id: self.fellhunters_venom_times,
             self.grimhunters_venom_id: self.grimhunters_venom_times,
             self.grimskins_venom_id: self.grimskins_venom_times,
+            self.honed_steel_id: self.honed_steel_times,
+            self.honed_reavers_id: self.honed_reavers_times
         }.items():
             betweens = list(
                 actions_df["timestamp"].between(b[0], b[1], inclusive="both")
