@@ -235,11 +235,17 @@ def layout(analysis_id=None):
             encounter_df = read_encounter_table()
 
             # Merge to get all relevant info
-            analysis_details = report_df.merge(
-                encounter_df.drop(columns=["encounter_id", "encounter_name", "job"]),
-                how="inner",
-                on=["report_id", "fight_id", "player_name"],
-            ).iloc[0]
+            analysis_details = (
+                report_df.merge(
+                    encounter_df.drop(
+                        columns=["encounter_id", "encounter_name", "job"]
+                    ),
+                    how="inner",
+                    on=["report_id", "fight_id", "player_name"],
+                )
+                .iloc[0]
+                .fillna("")
+            )
 
             # Filter down encounter DF to relevant information
             encounter_df = encounter_df[
@@ -283,16 +289,17 @@ def layout(analysis_id=None):
             # Player stat info
             main_stat = int(analysis_details["main_stat"])
             main_stat_pre_bonus = analysis_details["main_stat_pre_bonus"]
-            secondary_stat_pre_bonus = (
-                int(float(analysis_details["secondary_stat_pre_bonus"]))
-                if analysis_details["secondary_stat_pre_bonus"] is not None
-                else ""
-            )
-            secondary_stat = (
-                int(float(analysis_details["secondary_stat"]))
-                if analysis_details["secondary_stat_pre_bonus"] is not None
-                else ""
-            )
+            if analysis_details["secondary_stat_pre_bonus"] != "":
+                secondary_stat_pre_bonus = int(
+                    float(analysis_details["secondary_stat_pre_bonus"])
+                )
+            else:
+                secondary_stat_pre_bonus = ""
+
+            if analysis_details["secondary_stat"] != "":
+                secondary_stat = int(float(analysis_details["secondary_stat"]))
+            else:
+                secondary_stat = ""
             determination = analysis_details["determination"]
             speed_stat = analysis_details["speed"]
             crit = analysis_details["critical_hit"]
@@ -1070,9 +1077,11 @@ def analyze_and_register_rotation(
     level = encounter_level[encounter_id]
 
     # Higher level = bigger damage = bigger discretization step size
-    delta_map = {90: 4, 100: 10}
+    delta_map = {90: 4, 100: 9}
 
-    main_stat_multiplier = 1 + len(set(encounter_df["role"])) / 100
+    main_stat_multiplier = (
+        1 + len(set(encounter_df[encounter_df["role"] != "Limit Break"]["role"])) / 100
+    )
     main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
     secondary_stat_type = (
         None

@@ -224,13 +224,13 @@ def read_report_table():
     report_df["secondary_stat"] = (
         report_df["secondary_stat"]
         .replace("None", np.nan)
-        .astype(float)
+        # .astype(float)
         .astype("Int64")
     )
     report_df["secondary_stat_pre_bonus"] = (
         report_df["secondary_stat_pre_bonus"]
         .replace("None", np.nan)
-        .astype(float)
+        # .astype(float)
         .astype("Int64")
     )
 

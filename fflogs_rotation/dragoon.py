@@ -133,6 +133,45 @@ class DragoonActions(BuffQuery):
 
         pass
 
+    def _set_life_of_the_dragon_timings(self, headers):
+        query = """
+        query dragoonLOTD(
+            $code: String!
+            $id: [Int]!
+            $playerID: Int!
+            $lifeOfTheDragonID: Float!
+        ) {
+            reportData {
+                report(code: $code) {
+                    startTime
+                    lifeOfTheDragon: table(
+                            fightIDs: $id
+                            dataType: Buffs
+                            sourceID: $playerID
+                            abilityID: $lifeOfTheDragonID
+                    )
+                }
+            }
+        }
+        """
+
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+            "playerID": self.player_id,
+            "lifeOfTheDragonID": self.life_of_the_dragon_id,
+        }
+
+        self._perform_graph_ql_query(headers, query, variables, "dragoonLOTD")
+
+        self.life_of_the_dragon_times = pd.DataFrame(
+            self.request_response["data"]["reportData"]["report"]["lifeOfTheDragon"][
+                "data"
+            ]["auras"][0]["bands"]
+        ).astype(int).to_numpy()
+        self.life_of_the_dragon_times += self.report_start
+        pass
+
     def apply_endwalker_combo_finisher_potencies(self, actions_df):
         """
         Check if wheeling thrust/fang and claw buffs were applied by the penultimate

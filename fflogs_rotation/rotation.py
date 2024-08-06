@@ -196,7 +196,7 @@ class ActionTable(object):
                 1002706,
             )
 
-        elif self.job == "Pictomancer":
+        elif self.job in ("Pictomancer", "RedMage", "Summoner", "Astrologian", "WhiteMage", "Sage"):
             self.actions_df = self.actions_df[
                 self.actions_df["ability_name"] != "Attack"
             ]
