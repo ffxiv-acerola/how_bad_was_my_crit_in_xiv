@@ -1,3 +1,9 @@
+# fmt: off
+import sys
+# I hate pythonpath i hate pythonpath i hate pythonpath i hate pythonpath
+sys.path.append("../../") 
+# fmt: on
+
 import datetime
 import pickle
 from uuid import uuid4
