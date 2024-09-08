@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "how-bad-was-my-crit-in-xiv"
+version = "0.1.0"
+description = ""
+authors = ["acerola <ffxivacerola@gmail.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+dash = {version = "^2.18", extras = ["diskcache"]}
+dash-bootstrap-components = "^1.6.0"
+dash-core-components = "^2.0.0"
+dash-html-components = "^2.0.0"
+dash-table = "^5.0.0"
+ffxiv_stats = "==0.5.5"
+numpy = "^2.1.1"
+pandas = "^2.2.2"
+plotly = "^5.24.0"
+scipy = "^1.14.1"
+coreapi = "^2.3.3"
+gunicorn = "^23.0.0"
+pyarrow = "^17.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
