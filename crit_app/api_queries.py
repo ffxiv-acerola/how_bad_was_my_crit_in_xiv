@@ -2,12 +2,11 @@
 API queries made to FFLogs and Etro.
 """
 
-from urllib.parse import urlparse, parse_qs
 import json
+from urllib.parse import parse_qs, urlparse
 
-import requests
 import pandas as pd
-
+import requests
 from config import FFLOGS_TOKEN
 from job_data.roles import role_mapping
 
@@ -199,6 +198,7 @@ def limit_break_damage_events(report_id: str, fight_id: int, limit_break_id: int
         lb_df["timestamp"] += start_time
         return lb_df
 
+
 def boss_healing_amount(report_id: str, fight_id: int):
     """Get boss healing events, which affects total HP/damage dealt.
     Used for party analysis.
@@ -227,7 +227,7 @@ def boss_healing_amount(report_id: str, fight_id: int):
     r = requests.post(url=url, json=json_payload, headers=headers)
     r = json.loads(r.text)
 
-    healing_amount = r['data']['reportData']['report']['table']['data']['entries']
+    healing_amount = r["data"]["reportData"]["report"]["table"]["data"]["entries"]
     if len(healing_amount) == 0:
         return 0
     else:

@@ -56,10 +56,8 @@ def test_dt_kazematoi_gauge():
 
     test_output = NinjaActionsDawntrail()._track_kazematoi_gauge(input_df)
 
-    # `check_like=True`` ignores column order. 
-    assert_frame_equal(
-        test_output, expected_df, check_like=True
-    )
+    # `check_like=True`` ignores column order.
+    assert_frame_equal(test_output, expected_df, check_like=True)
 
     # RotationTable(
     #     headers,

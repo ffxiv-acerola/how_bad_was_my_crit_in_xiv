@@ -1,3 +1,9 @@
+# fmt: off
+import sys
+# I hate pythonpath i hate pythonpath i hate pythonpath i hate pythonpath
+sys.path.append("../../") 
+# fmt: on
+
 import pickle
 import time
 from uuid import uuid4
@@ -6,10 +12,10 @@ import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 from api_queries import (
+    boss_healing_amount,
     get_encounter_job_info,
     headers,
     limit_break_damage_events,
-    boss_healing_amount,
     parse_etro_url,
     parse_fflogs_url,
 )
@@ -36,11 +42,11 @@ from dmg_distribution import (
 )
 from figures import (
     make_action_box_and_whisker_figure,
-    make_action_pdfs_figure,
     make_kill_time_graph,
     make_party_rotation_pdf_figure,
     make_rotation_pdf_figure,
 )
+from job_data.job_data import caster_healer_strength, weapon_delays
 from job_data.roles import abbreviated_job_map, role_mapping, role_stat_dict
 from job_data.valid_encounters import boss_hp, valid_encounters
 from party_cards import (
@@ -66,7 +72,6 @@ from shared_elements import (
     update_encounter_table,
     update_party_report_table,
     update_report_table,
-    validate_delay,
     validate_meldable_stat,
     validate_secondary_stat,
     validate_speed_stat,
@@ -113,7 +118,7 @@ def layout(party_analysis_id=None):
                 "rb",
             ) as f:
                 party_analysis_obj = pickle.load(f)
-        except Exception as e:
+        except Exception:
             return html.Div(
                 [
                     html.H2("404 Not Found"),
@@ -678,14 +683,32 @@ def party_fflogs_process(n_clicks, url):
 
 
 @callback(
+    Output({"type": "tenacity-row", "index": MATCH}, "hidden"),
+    Input({"type": "main-stat-label", "index": MATCH}, "children"),
+)
+def hide_non_tank_tenactiy(main_stat_label) -> bool:
+    """Hide the Tenacity form for non-tanks.
+
+    Args:
+        main_stat_label (str): Main stat label used to determine role.
+
+    Returns:
+        bool: Whether to hide tenacity row.
+    """
+    if main_stat_label == "STR:":
+        return False
+    else:
+        return True
+
+
+@callback(
     Output({"type": "main-stat", "index": MATCH}, "value"),
-    Output({"type": "secondary-stat", "index": MATCH}, "value"),
+    Output({"type": "TEN", "index": MATCH}, "value"),
     Output({"type": "DET", "index": MATCH}, "value"),
     Output({"type": "speed-stat", "index": MATCH}, "value"),
     Output({"type": "CRT", "index": MATCH}, "value"),
     Output({"type": "DH", "index": MATCH}, "value"),
     Output({"type": "WD", "index": MATCH}, "value"),
-    Output({"type": "DEL", "index": MATCH}, "value"),
     Output({"type": "build-name", "index": MATCH}, "children"),
     Output({"type": "etro-input", "index": MATCH}, "valid"),
     Output({"type": "etro-input", "index": MATCH}, "invalid"),
@@ -694,13 +717,12 @@ def party_fflogs_process(n_clicks, url):
     State({"type": "etro-input", "index": MATCH}, "value"),
     State({"type": "main-stat-label", "index": MATCH}, "children"),
     State({"type": "main-stat", "index": MATCH}, "value"),
-    State({"type": "secondary-stat", "index": MATCH}, "value"),
+    State({"type": "TEN", "index": MATCH}, "value"),
     State({"type": "DET", "index": MATCH}, "value"),
     State({"type": "speed-stat", "index": MATCH}, "value"),
     State({"type": "CRT", "index": MATCH}, "value"),
     State({"type": "DH", "index": MATCH}, "value"),
     State({"type": "WD", "index": MATCH}, "value"),
-    State({"type": "DEL", "index": MATCH}, "value"),
 )
 def etro_process(
     n_clicks,
@@ -713,7 +735,6 @@ def etro_process(
     critical_hit,
     direct_hit,
     weapon_damage,
-    delay,
 ):
     if n_clicks is None:
         raise PreventUpdate
@@ -739,7 +760,6 @@ def etro_process(
         critical_hit,
         direct_hit,
         weapon_damage,
-        delay,
         [],
         False,
         True,
@@ -781,7 +801,6 @@ def etro_process(
                 critical_hit,
                 direct_hit,
                 weapon_damage,
-                delay,
                 f"Build name: {build_name}",
                 True,
                 False,
@@ -800,11 +819,10 @@ def etro_process(
         critical_hit,
         direct_hit,
         weapon_damage,
-        delay,
-    ) = invalid_return[0:8]
-    secondary_stat_condition = (
-        (role in ("Tank", "Healer", "Magical Ranged")) & (secondary_stat is not None)
-    ) or (role in ("Melee", "Physical Ranged"))
+    ) = invalid_return[0:7]
+    secondary_stat_condition = ((role in ("Tank")) & (secondary_stat is not None)) or (
+        role in ("Melee", "Physical Ranged", "Healer", "Magical Ranged")
+    )
     if (
         all(
             [
@@ -814,7 +832,6 @@ def etro_process(
                 critical_hit is not None,
                 direct_hit is not None,
                 weapon_damage is not None,
-                delay is not None,
             ]
         )
         & secondary_stat_condition
@@ -828,7 +845,6 @@ def etro_process(
             validate_meldable_stat("Critical hit", critical_hit),
             validate_meldable_stat("Direct hit rate", direct_hit),
             validate_weapon_damage(weapon_damage),
-            validate_delay(delay),
         ]
         if all([v[0] for v in validation]):
             return (
@@ -839,7 +855,6 @@ def etro_process(
                 critical_hit,
                 direct_hit,
                 weapon_damage,
-                delay,
                 [],
                 True,
                 False,
@@ -921,13 +936,13 @@ def job_progress(job_list, active_job):
     State({"type": "job-name", "index": ALL}, "children"),
     State({"type": "player-id", "index": ALL}, "children"),
     State({"type": "main-stat", "index": ALL}, "value"),
-    State({"type": "secondary-stat", "index": ALL}, "value"),
+    State({"type": "TEN", "index": ALL}, "value"),
     State({"type": "DET", "index": ALL}, "value"),
     State({"type": "speed-stat", "index": ALL}, "value"),
     State({"type": "CRT", "index": ALL}, "value"),
     State({"type": "DH", "index": ALL}, "value"),
     State({"type": "WD", "index": ALL}, "value"),
-    State({"type": "DEL", "index": ALL}, "value"),
+    # State({"type": "DEL", "index": ALL}, "value"),
     State({"type": "main-stat-label", "index": ALL}, "children"),
     State({"type": "player-name", "index": ALL}, "children"),
     State({"type": "etro-input", "index": ALL}, "value"),
@@ -954,7 +969,7 @@ def analyze_party_rotation(
     crit,
     dh,
     weapon_damage,
-    delay,
+    # delay,
     main_stat_label,
     player_name,
     etro_url,
@@ -1060,7 +1075,7 @@ def analyze_party_rotation(
             crit[a],
             dh[a],
             weapon_damage[a],
-            delay[a],
+            weapon_delays[job[a].upper()],
             medication_amt,
         )
         for a in range(len(job))
@@ -1076,6 +1091,7 @@ def analyze_party_rotation(
     for a in range(len(job)):
         full_job = reverse_abbreviated_role_map[job[a]]
         role = role_mapping[full_job]
+        delay = weapon_delays[job[a].upper()]
 
         # Progress bar
         current_job = job_progress(job, job[a])
@@ -1083,7 +1099,7 @@ def analyze_party_rotation(
 
         main_stat_buff = int(main_stat_no_buff[a] * main_stat_multiplier)
         secondary_stat_buff = (
-            int(secondary_stat_no_buff[a] * main_stat_multiplier)
+            int(caster_healer_strength[job[a].upper()] * main_stat_multiplier)
             if role in ("Healer", "Magical Ranged")
             else secondary_stat_no_buff[a]
         )
@@ -1124,7 +1140,7 @@ def analyze_party_rotation(
                 crit[a],
                 dh[a],
                 weapon_damage[a],
-                delay[a],
+                delay,
                 main_stat_no_buff[a],
                 rotation_step=rotation_dmg_step,
                 rotation_delta=rotation_delta,
@@ -1163,7 +1179,7 @@ def analyze_party_rotation(
                 int(crit[a]),
                 int(dh[a]),
                 int(weapon_damage[a]),
-                delay[a],
+                delay,
                 medication_amt,
                 main_stat_multiplier,
                 gearset_id,
@@ -1205,7 +1221,7 @@ def analyze_party_rotation(
                         crit[a],
                         dh[a],
                         weapon_damage[a],
-                        delay[a],
+                        delay,
                         main_stat_no_buff[a],
                         rotation_step=rotation_dmg_step,
                         rotation_delta=rotation_delta,

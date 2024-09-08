@@ -1,13 +1,11 @@
 """Account for job-specific mechanics that affect actions."""
 
-from functools import reduce
 import json
+from functools import reduce
 
 import numpy as np
 import pandas as pd
 import requests
-
-from ffxiv_stats import Rate
 
 url = "https://www.fflogs.com/api/v2/client"
 
@@ -117,11 +115,13 @@ class DarkKnightActions(object):
         darkside_df["prior_edge_time"] = darkside_df["elapsed_time"].shift(periods=1)
 
         # Set up initial values of darkside timer value for when we loop through the DF
-        darkside_df["darkside_cd_prior"] = 0  # darkside timer value before DS extended
-        darkside_df["darkside_cd_prior_falloff"] = (
-            0  # darkside timer value is before DS was extended and if the value could be negative
+        darkside_df["darkside_cd_prior"] = (
+            0.0  # darkside timer value before DS extended
         )
-        darkside_df["darkside_cd_post"] = 30  # darkside timer value after DS extended
+        darkside_df["darkside_cd_prior_falloff"] = (
+            0.0  # darkside timer value is before DS was extended and if the value could be negative
+        )
+        darkside_df["darkside_cd_post"] = 30.0  # darkside timer value after DS extended
 
         # Why are we looping through?
         # Current row results depend on derived values from current and prior row.
@@ -183,7 +183,7 @@ class DarkKnightActions(object):
             action_df["elapsed_time"].between(b[0], b[1])
             for b in self.no_darkside_time_intervals
         )
-        action_df["darkside_buff"] = 1
+        action_df["darkside_buff"] = 1.0
         # Add 10% Darkside buff except
         # For living shadow
         # For salted earth (this gets snapshotted)
@@ -520,10 +520,10 @@ class SamuraiActions(BuffQuery):
 
 
 if __name__ == "__main__":
-    from config import FFLOGS_TOKEN
+    # from config import FFLOGS_TOKEN
 
-    api_key = FFLOGS_TOKEN  # or copy/paste your key here
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+    # api_key = FFLOGS_TOKEN  # or copy/paste your key here
+    # headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
 
     # PaladinActions(headers, "M2ZKgJtTqnNjYxCQ", 54, 118)
     # SamuraiActions(headers, "LpHbRKxkAwynaCNv", 44, 79)

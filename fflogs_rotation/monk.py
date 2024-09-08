@@ -1,7 +1,9 @@
+import numpy as np
+import pandas as pd
+
 from fflogs_rotation.base import BuffQuery, disjunction
 from ffxiv_stats import Rate
-import pandas as pd
-import numpy as np
+
 
 class MonkActions(BuffQuery):
     def __init__(
@@ -152,15 +154,14 @@ class MonkActions(BuffQuery):
             # Opo beast gauge has to be under opo-opo form to generate stacks.
             # Create condition ensuring this (also include formless fist).
             opo_opo_betweens = list(
-                actions_df["timestamp"].between(b[0], b[1]) for b in np.vstack((self.opo_opo_times, self.formless_fist_times))
+                actions_df["timestamp"].between(b[0], b[1])
+                for b in np.vstack((self.opo_opo_times, self.formless_fist_times))
             )
             opo_opo_condition = disjunction(*opo_opo_betweens)
 
             beast_action_df = actions_df[
-                (
-                    (actions_df["abilityGameID"] == self.dragon_kick_id)
-                    # & opo_opo_condition
-                )
+                (actions_df["abilityGameID"] == self.dragon_kick_id)
+                # & opo_opo_condition
                 | (actions_df["abilityGameID"] == self.leaping_opo_id)
             ][["abilityGameID", "ability_name"]].copy()
 
@@ -269,7 +270,7 @@ class MonkActions(BuffQuery):
         critical_hit_stat,
         direct_hit_rate_stat,
         critical_hit_rate_buffs,
-        level
+        level,
     ):
         r = Rate(critical_hit_stat, direct_hit_rate_stat, level)
 

@@ -4,7 +4,6 @@ import time
 import numpy as np
 import pandas as pd
 import requests
-from ffxiv_stats import Rate
 
 from fflogs_rotation.bard import BardActions
 from fflogs_rotation.black_mage import BlackMageActions
@@ -20,6 +19,7 @@ from fflogs_rotation.rotation_jobs import (
     SamuraiActions,
 )
 from fflogs_rotation.viper import ViperActions
+from ffxiv_stats import Rate
 
 url = "https://www.fflogs.com/api/v2/client"
 
@@ -150,9 +150,7 @@ class ActionTable(object):
         )
 
         self.ranged_cards = self.damage_buffs[
-            self.damage_buffs["buff_name"].isin(
-                ["The Bole", "The Spire", "The Ewer"]
-            )
+            self.damage_buffs["buff_name"].isin(["The Bole", "The Spire", "The Ewer"])
         ]["buff_id"].tolist()
         self.melee_cards = self.damage_buffs[
             self.damage_buffs["buff_name"].isin(
@@ -196,7 +194,14 @@ class ActionTable(object):
                 1002706,
             )
 
-        elif self.job in ("Pictomancer", "RedMage", "Summoner", "Astrologian", "WhiteMage", "Sage"):
+        elif self.job in (
+            "Pictomancer",
+            "RedMage",
+            "Summoner",
+            "Astrologian",
+            "WhiteMage",
+            "Sage",
+        ):
             self.actions_df = self.actions_df[
                 self.actions_df["ability_name"] != "Attack"
             ]

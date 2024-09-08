@@ -3,11 +3,11 @@ Functions for processing results of API queries and computing damage distributio
 """
 
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import Dict, List
 
 import numpy as np
-from numpy.typing import ArrayLike
 import pandas as pd
+from numpy.typing import ArrayLike
 from scipy.signal import fftconvolve
 
 from ffxiv_stats.moments import _coarsened_boundaries
@@ -214,8 +214,9 @@ def job_analysis_to_data_class(job_analysis_object, active_dps_time):
         job_analysis_object.rotation_skewness,
         job_analysis_object.rotation_dps_distribution,
         job_analysis_object.rotation_dps_support,
-        job_analysis_object.unique_actions_distribution
+        job_analysis_object.unique_actions_distribution,
     )
+
 
 def get_dps_dmg_percentile(dps, dmg_distribution, dmg_distribution_support, t_div=1):
     """
@@ -231,7 +232,9 @@ def get_dps_dmg_percentile(dps, dmg_distribution, dmg_distribution_support, t_di
     """
     if t_div > 1:
         dmg_distribution_support /= t_div
-        dmg_distribution = dmg_distribution / np.trapz(dmg_distribution, dmg_distribution_support)        
+        dmg_distribution = dmg_distribution / np.trapz(
+            dmg_distribution, dmg_distribution_support
+        )
 
     dx = dmg_distribution_support[1] - dmg_distribution_support[0]
     F = np.cumsum(dmg_distribution) * dx
@@ -253,14 +256,15 @@ def summarize_actions(actions_df, unique_actions, active_dps_time, analysis_time
     unique_actions - unique_actions_distribution attribute from Job object in `ffxiv_stats`
     t - float, time elapsed. Set t=1 for damage dealt instead of dps.
     """
-    
+
     if analysis_time == 1:
         t_div = active_dps_time
     else:
         t_div = 1
 
     action_dps = (
-        actions_df[["ability_name", "amount"]].groupby("ability_name").sum() / active_dps_time
+        actions_df[["ability_name", "amount"]].groupby("ability_name").sum()
+        / active_dps_time
     )
 
     action_dps = action_dps.reset_index()
@@ -269,7 +273,7 @@ def summarize_actions(actions_df, unique_actions, active_dps_time, analysis_time
             x["amount"],
             unique_actions[x["ability_name"]]["dps_distribution"],
             unique_actions[x["ability_name"]]["support"],
-            t_div
+            t_div,
         )
         / 100,
         axis=1,

@@ -1,6 +1,7 @@
 # from .base import BuffQuery, disjunction
-from fflogs_rotation.base import BuffQuery, disjunction
 import pandas as pd
+
+from fflogs_rotation.base import BuffQuery, disjunction
 
 
 class DragoonActions(BuffQuery):
@@ -164,11 +165,15 @@ class DragoonActions(BuffQuery):
 
         self._perform_graph_ql_query(headers, query, variables, "dragoonLOTD")
 
-        self.life_of_the_dragon_times = pd.DataFrame(
-            self.request_response["data"]["reportData"]["report"]["lifeOfTheDragon"][
-                "data"
-            ]["auras"][0]["bands"]
-        ).astype(int).to_numpy()
+        self.life_of_the_dragon_times = (
+            pd.DataFrame(
+                self.request_response["data"]["reportData"]["report"][
+                    "lifeOfTheDragon"
+                ]["data"]["auras"][0]["bands"]
+            )
+            .astype(int)
+            .to_numpy()
+        )
         self.life_of_the_dragon_times += self.report_start
         pass
 
@@ -182,7 +187,9 @@ class DragoonActions(BuffQuery):
         when a position is missed...
         """
         if self.patch_number >= 7.0:
-            raise ValueError("This is an Endwalker-specific job mechanic and should not be applied to a post-Endwalker version of Dragoon.")
+            raise ValueError(
+                "This is an Endwalker-specific job mechanic and should not be applied to a post-Endwalker version of Dragoon."
+            )
 
         #### Wheeling Thrust ####
         wheel_no_finisher_betweens = list(
@@ -246,4 +253,3 @@ if __name__ == "__main__":
     from fflogs_rotation.rotation import headers
 
     drg = DragoonActions(headers, "n92HcfwVWKGCq8Jm", 1, 1, 7.01)
-    

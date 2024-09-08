@@ -1,3 +1,9 @@
+# fmt: off
+import sys
+# I hate pythonpath i hate pythonpath i hate pythonpath i hate pythonpath
+sys.path.append("../../") 
+# fmt: on
+
 import datetime
 import pickle
 from uuid import uuid4
@@ -28,10 +34,10 @@ from dmg_distribution import (
 from figures import (
     make_action_box_and_whisker_figure,
     make_action_pdfs_figure,
-    make_action_table,
     make_rotation_pdf_figure,
     make_rotation_percentile_table,
 )
+from job_data.job_data import weapon_delays
 from job_data.job_warnings import job_warnings
 from job_data.roles import abbreviated_job_map, role_stat_dict
 from job_data.valid_encounters import patch_times, valid_encounters
@@ -41,6 +47,7 @@ from shared_elements import (
     read_encounter_table,
     read_report_table,
     rotation_analysis,
+    set_secondary_stats,
     unflag_redo_rotation,
     unflag_report_recompute,
     update_access_table,
@@ -59,10 +66,74 @@ from fflogs_rotation.job_data.data import (
 )
 from fflogs_rotation.rotation import RotationTable
 
+
+def page_title(analysis_id=None):
+    if analysis_id is None:
+        return ""
+    encounter_info = read_encounter_table()
+    report = read_report_table()
+    fight_data = (
+        report[report["analysis_id"] == analysis_id]
+        .merge(
+            encounter_info[["report_id", "fight_id", "kill_time"]],
+            on=["report_id", "fight_id"],
+            how="inner",
+        )
+        .iloc[0]
+    )
+
+    return "Analysis: {} ({}); {} ({})".format(
+        fight_data.player_name,
+        abbreviated_job_map[fight_data.job].upper(),
+        fight_data.encounter_name,
+        format_kill_time_str(fight_data.kill_time),
+    )
+
+
+def metas(analysis_id=None):
+    if analysis_id is not None:
+        encounter_info = read_encounter_table()
+        report = read_report_table()
+        fight_data = (
+            report[report["analysis_id"] == analysis_id]
+            .merge(
+                encounter_info[["report_id", "fight_id", "kill_time"]],
+                on=["report_id", "fight_id"],
+                how="inner",
+            )
+            .iloc[0]
+        )
+        app_description = "View analysis for {} ({}) on {} ({})".format(
+            fight_data.player_name,
+            abbreviated_job_map[fight_data.job].upper(),
+            fight_data.encounter_name,
+            format_kill_time_str(fight_data.kill_time),
+        )
+    else:
+        app_description = "Analyze crit RNG for FFXIV!"
+    app_image = "crit_app/assets/meta_image.png"
+    page_title = "Player analysis"
+
+    return [
+        {"name": "viewport", "content": "width=device-width, initial-scale=1"},
+        {"property": "twitter:card", "content": "summary_large_image"},
+        {"property": "twitter:url", "content": "https://www.wealthdashboard.app/"},
+        {"property": "twitter:title", "content": page_title},
+        {"property": "twitter:description", "content": app_description},
+        {"property": "twitter:image", "content": app_image},
+        {"property": "og:title", "content": page_title},
+        {"property": "og:type", "content": "website"},
+        {"property": "og:description", "content": app_description},
+        {"property": "og:image", "content": app_image},
+    ]
+
+
 dash.register_page(
     __name__,
     path_template="/analysis/<analysis_id>",
     path="/",
+    name=page_title,
+    meta_tags=metas,
 )
 
 
@@ -590,11 +661,27 @@ def reset_action_filters(action_list, n):
 
 
 @callback(
+    Output("bottom-build-row", "hidden"),
+    Input("role-select", "value"),
+)
+def display_bottom_build_row(role: str) -> bool:
+    """Display the bottom job build row for Tanks, allowing Tenacity to be inputted.
+
+    Args:
+        role (str): Selected Role
+
+    Returns:
+        bool: Whether to display the stat row or not.
+    """
+    if role == "Tank":
+        return False
+    else:
+        return True
+
+
+@callback(
     Output("main-stat-label", "children"),
     Output("main-stat", "placeholder"),
-    Output("secondary-stat-label", "children"),
-    Output("secondary-stat", "placeholder"),
-    Output("secondary-stat", "disabled"),
     Output("speed-tooltip", "children"),
     Output("speed-stat", "placeholder"),
     Input("role-select", "value"),
@@ -606,9 +693,6 @@ def fill_role_stat_labels(role):
     return (
         role_stat_dict[role]["main_stat"]["label"],
         role_stat_dict[role]["main_stat"]["placeholder"],
-        role_stat_dict[role]["secondary_stat"]["label"],
-        role_stat_dict[role]["secondary_stat"]["placeholder"],
-        True if role in ("Melee", "Physical Ranged") else False,
         role_stat_dict[role]["speed_stat"]["label"],
         role_stat_dict[role]["speed_stat"]["placeholder"],
     )
@@ -621,13 +705,13 @@ def fill_role_stat_labels(role):
     Output("etro-build-name-div", "children"),
     Output("role-select", "value"),
     Output("main-stat", "value"),
-    Output("secondary-stat", "value"),
+    Output("TEN", "value"),
     Output("DET", "value"),
     Output("speed-stat", "value"),
     Output("CRT", "value"),
     Output("DH", "value"),
     Output("WD", "value"),
-    Output("DEL", "value"),
+    # Output("DEL", "value"),
     Output("party-bonus-warning", "children"),
     Input("etro-url-button", "n_clicks"),
     State("etro-url", "value"),
@@ -655,7 +739,7 @@ def process_etro_url(n_clicks, url, default_role):
         [],
         [],
         [],
-        [],
+        # [],
         [],
     ]
 
@@ -681,7 +765,7 @@ def process_etro_url(n_clicks, url, default_role):
         build_name,
         build_role,
         primary_stat,
-        secondary_stat,
+        tenacity,
         determination,
         speed,
         ch,
@@ -701,7 +785,7 @@ def process_etro_url(n_clicks, url, default_role):
         warning_row = dbc.Alert(
             [
                 html.I(className="bi bi-exclamation-triangle-fill me-2"),
-                f"Warning! The linked etro build has already applied a {bonus_fmt:.0%} bonus to its main stats. The built-in slider below for adding % bonus to the main has been set to 0% and should not be altered.",
+                f"Warning! The linked etro build has already applied a {bonus_fmt:.0%} bonus to its main stats. Values shown here have the party bonus removed..",
             ],
             color="warning",
             className="d-flex align-items-center",
@@ -716,13 +800,13 @@ def process_etro_url(n_clicks, url, default_role):
         build_children,
         build_role,
         primary_stat,
-        secondary_stat,
+        tenacity,
         determination,
         speed,
         ch,
         dh,
         wd,
-        delay,
+        # delay,
         warning_row,
     )
 
@@ -730,36 +814,35 @@ def process_etro_url(n_clicks, url, default_role):
 @callback(
     Output("fflogs-card", "hidden"),
     Input("main-stat", "value"),
-    Input("secondary-stat", "value"),
+    Input("TEN", "value"),
     Input("DET", "value"),
     Input("speed-stat", "value"),
     Input("CRT", "value"),
     Input("DH", "value"),
     Input("WD", "value"),
-    Input("DEL", "value"),
     Input("role-select", "value"),
     Input("results-div", "hidden"),
 )
 def job_build_defined(
     main_stat,
-    secondary_stat,
+    tenacity,
     determination,
     speed,
     crit,
     direct_hit,
     weapon_damage,
-    delay,
     role,
     results_hidden,
 ):
     """
     Check if any job build elements are missing, hide everything else if they are.
     """
-    secondary_stat_condition = (role in ("Healer", "Tank", "Magical Ranged")) & (
-        secondary_stat is None
-    )
-    if role in ("Melee", "Physical Ranged"):
-        secondary_stat = False
+    if (role == "Tank") & (tenacity is None):
+        tenacity_missing = True
+
+    else:
+        tenacity_missing = False
+
     # TODO: will need to handle None secondary stat for roles without them.
     job_build_missing = (
         any(
@@ -771,10 +854,9 @@ def job_build_defined(
                 crit,
                 direct_hit,
                 weapon_damage,
-                delay,
             ]
         )
-        | secondary_stat_condition
+        | tenacity_missing
     )
     return job_build_missing
 
@@ -786,14 +868,6 @@ def job_build_defined(
 )
 def validate_sps(spell_speed):
     if (spell_speed == []) or (spell_speed is None) or (spell_speed > 3):
-        return True, False
-    else:
-        return False, True
-
-
-@callback(Output("DEL", "valid"), Output("DEL", "invalid"), Input("DEL", "value"))
-def validate_del(delay):
-    if (delay == []) or (delay is None) or (delay <= 4):
         return True, False
     else:
         return False, True
@@ -1015,13 +1089,13 @@ def copy_analysis_link(n, selected):
     Output("results-div", "hidden"),
     Input("compute-dmg-button", "n_clicks"),
     State("main-stat", "value"),
-    State("secondary-stat", "value"),
+    State("TEN", "value"),
     State("DET", "value"),
     State("speed-stat", "value"),
     State("CRT", "value"),
     State("DH", "value"),
     State("WD", "value"),
-    State("DEL", "value"),
+    # State("DEL", "value"),
     State("tincture-grade", "value"),
     State("fflogs-url", "value"),
     State("etro-url", "value"),
@@ -1035,13 +1109,13 @@ def copy_analysis_link(n, selected):
 def analyze_and_register_rotation(
     n_clicks,
     main_stat_pre_bonus,
-    secondary_stat_pre_bonus,
+    tenacity,
     determination,
     speed_stat,
     ch,
     dh,
     wd,
-    delay,
+    # delay,
     medication_amt,
     fflogs_url,
     etro_url,
@@ -1083,25 +1157,13 @@ def analyze_and_register_rotation(
         1 + len(set(encounter_df[encounter_df["role"] != "Limit Break"]["role"])) / 100
     )
     main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
-    secondary_stat_type = (
-        None
-        if role in ("Melee", "Physical Ranged")
-        else role_stat_dict[role]["secondary_stat"]["placeholder"].lower()
-    )
-
     main_stat = int(main_stat_pre_bonus * main_stat_multiplier)
 
-    secondary_stat = (
-        None if role in ("Melee", "Physical Ranged") else int(secondary_stat_pre_bonus)
+    secondary_stat_type, secondary_stat_pre_bonus, secondary_stat = set_secondary_stats(
+        role, abbreviated_job_map[job_no_space].upper(), main_stat_multiplier, tenacity
     )
-    if secondary_stat_type in (
-        "mind",
-        "strength",
-        "dexterity",
-        "intelligence",
-        "vitality",
-    ):
-        secondary_stat = int(secondary_stat * main_stat_multiplier)
+
+    delay = weapon_delays[abbreviated_job_map[job_no_space].upper()]
 
     medication_amt = int(medication_amt)
     # Predefined values from: https://www.fflogs.com/reports/NJz2cbM4mZd1hajC#fight=12&type=damage-done

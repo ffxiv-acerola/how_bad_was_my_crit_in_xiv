@@ -6,8 +6,8 @@ reference_patch - {major}_{minor} patch string that should be copied, usually pr
 overwrite - if the new patch file exists, overwrite it?
 """
 
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 if __name__ == "__main__":
     job_csv_path = Path("fflogs_rotation/job_data/potencies")
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     overwrite = False
 
     potency_df_list = []
-    for p in (job_csv_path.glob(f"**/{reference_patch}*.csv")):
+    for p in job_csv_path.glob(f"**/{reference_patch}*.csv"):
         print(p)
 
         job = p.stem.split("-")[1]
@@ -29,6 +29,5 @@ if __name__ == "__main__":
             shutil.copy(p, new_patch_file_name)
         elif new_patch_potency_exists & overwrite:
             shutil.copy(p, new_patch_file_name)
-        
-        pass
 
+        pass

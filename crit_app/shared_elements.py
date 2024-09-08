@@ -1,12 +1,15 @@
 import sqlite3
 from ast import literal_eval
+from typing import Tuple
 
 import coreapi
 import numpy as np
 import pandas as pd
 from config import DB_URI
+from job_data.job_data import caster_healer_strength, weapon_delays
+from job_data.roles import role_stat_dict
+
 from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
-from job_data.job_data import weapon_delays
 
 
 def etro_build(gearset_id):
@@ -44,46 +47,41 @@ def etro_build(gearset_id):
     if job_abbreviated in ("WHM", "AST", "SGE", "SCH"):
         build_role = "Healer"
         main_stat_str = "MND"
-        secondary_stat_str = "STR"
         speed_stat_str = "SPS"
     elif job_abbreviated in ("WAR", "PLD", "DRK", "GNB"):
         build_role = "Tank"
         main_stat_str = "STR"
-        secondary_stat_str = "TEN"
         speed_stat_str = "SKS"
     elif job_abbreviated in ("BLM", "SMN", "RDM"):
         build_role = "Magical Ranged"
         main_stat_str = "INT"
-        secondary_stat_str = "STR"
         speed_stat_str = "SPS"
     elif job_abbreviated in ("MNK", "DRG", "SAM", "RPR", "NIN"):
         build_role = "Melee"
         main_stat_str = "STR" if job_abbreviated != "NIN" else "DEX"
-        secondary_stat_str = None
         speed_stat_str = "SKS"
     elif job_abbreviated in ("BRD", "DNC", "MCH"):
         build_role = "Physical Ranged"
         main_stat_str = "DEX"
-        secondary_stat_str = None
         speed_stat_str = "SKS"
 
-    else:
-        build_role = "Unsupported"
-        return (
-            False,
-            f"Job {job_abbreviated} unsupported",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
+    # else:
+    #     build_role = "Unsupported"
+    #     return (
+    #         False,
+    #         f"Job {job_abbreviated} unsupported",
+    #         None,
+    #         None,
+    #         None,
+    #         None,
+    #         None,
+    #         None,
+    #         None,
+    #         None,
+    #         None,
+    #         None,
+    #         None,
+    #     )
 
     total_params = {}
 
@@ -100,24 +98,24 @@ def etro_build(gearset_id):
     wd = total_params["Weapon Damage"]["value"]
     etro_party_bonus = build_result["partyBonus"]
 
-    if build_role in ("Healer", "Magical Ranged"):
-        if job_abbreviated == "SCH":
-            secondary_stat = 350
-        elif job_abbreviated == "WHM":
-            secondary_stat = 214
-        elif job_abbreviated == "SGE":
-            secondary_stat = 233
-        elif job_abbreviated == "AST":
-            secondary_stat = 194
-        elif job_abbreviated == "RDM":
-            secondary_stat = 226
-        elif job_abbreviated == "SMN":
-            secondary_stat = 370
-        else:
-            secondary_stat = 194
+    # if build_role in ("Healer", "Magical Ranged"):
+    #     if job_abbreviated == "SCH":
+    #         secondary_stat = 350
+    #     elif job_abbreviated == "WHM":
+    #         secondary_stat = 214
+    #     elif job_abbreviated == "SGE":
+    #         secondary_stat = 233
+    #     elif job_abbreviated == "AST":
+    #         secondary_stat = 194
+    #     elif job_abbreviated == "RDM":
+    #         secondary_stat = 226
+    #     elif job_abbreviated == "SMN":
+    #         secondary_stat = 370
+    #     else:
+    #         secondary_stat = 194
 
-    elif build_role == "Tank":
-        secondary_stat = total_params[secondary_stat_str]["value"]
+    if build_role == "Tank":
+        secondary_stat = total_params["TEN"]["value"]
 
     else:
         secondary_stat = "None"
@@ -170,12 +168,7 @@ def validate_meldable_stat(stat_name, stat_value):
 def validate_secondary_stat(role, stat_value):
     if isinstance(stat_value, str):
         stat_value = float(stat_value)
-    if role in ("Healer", "Magical Ranged"):
-        if (stat_value > 100) & (stat_value < 400):
-            return True, None
-        else:
-            return False, "Strength must be between 100-400."
-    elif role == "Tank":
+    if role == "Tank":
         if (stat_value >= 380) & (stat_value < 4500):
             return True, None
         else:
@@ -213,6 +206,49 @@ def validate_delay(delay):
         return False, "Weapon delay must be between 1 and 4."
 
 
+def set_secondary_stats(
+    role: str, job: str, party_bonus: float, tenacity: float = None
+) -> Tuple[str, int, int]:
+    """Get secondary stat information based of job/role info.
+    For tanks, inputted tenacity stat is just returned.
+
+    Args:
+        role (str): Role: Tank, Healer, Magical Ranged, Physical Ranged, Melee.
+        job (str): 3-character abbreviated job, all caps.
+        party_bonus (float): Percent bonus to main stat from each role.
+        tenacity (float, optional): Tenacity value for tanks. Defaults to None.
+
+    Raises:
+        ValueError: _description_
+
+    Returns:
+        Tuple[str, int, int]: _description_
+    """
+    # Pre-bonus secondary stat info:
+    if role in ("Melee", "Physical Ranged"):
+        secondary_stat_pre_bonus = None
+    elif role in ("Magical Ranged", "Healer"):
+        secondary_stat_pre_bonus = caster_healer_strength[job]
+    elif tenacity is None:
+        raise ValueError("Internal tenacity error.")
+    else:
+        secondary_stat_pre_bonus = tenacity
+
+    secondary_stat_type = (
+        None
+        if role in ("Melee", "Physical Ranged")
+        else role_stat_dict[role]["secondary_stat"]["placeholder"].lower()
+    )
+
+    # Apply bonus if necessary
+    if role in ("Healer", "Magical Ranged"):
+        secondary_stat = int(secondary_stat_pre_bonus * party_bonus)
+    else:
+        secondary_stat = secondary_stat_pre_bonus
+
+    return secondary_stat_type, secondary_stat_pre_bonus, secondary_stat
+
+
 def read_report_table():
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
@@ -224,13 +260,13 @@ def read_report_table():
     report_df["secondary_stat"] = (
         report_df["secondary_stat"]
         .replace("None", np.nan)
-        # .astype(float)
+        .astype(float)
         .astype("Int64")
     )
     report_df["secondary_stat_pre_bonus"] = (
         report_df["secondary_stat_pre_bonus"]
         .replace("None", np.nan)
-        # .astype(float)
+        .astype(float)
         .astype("Int64")
     )
 
@@ -602,5 +638,10 @@ def rotation_analysis(
         purge_action_moments=True,
         compute_mgf=compute_mgf,
     )
+
+    # Check if any NaN values are in the DPS distribution
+    for k, v in job_obj.unique_actions_distribution.items():
+        if np.isnan(v["dps_distribution"].sum()):
+            raise ValueError(f"NaN values encountered in DPS distribution for {k}")
 
     return job_obj
