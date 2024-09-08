@@ -59,10 +59,74 @@ from fflogs_rotation.job_data.data import (
 )
 from fflogs_rotation.rotation import RotationTable
 
+
+def page_title(analysis_id=None):
+    if analysis_id is None:
+        return ""
+    encounter_info = read_encounter_table()
+    report = read_report_table()
+    fight_data = (
+        report[report["analysis_id"] == analysis_id]
+        .merge(
+            encounter_info[["report_id", "fight_id", "kill_time"]],
+            on=["report_id", "fight_id"],
+            how="inner",
+        )
+        .iloc[0]
+    )
+
+    return "Analysis: {} ({}); {} ({})".format(
+        fight_data.player_name,
+        abbreviated_job_map[fight_data.job].upper(),
+        fight_data.encounter_name,
+        format_kill_time_str(fight_data.kill_time),
+    )
+
+
+def metas(analysis_id=None):
+    if analysis_id is not None:
+        encounter_info = read_encounter_table()
+        report = read_report_table()
+        fight_data = (
+            report[report["analysis_id"] == analysis_id]
+            .merge(
+                encounter_info[["report_id", "fight_id", "kill_time"]],
+                on=["report_id", "fight_id"],
+                how="inner",
+            )
+            .iloc[0]
+        )
+        app_description = "View analysis for {} ({}) on {} ({})".format(
+            fight_data.player_name,
+            abbreviated_job_map[fight_data.job].upper(),
+            fight_data.encounter_name,
+            format_kill_time_str(fight_data.kill_time),
+        )
+    else:
+        app_description = "Analyze crit RNG for FFXIV!"
+    app_image = "crit_app/assets/snoopert.png"
+    page_title = "Player analysis"
+
+    return [
+        {"name": "viewport", "content": "width=device-width, initial-scale=1"},
+        {"property": "twitter:card", "content": "summary_large_image"},
+        {"property": "twitter:url", "content": "https://www.wealthdashboard.app/"},
+        {"property": "twitter:title", "content": page_title},
+        {"property": "twitter:description", "content": app_description},
+        {"property": "twitter:image", "content": app_image},
+        {"property": "og:title", "content": page_title},
+        {"property": "og:type", "content": "website"},
+        {"property": "og:description", "content": app_description},
+        {"property": "og:image", "content": app_image},
+    ]
+
+
 dash.register_page(
     __name__,
     path_template="/analysis/<analysis_id>",
     path="/",
+    name=page_title,
+    meta_tags=metas,
 )
 
 

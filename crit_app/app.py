@@ -23,6 +23,8 @@ app = dash.Dash(
 )
 
 app.title = "How bad was my crit in FFXIV?"
+app.name = "Player analysis"
+app._favicon = "crit_app/assets/favicon.ico"
 server = app.server
 
 ###################################################
