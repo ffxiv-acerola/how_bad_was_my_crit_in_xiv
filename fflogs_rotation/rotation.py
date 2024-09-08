@@ -150,9 +150,7 @@ class ActionTable(object):
         )
 
         self.ranged_cards = self.damage_buffs[
-            self.damage_buffs["buff_name"].isin(
-                ["The Bole", "The Spire", "The Ewer"]
-            )
+            self.damage_buffs["buff_name"].isin(["The Bole", "The Spire", "The Ewer"])
         ]["buff_id"].tolist()
         self.melee_cards = self.damage_buffs[
             self.damage_buffs["buff_name"].isin(
@@ -196,7 +194,14 @@ class ActionTable(object):
                 1002706,
             )
 
-        elif self.job in ("Pictomancer", "RedMage", "Summoner", "Astrologian", "WhiteMage", "Sage"):
+        elif self.job in (
+            "Pictomancer",
+            "RedMage",
+            "Summoner",
+            "Astrologian",
+            "WhiteMage",
+            "Sage",
+        ):
             self.actions_df = self.actions_df[
                 self.actions_df["ability_name"] != "Attack"
             ]
