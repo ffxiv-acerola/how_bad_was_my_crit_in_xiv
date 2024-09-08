@@ -25,6 +25,7 @@ pyarrow = "^17.0.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.4"
+ipykernel = "^6.29.5"
 
 [tool.ruff.lint]
 ignore = ["E712"] # Pandas requires == True
