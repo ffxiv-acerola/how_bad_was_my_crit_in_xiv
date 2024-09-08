@@ -40,7 +40,7 @@ from figures import (
     make_party_rotation_pdf_figure,
     make_rotation_pdf_figure,
 )
-from job_data.job_data import weapon_delays, caster_healer_strength
+from job_data.job_data import caster_healer_strength, weapon_delays
 from job_data.roles import abbreviated_job_map, role_mapping, role_stat_dict
 from job_data.valid_encounters import boss_hp, valid_encounters
 from party_cards import (
@@ -675,6 +675,7 @@ def party_fflogs_process(n_clicks, url):
         encounter_children,
     )
 
+
 @callback(
     Output({"type": "tenacity-row", "index": MATCH}, "hidden"),
     Input({"type": "main-stat-label", "index": MATCH}, "children"),
@@ -692,6 +693,7 @@ def hide_non_tank_tenactiy(main_stat_label) -> bool:
         return False
     else:
         return True
+
 
 @callback(
     Output({"type": "main-stat", "index": MATCH}, "value"),

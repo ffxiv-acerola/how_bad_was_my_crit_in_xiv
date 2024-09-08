@@ -4,7 +4,6 @@ import time
 import numpy as np
 import pandas as pd
 import requests
-from ffxiv_stats import Rate
 
 from fflogs_rotation.bard import BardActions
 from fflogs_rotation.black_mage import BlackMageActions
@@ -20,6 +19,7 @@ from fflogs_rotation.rotation_jobs import (
     SamuraiActions,
 )
 from fflogs_rotation.viper import ViperActions
+from ffxiv_stats import Rate
 
 url = "https://www.fflogs.com/api/v2/client"
 

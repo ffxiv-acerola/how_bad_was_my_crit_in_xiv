@@ -1,15 +1,15 @@
 import sqlite3
 from ast import literal_eval
+from typing import Tuple
 
 import coreapi
 import numpy as np
 import pandas as pd
 from config import DB_URI
-from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
-from job_data.job_data import weapon_delays, caster_healer_strength
+from job_data.job_data import caster_healer_strength, weapon_delays
 from job_data.roles import role_stat_dict
 
-from typing import Tuple
+from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
 
 def etro_build(gearset_id):

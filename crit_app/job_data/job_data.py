@@ -19,7 +19,7 @@ weapon_delays = {
     "WHM": 3.44,
     "SCH": 3.12,
     "AST": 3.20,
-    "SGE": 2.80
+    "SGE": 2.80,
 }
 
 caster_healer_strength = {
@@ -30,5 +30,5 @@ caster_healer_strength = {
     "WHM": 214,
     "SCH": 395,
     "AST": 219,
-    "SGE": 263    
+    "SGE": 263,
 }

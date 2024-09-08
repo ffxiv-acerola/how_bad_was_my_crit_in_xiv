@@ -1,7 +1,7 @@
 from fflogs_rotation.machinist import MachinistActions
 
 # https://www.fflogs.com/reports/bLcB1DYCKxq8tdf6#fight=6
-# 
+#
 # Dexterity
 # 4339
 # Vitality

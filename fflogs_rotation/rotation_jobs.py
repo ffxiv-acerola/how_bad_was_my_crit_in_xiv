@@ -1,7 +1,7 @@
 """Account for job-specific mechanics that affect actions."""
 
-from functools import reduce
 import json
+from functools import reduce
 
 import numpy as np
 import pandas as pd

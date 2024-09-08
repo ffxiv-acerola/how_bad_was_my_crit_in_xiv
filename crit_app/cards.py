@@ -3,7 +3,7 @@ Create cards used to display content.
 """
 
 import dash_bootstrap_components as dbc
-from dash import html, dcc
+from dash import dcc, html
 
 
 def initialize_job_build(
@@ -652,7 +652,9 @@ def initialize_new_action_card(action_figure=None):
                 html.P(
                     "The DPS distribution for each action is shown below as box and whisker plots. Whiskers represent the 10th and 90th percentiles, respectively. Hover over a box plot to see the corresponding percentile, along with select other percentiles."
                 ),
-                html.P("Note: reported DoT DPS values from FFLogs might be underestimated compared to the computed DPS distributions. This is a known issue with currently no fix because of how DoT damage information is conveyed via ACT."),
+                html.P(
+                    "Note: reported DoT DPS values from FFLogs might be underestimated compared to the computed DPS distributions. This is a known issue with currently no fix because of how DoT damage information is conveyed via ACT."
+                ),
                 html.Div(children=action_figure, id="action-pdf-fig-div"),
             ],
             className="mb-3",

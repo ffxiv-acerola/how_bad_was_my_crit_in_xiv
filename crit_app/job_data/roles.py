@@ -2,8 +2,8 @@
 Information specific to each role.
 """
 
-from dash import html
 import dash_bootstrap_components as dbc
+from dash import html
 
 # Main, secondary, and speed stat dictionary for each role.
 # Allows for tool tips to be stored too.

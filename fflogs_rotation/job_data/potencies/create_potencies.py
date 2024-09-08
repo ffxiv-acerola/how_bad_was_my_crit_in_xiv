@@ -3,9 +3,9 @@ Create a main potency CSV from all job potency CSVs. Individual potencies are sp
 job and by patch, to account for potency changes over time
 """
 
-from pathlib import Path
+import shutil
 from datetime import datetime
-import shutil 
+from pathlib import Path
 
 import pandas as pd
 
@@ -17,8 +17,7 @@ if __name__ == "__main__":
     potency_path = Path("fflogs_rotation/job_data")
 
     potency_df_list = []
-    for p in (job_csv_path.glob("**/*.csv")):
-
+    for p in job_csv_path.glob("**/*.csv"):
         # Get patch X.Y from X_Y-JobName.csv
         patch = float(p.stem.split("-")[0].replace("_", "."))
 
@@ -51,7 +50,9 @@ if __name__ == "__main__":
 
     # Archive prior potency csv with date-prefixed filename
     if (potency_path / "potencies.csv").exists():
-        today = datetime.today().strftime('%Y-%m-%d')
-        shutil.move(potency_path / "potencies.csv", potency_path / f"{today}-potencies.csv")
+        today = datetime.today().strftime("%Y-%m-%d")
+        shutil.move(
+            potency_path / "potencies.csv", potency_path / f"{today}-potencies.csv"
+        )
 
     pd.concat(potency_df_list).to_csv(potency_path / "potencies.csv", index=False)

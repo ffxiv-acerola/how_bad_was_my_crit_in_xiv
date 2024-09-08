@@ -292,7 +292,7 @@ class ViperActions(BuffQuery):
             self.grimhunters_venom_id: self.grimhunters_venom_times,
             self.grimskins_venom_id: self.grimskins_venom_times,
             self.honed_steel_id: self.honed_steel_times,
-            self.honed_reavers_id: self.honed_reavers_times
+            self.honed_reavers_id: self.honed_reavers_times,
         }.items():
             betweens = list(
                 actions_df["timestamp"].between(b[0], b[1], inclusive="both")

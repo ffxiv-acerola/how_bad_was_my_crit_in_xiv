@@ -150,7 +150,7 @@ def make_rotation_percentile_table(rotation_obj, rotation_percentile):
     return rotation_percentile_table
 
 
-def how_tall_should_the_action_box_plot_be(n_actions:int):
+def how_tall_should_the_action_box_plot_be(n_actions: int):
     """Alter height of the box figure so it can fit and look good.
     More actions and the width of a single bar chart.
 
@@ -186,7 +186,7 @@ def make_action_box_and_whisker_figure(
     q2 = np.zeros(shape=(n_actions))
     q3 = np.zeros(shape=(n_actions))
     u_fence = np.zeros(shape=(n_actions))
-    uu_fence = np.zeros(shape=(n_actions)) # 99th %
+    uu_fence = np.zeros(shape=(n_actions))  # 99th %
     y = np.zeros(shape=(n_actions))
 
     actual_dps = np.zeros(shape=(n_actions))
@@ -478,8 +478,7 @@ def make_kill_time_graph(party_rotation_dataclass, kill_time_seconds: int):
     df = pd.DataFrame({"kill_time": x_real, "percent_kills_faster": y_real})
 
     hovertemplate_text = (
-        "<b>Kill time: %{x}</b><br><br>"
-        "% of kills faster than %{x}: %{y}"
+        "<b>Kill time: %{x}</b><br><br>" "% of kills faster than %{x}: %{y}"
     )
 
     fig = go.Figure(

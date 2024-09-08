@@ -155,10 +155,10 @@
 
 # ### Sources of damage variability
 
-# There are two main sources of damage variability in FFXIV, hit types and a $\pm 5\%$ damage roll centered around a base damage value, $D_2$ - this is the same $D_2$ value from "How to be a Math Wizard, Volume 3" after potency has been converted into damage but before any damage variability is introduced. There are four different possible hit types, normal ($n$), critical ($c$), direct ($d$) and critical-direct ($cd$). The damage for each of these hit types are 
+# There are two main sources of damage variability in FFXIV, hit types and a $\pm 5\%$ damage roll centered around a base damage value, $D_2$ - this is the same $D_2$ value from "How to be a Math Wizard, Volume 3" after potency has been converted into damage but before any damage variability is introduced. There are four different possible hit types, normal ($n$), critical ($c$), direct ($d$) and critical-direct ($cd$). The damage for each of these hit types are
 
-# $$ 
-# \begin{align} 
+# $$
+# \begin{align}
 # D_n &= D_2 \nonumber \\
 # D_c &= \lfloor \lfloor D_2 \lambda_c \rfloor/ 1000 \rfloor \nonumber \\
 # D_d &= \lfloor \lfloor 125 D_2 \rfloor/ 100 \rfloor \nonumber \\
@@ -187,7 +187,7 @@
 
 # Here, $p_c$ and $p_d$ represent the critical hit rate and direct hit rate associated with the critical hit stat and direct hit rate stat, respectively. Because critical-direct hits are possible, the probability of those hits must be subtracted out of critical and direct hits so they are not double counted. The variables $w_c$ and $w_d$ are formally defined as the chance of landing a critical or direct hit, given a critical-direct hit does not occur.
 
-# ### The one-hit and $n$-hit damage distribution 
+# ### The one-hit and $n$-hit damage distribution
 
 # The above equations allows us to exactly write down the probability distribution for an action landing a single hit as a mixture distribution
 
@@ -202,7 +202,7 @@
 #         dcc.Graph(figure=one_hit_fig),
 #         dcc.Markdown(
 #             r"""
-# The plateaus represent normal, direct, critical, and critical-direct hits from left to right. 
+# The plateaus represent normal, direct, critical, and critical-direct hits from left to right.
 
 # Most encounters involve an action being used more than once, so we need a way to compute an $n$-hit damage distribution. The damage dealt in a one-hit damage distribution is randomly distributed, so convolving $P(D; n=1)$ with itself corresponds to a sum of random variables, i.e., a 2-hit distribution. In general, an action landing $n_h$ hits can be computed by convolving the 1-hit damage distribution with itself $n_h - 1$ times,
 
@@ -212,7 +212,7 @@
 
 # Here, the $\ast$ operator denotes a convolution. This process is conceptually the same as rolling multiple dice together and summing their values. Here, the probability distributions are just more complicated than those od dice. Because the one-hit damage distribution is non-trivial, $n$-hit damage distributions are numerically computed using Fast Fourier Transforms.
 
-# The figure below shows the 2-, 5-, 10-, and 15-hit damage distributions, derived from the one-hit damage distribution shown above. 
+# The figure below shows the 2-, 5-, 10-, and 15-hit damage distributions, derived from the one-hit damage distribution shown above.
 # """,
 #             mathjax=True,
 #         ),
@@ -238,7 +238,7 @@
 
 # ### Defining and counting actions
 
-# From the above section, what exactly is considered an action and how they should be counted is specifically defined; an "action" is considered unique if its one-hit damage distribution is unique. Damage buffs, hit type buffs, medication, and guaranteed hit types all change the one-hit damage distribution and must counted separately. 
+# From the above section, what exactly is considered an action and how they should be counted is specifically defined; an "action" is considered unique if its one-hit damage distribution is unique. Damage buffs, hit type buffs, medication, and guaranteed hit types all change the one-hit damage distribution and must counted separately.
 
 # For example, Glare III, Glare III with Chain Stratagem, Glare III with Arcane Circle, and Glare III with Arcane Circle and Chain Stratagem all have different one-hit damage distributions, and would be separately counted. This is also how all the various buffs are accounted for. The figure below shows the same 1-hit damage distribution with no buffs, an 8% damage buff, and a 10% critical hit rate buff.
 
@@ -256,7 +256,7 @@
 
 #     A rotation is defined a collection of actions, along with their number of hits, hit type probabilities, base damage, critical hit strength, and total buff strength. Due to the combinatorics of buff combinations, a realistic rotation often consist of many actions. The rotation damage distribution can be computed in the same way as we computed our $n$-hit damage distribution for an action: convolve all the action damage distributions together.
 
-#     The table below shows a realistic White Mage rotation from an actual encounter in-game. 
+#     The table below shows a realistic White Mage rotation from an actual encounter in-game.
 #     """,
 #             mathjax=True,
 #         ),

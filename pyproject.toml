@@ -23,6 +23,12 @@ gunicorn = "^23.0.0"
 pyarrow = "^17.0.0"
 
 
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.6.4"
+
+[tool.ruff.lint]
+ignore = ["E712"] # Pandas requires == True
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
