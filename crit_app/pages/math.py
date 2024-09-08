@@ -18,31 +18,31 @@ dash.register_page(
 )
 
 one_hit_df = pd.read_parquet(
-    "crit_app/math_data/1-hit.parquet"
+    "math_data/1-hit.parquet"
 )
 
 two_hit_df = pd.read_parquet(
-    "crit_app/math_data/2-hit.parquet"
+    "math_data/2-hit.parquet"
 )
 
 five_hit_df = pd.read_parquet(
-    "crit_app/math_data/5-hit.parquet"
+    "math_data/5-hit.parquet"
 )
 
 ten_hit_df = pd.read_parquet(
-    "crit_app/math_data/10-hit.parquet"
+    "math_data/10-hit.parquet"
 )
 
 fifteen_hit_df = pd.read_parquet(
-    "crit_app/math_data/15-hit.parquet"
+    "math_data/15-hit.parquet"
 )
 
 one_hit_dmg_df = pd.read_parquet(
-    "crit_app/math_data/1-hit-dmg.parquet"
+    "math_data/1-hit-dmg.parquet"
 )
 
 one_hit_crit_df = pd.read_parquet(
-    "crit_app/math_data/1-hit-crit.parquet"
+    "math_data/1-hit-crit.parquet"
 )
 
 green = "#009670"
@@ -136,7 +136,7 @@ one_hit_crit_fig = px.line(
 )
 
 rotation_df = pd.read_json(
-    "crit_app/math_data/rotation_df.json"
+    "math_data/rotation_df.json"
 ).rename(
     columns={
         "action_name": "Action",

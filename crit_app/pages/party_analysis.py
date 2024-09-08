@@ -1,7 +1,7 @@
 # fmt: off
 import sys
 # I hate pythonpath i hate pythonpath i hate pythonpath i hate pythonpath
-sys.path.append("../../") 
+sys.path.append("../") 
 # fmt: on
 
 import pickle

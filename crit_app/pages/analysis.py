@@ -1,7 +1,7 @@
 # fmt: off
 import sys
 # I hate pythonpath i hate pythonpath i hate pythonpath i hate pythonpath
-sys.path.append("../../") 
+sys.path.append("../") 
 # fmt: on
 
 import datetime
@@ -112,12 +112,12 @@ def metas(analysis_id=None):
     else:
         app_description = "Analyze crit RNG for FFXIV!"
     app_image = "crit_app/assets/meta_image.png"
+    app_image = "https://i.imgur.com/FVqWdiI.png"
     page_title = "Player analysis"
 
     return [
         {"name": "viewport", "content": "width=device-width, initial-scale=1"},
-        {"property": "twitter:card", "content": "summary_large_image"},
-        {"property": "twitter:url", "content": "https://www.wealthdashboard.app/"},
+        {"property": "twitter:url", "content": "https://www.howbadwasmycritinxiv.com/"},
         {"property": "twitter:title", "content": page_title},
         {"property": "twitter:description", "content": app_description},
         {"property": "twitter:image", "content": app_image},
@@ -126,6 +126,7 @@ def metas(analysis_id=None):
         {"property": "og:description", "content": app_description},
         {"property": "og:image", "content": app_image},
     ]
+
 
 
 dash.register_page(
