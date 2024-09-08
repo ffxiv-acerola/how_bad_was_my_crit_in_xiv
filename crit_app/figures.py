@@ -77,9 +77,9 @@ def make_rotation_pdf_figure(
         title=f"Rotation DPS distribution: μ = {mu:.0f} DPS, σ = {sigma:.0f} DPS, γ = {rotation_obj.rotation_skewness:.3f}",
         xaxis_title="Damage per second (DPS)",
         yaxis_title="Frequency",
-        height=500
+        height=500,
+        legend=dict(orientation="h", yanchor="bottom", y=0.97, xanchor="center", x=0.5),
     )
-
     return fig
 
 

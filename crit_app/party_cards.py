@@ -153,7 +153,7 @@ def create_job_build_content(
     id_idx: int,
     job: str = None,
     main_stat=None,
-    secondary_stat=None,
+    tenacity=None,
     determination=None,
     speed=None,
     crit=None,
@@ -174,26 +174,7 @@ def create_job_build_content(
                 value=main_stat,
                 type="number",
                 placeholder=role_labels["main_stat"]["placeholder"],
-                # min=100,
-                # max=4000,
                 id={"type": "main-stat", "index": id_idx},
-            )
-        ),
-        dbc.Label(
-            children=role_labels["secondary_stat"]["label"],
-            width=12,
-            md=1,
-            id={"type": "secondary-stat-label", "index": id_idx},
-        ),
-        dbc.Col(
-            dbc.Input(
-                value=secondary_stat,
-                type="number",
-                placeholder=role_labels["secondary_stat"]["placeholder"],
-                # min=100,
-                # max=4000,
-                disabled=True if role in ("Melee", "Physical Ranged") else False,
-                id={"type": "secondary-stat", "index": id_idx},
             )
         ),
         dbc.Label(
@@ -207,8 +188,6 @@ def create_job_build_content(
                 value=determination,
                 type="number",
                 placeholder="Determination",
-                # min=100,
-                # max=4000,
                 id={"type": "DET", "index": id_idx},
             )
         ),
@@ -256,8 +235,6 @@ def create_job_build_content(
                 value=crit,
                 type="number",
                 placeholder="Critical Hit",
-                # min=100,
-                # max=4000,
                 id={"type": "CRT", "index": id_idx},
             )
         ),
@@ -267,8 +244,6 @@ def create_job_build_content(
                 value=direct_hit,
                 type="number",
                 placeholder="Direct Hit",
-                # min=100,
-                # max=4000,
                 id={"type": "DH", "index": id_idx},
             )
         ),
@@ -278,41 +253,24 @@ def create_job_build_content(
                 value=weapon_damage,
                 type="number",
                 placeholder="Weapon Damage",
-                # min=100,
-                # max=4000,
                 id={"type": "WD", "index": id_idx},
             )
         ),
-        dbc.Label(
-            [
-                html.Span(
-                    "DEL:",
-                    id=f"del-tooltip-{id_idx}",
-                    style={
-                        "textDecoration": "underline",
-                        "textDecorationStyle": "dotted",
-                        "cursor": "pointer",
-                    },
-                ),
-                dbc.Tooltip(
-                    "Delay, under weapon stats, for auto-attacks. "
-                    "Should be a value like 3.44.",
-                    target=f"del-tooltip-{id_idx}",
-                ),
-            ],
-            width=12,
-            md=1,
-            id=f"delay-label-{id_idx}",
-        ),
+    ]
+
+    tenacity_stat_list = [
+        dbc.Label("TEN:", width=12, md=1, id="tenacity-label"),
         dbc.Col(
             dbc.Input(
-                value=delay,
+                value=tenacity,
                 type="number",
-                placeholder="Delay",
-                # min=1.0,
-                # max=4.0,
-                id={"type": "DEL", "index": id_idx},
-            )
+                placeholder="Tenacity",
+                min=100,
+                max=6000,
+                id={"type": "TEN", "index": id_idx},
+            ),
+            width=12,
+            md=3,
         ),
     ]
 
@@ -323,6 +281,10 @@ def create_job_build_content(
     bottom_stat_row = dbc.Row(
         bottom_stat_list, class_name="g-2", style={"padding-bottom": "15px"}
     )
+    tenacity_stat_row = html.Div(
+        dbc.Row(tenacity_stat_list, class_name="g-2", style={"padding-bottom": "15px"}),
+        id={"type": "tenacity-row", "index": id_idx},
+    )
 
     return html.Div(
         dbc.Form(
@@ -330,6 +292,7 @@ def create_job_build_content(
                 html.H4(id={"type": "build-name", "index": id_idx}),
                 top_stat_row,
                 bottom_stat_row,
+                tenacity_stat_row,
             ]
         )
     )

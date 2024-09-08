@@ -10,7 +10,7 @@ def initialize_job_build(
     etro_url=None,
     role="Healer",
     main_stat=None,
-    secondary_stat=None,
+    tenacity=None,
     determination=None,
     speed=None,
     crit=None,
@@ -143,17 +143,17 @@ def initialize_job_build(
                 id="main-stat",
             )
         ),
-        dbc.Label(children=None, width=12, md=1, id="secondary-stat-label"),
-        dbc.Col(
-            dbc.Input(
-                value=secondary_stat,
-                type="number",
-                placeholder=None,
-                min=100,
-                max=5000,
-                id="secondary-stat",
-            )
-        ),
+        # dbc.Label(children=None, width=12, md=1, id="secondary-stat-label"),
+        # dbc.Col(
+        #     dbc.Input(
+        #         value=secondary_stat,
+        #         type="number",
+        #         placeholder=None,
+        #         min=100,
+        #         max=5000,
+        #         id="secondary-stat",
+        #     )
+        # ),
         dbc.Label(children="DET:", width=12, md=1, id="det-label"),
         dbc.Col(
             dbc.Input(
@@ -202,7 +202,7 @@ def initialize_job_build(
         ),
     ]
 
-    bottom_stat_list = [
+    middle_stat_list = [
         dbc.Label("CRT:", width=12, md=1, id="crt-label"),
         dbc.Col(
             dbc.Input(
@@ -236,36 +236,52 @@ def initialize_job_build(
                 id="WD",
             )
         ),
-        dbc.Label(
-            [
-                html.Span(
-                    "DEL:",
-                    id="del-tooltip",
-                    style={
-                        "textDecoration": "underline",
-                        "textDecorationStyle": "dotted",
-                        "cursor": "pointer",
-                    },
-                ),
-                dbc.Tooltip(
-                    "Delay, under weapon stats, for auto-attacks. "
-                    "Should be a value like 3.44.",
-                    target="del-tooltip",
-                ),
-            ],
-            width=12,
-            md=1,
-            id="delay-label",
-        ),
+        # dbc.Label(
+        #     [
+        #         html.Span(
+        #             "DEL:",
+        #             id="del-tooltip",
+        #             style={
+        #                 "textDecoration": "underline",
+        #                 "textDecorationStyle": "dotted",
+        #                 "cursor": "pointer",
+        #             },
+        #         ),
+        #         dbc.Tooltip(
+        #             "Delay, under weapon stats, for auto-attacks. "
+        #             "Should be a value like 3.44.",
+        #             target="del-tooltip",
+        #         ),
+        #     ],
+        #     width=12,
+        #     md=1,
+        #     id="delay-label",
+        # ),
+        # dbc.Col(
+        #     dbc.Input(
+        #         value=delay,
+        #         type="number",
+        #         placeholder="Delay",
+        #         min=1.0,
+        #         max=4.0,
+        #         id="DEL",
+        #     )
+        # ),
+    ]
+
+    bottom_stat_list = [
+        dbc.Label("TEN:", width=12, md=1, id="tenacity-label"),
         dbc.Col(
             dbc.Input(
-                value=delay,
+                value=tenacity,
                 type="number",
-                placeholder="Delay",
-                min=1.0,
-                max=4.0,
-                id="DEL",
-            )
+                placeholder="Tenacity",
+                min=100,
+                max=6000,
+                id="TEN",
+            ),
+            width=12,
+            md=3,
         ),
     ]
 
@@ -273,8 +289,13 @@ def initialize_job_build(
     top_stat_row = dbc.Row(
         top_stat_list, class_name="g-2", style={"padding-bottom": "15px"}
     )
-    bottom_stat_row = dbc.Row(
-        bottom_stat_list, class_name="g-2", style={"padding-bottom": "15px"}
+    middle_stat_row = dbc.Row(
+        middle_stat_list, class_name="g-2", style={"padding-bottom": "15px"}
+    )
+
+    bottom_stat_row = html.Div(
+        dbc.Row(bottom_stat_list, class_name="g-2", style={"padding-bottom": "15px"}),
+        id="bottom-build-row",
     )
 
     # Party bonus/pot
@@ -378,6 +399,7 @@ def initialize_job_build(
                             html.H3("Job stats"),
                             dbc.Row(id="etro-build-name-div"),
                             top_stat_row,
+                            middle_stat_row,
                             bottom_stat_row,
                             dbc.Row(id="party-bonus-warning"),
                             tincture_input,
@@ -621,9 +643,8 @@ def initialize_action_card(
     )
     return action_dmg_pdf_card
 
-def initialize_new_action_card(
-    action_figure=None
-):
+
+def initialize_new_action_card(action_figure=None):
     action_dmg_pdf_card = dbc.Card(
         dbc.CardBody(
             [
@@ -631,12 +652,14 @@ def initialize_new_action_card(
                 html.P(
                     "The DPS distribution for each action is shown below as box and whisker plots. Whiskers represent the 10th and 90th percentiles, respectively. Hover over a box plot to see the corresponding percentile, along with select other percentiles."
                 ),
+                html.P("Note: reported DoT DPS values from FFLogs might be underestimated compared to the computed DPS distributions. This is a known issue with currently no fix because of how DoT damage information is conveyed via ACT."),
                 html.Div(children=action_figure, id="action-pdf-fig-div"),
             ],
             className="mb-3",
         ),
     )
     return action_dmg_pdf_card
+
 
 def initialize_results(
     player_name=None,
