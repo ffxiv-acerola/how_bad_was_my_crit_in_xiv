@@ -111,7 +111,7 @@ def metas(analysis_id=None):
         )
     else:
         app_description = "Analyze crit RNG for FFXIV!"
-    app_image = "crit_app/assets/snoopert.png"
+    app_image = "crit_app/assets/meta_image.png"
     page_title = "Player analysis"
 
     return [
