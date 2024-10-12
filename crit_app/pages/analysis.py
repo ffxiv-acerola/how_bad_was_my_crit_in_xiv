@@ -1,7 +1,8 @@
 # fmt: off
+from config import BLOB_URI, DEBUG, DRY_RUN, BASE_PATH
 import sys
 # I hate pythonpath i hate pythonpath i hate pythonpath i hate pythonpath
-sys.path.append("../") 
+sys.path.append(str(BASE_PATH)) 
 # fmt: on
 
 import datetime
@@ -24,7 +25,6 @@ from cards import (
     initialize_results,
     initialize_rotation_card,
 )
-from config import BLOB_URI, DEBUG, DRY_RUN
 from dash import Input, Output, Patch, State, callback, dcc, html
 from dash.exceptions import PreventUpdate
 from dmg_distribution import (

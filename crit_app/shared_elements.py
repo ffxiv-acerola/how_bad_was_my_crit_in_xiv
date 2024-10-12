@@ -52,13 +52,13 @@ def etro_build(gearset_id):
         build_role = "Tank"
         main_stat_str = "STR"
         speed_stat_str = "SKS"
-    elif job_abbreviated in ("BLM", "SMN", "RDM"):
+    elif job_abbreviated in ("BLM", "SMN", "RDM", "PCT"):
         build_role = "Magical Ranged"
         main_stat_str = "INT"
         speed_stat_str = "SPS"
-    elif job_abbreviated in ("MNK", "DRG", "SAM", "RPR", "NIN"):
+    elif job_abbreviated in ("MNK", "DRG", "SAM", "RPR", "NIN", "VPR"):
         build_role = "Melee"
-        main_stat_str = "STR" if job_abbreviated != "NIN" else "DEX"
+        main_stat_str = "STR" if job_abbreviated not in ("NIN", "VPR") else "DEX"
         speed_stat_str = "SKS"
     elif job_abbreviated in ("BRD", "DNC", "MCH"):
         build_role = "Physical Ranged"

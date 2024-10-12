@@ -58,7 +58,12 @@ header = html.Div(
                 html.A("here.", href="/party_analysis"),
             ]
         ),
-        html.A("More about this site", href="#", id="about-open"),
+        html.P([
+            html.A("More about this site", href="#", id="about-open"),
+            " | ",
+            html.A("Help support the site", href="https://ko-fi.com/acerolaparacletus", target="_blank")
+        ]),
+        
         dbc.Modal(
             [
                 dbc.ModalHeader(dbc.ModalTitle(html.H2("About this site"))),

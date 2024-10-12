@@ -585,13 +585,13 @@ tests = ["asttokens (>=2.1.0)", "coverage", "coverage-enable-subprocess", "ipyth
 
 [[package]]
 name = "ffxiv-stats"
-version = "0.5.5"
+version = "0.5.6"
 description = "Compute damage variability in the critically acclaimed MMORPG Final Fantasy XIV."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "ffxiv_stats-0.5.5-py3-none-any.whl", hash = "sha256:567005307c56ebee642679bcab7ba282358108e4c5e8f3b4444cdc30489e917c"},
-    {file = "ffxiv_stats-0.5.5.tar.gz", hash = "sha256:1377ff660e78eb5e96a6a32c27345b03a59b18a6764f9ef18eb9038b88886fff"},
+    {file = "ffxiv_stats-0.5.6-py3-none-any.whl", hash = "sha256:d87e14232d784734cb5845353216d09a9ed3a337d50863c9573859e045ef2326"},
+    {file = "ffxiv_stats-0.5.6.tar.gz", hash = "sha256:604b270b6b9e23b7e3a49ae1d39078ece94d1b48350537cf21218db29a6ebce7"},
 ]
 
 [package.dependencies]
@@ -2155,4 +2155,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "7f2159e85dd5851b15bcf157dc31998d145950674de4db5e719376e8b8cb0233"
+content-hash = "6ca7244cf9da3327d60de7dafccdae64f4f374ac49722c50bbda3c0226ed7c69"

@@ -136,6 +136,10 @@ class BlackMageActions(BuffQuery):
         ]
         transpose = pd.DataFrame(transpose)
         transpose["ability_name"] = "Transpose"
+
+        if "timestamp" not in transpose.columns:
+            transpose["timestamp"] = 0
+
         transpose = transpose[["timestamp", "ability_name"]]
 
         umbral_soul = self.request_response["data"]["reportData"]["report"][
@@ -213,7 +217,7 @@ class BlackMageActions(BuffQuery):
         elemental_remaining_time.append(0)
         n_stacks.append(0)
         for idx, row in no_dot_actions_df.iloc[1:].iterrows():
-            action = row["ability_name"]
+            # action = row["ability_name"]
             previous_action = row["previous_action"]
 
             time_delta = row["elapsed_time"] - row["previous_time"]

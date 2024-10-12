@@ -138,7 +138,7 @@ def initialize_job_build(
                 value=main_stat,
                 type="number",
                 placeholder=None,
-                min=100,
+                min=500,
                 max=6000,
                 id="main-stat",
             )
