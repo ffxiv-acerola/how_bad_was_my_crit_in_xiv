@@ -136,7 +136,13 @@ def get_encounter_job_info(code: str, fight_id: int):
                 }
             )
 
-    fight_time = r["data"]["reportData"]["report"]["rankings"]["data"][0]["duration"]
+    if len(r["data"]["reportData"]["report"]["rankings"]["data"]) == 0:
+        fight_time = (
+            r["data"]["reportData"]["report"]["fights"][0]["endTime"]
+            - r["data"]["reportData"]["report"]["fights"][0]["startTime"]
+        )
+    else:
+        fight_time = r["data"]["reportData"]["report"]["rankings"]["data"][0]["duration"]
     fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
     report_start_time = r["data"]["reportData"]["report"]["startTime"]
     return (
