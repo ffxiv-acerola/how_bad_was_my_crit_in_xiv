@@ -1,22 +1,19 @@
-# fmt: off
-import sys
-# I hate pythonpath i hate pythonpath i hate pythonpath i hate pythonpath
-sys.path.append("../") 
-# fmt: on
-
 import datetime
 import pickle
 from uuid import uuid4
 
 import dash
 import dash_bootstrap_components as dbc
-from api_queries import (
+from dash import Input, Output, Patch, State, callback, dcc, html
+from dash.exceptions import PreventUpdate
+
+from crit_app.api_queries import (
     get_encounter_job_info,
     headers,
     parse_etro_url,
     parse_fflogs_url,
 )
-from cards import (
+from crit_app.cards import (
     initialize_action_card,
     initialize_fflogs_card,
     initialize_job_build,
@@ -24,24 +21,26 @@ from cards import (
     initialize_results,
     initialize_rotation_card,
 )
-from config import BLOB_URI, DEBUG, DRY_RUN
-from dash import Input, Output, Patch, State, callback, dcc, html
-from dash.exceptions import PreventUpdate
-from dmg_distribution import (
+from crit_app.config import BLOB_URI, DEBUG, DRY_RUN
+from crit_app.dmg_distribution import (
     get_dps_dmg_percentile,
     job_analysis_to_data_class,
 )
-from figures import (
+from crit_app.figures import (
     make_action_box_and_whisker_figure,
     make_action_pdfs_figure,
     make_rotation_pdf_figure,
     make_rotation_percentile_table,
 )
-from job_data.job_data import weapon_delays
-from job_data.job_warnings import job_warnings
-from job_data.roles import abbreviated_job_map, role_stat_dict
-from job_data.valid_encounters import patch_times, valid_encounters
-from shared_elements import (
+from crit_app.job_data.job_data import weapon_delays
+from crit_app.job_data.job_warnings import job_warnings
+from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
+from crit_app.job_data.valid_encounters import (
+    encounter_level,
+    patch_times,
+    valid_encounters,
+)
+from crit_app.shared_elements import (
     etro_build,
     format_kill_time_str,
     read_encounter_table,
@@ -54,8 +53,6 @@ from shared_elements import (
     update_encounter_table,
     update_report_table,
 )
-
-from crit_app.job_data.valid_encounters import encounter_level
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
     damage_buff_table,
@@ -126,7 +123,6 @@ def metas(analysis_id=None):
         {"property": "og:description", "content": app_description},
         {"property": "og:image", "content": app_image},
     ]
-
 
 
 dash.register_page(

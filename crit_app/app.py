@@ -1,10 +1,11 @@
 import dash
 import dash_bootstrap_components as dbc
 import diskcache
-from config import DEBUG
 from dash import Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 from dash.long_callback import DiskcacheLongCallbackManager
+
+from crit_app.config import DEBUG
 
 cache = diskcache.Cache("./cache")
 long_callback_manager = DiskcacheLongCallbackManager(cache)
@@ -19,7 +20,7 @@ app = dash.Dash(
     ],
     long_callback_manager=long_callback_manager,
     # external_stylesheets=[dbc.themes.BOOTSTRAP],
-    suppress_callback_exceptions=~DEBUG,  # needed because some callbacks use dynamically generated id's
+    suppress_callback_exceptions=not DEBUG,  # needed because some callbacks use dynamically generated id's
 )
 
 app.title = "How bad was my crit in FFXIV?"
