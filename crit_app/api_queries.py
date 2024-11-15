@@ -7,8 +7,9 @@ from urllib.parse import parse_qs, urlparse
 
 import pandas as pd
 import requests
-from config import FFLOGS_TOKEN
-from job_data.roles import role_mapping
+
+from crit_app.config import FFLOGS_TOKEN
+from crit_app.job_data.roles import role_mapping
 
 # API config
 url = "https://www.fflogs.com/api/v2/client"
@@ -142,7 +143,9 @@ def get_encounter_job_info(code: str, fight_id: int):
             - r["data"]["reportData"]["report"]["fights"][0]["startTime"]
         )
     else:
-        fight_time = r["data"]["reportData"]["report"]["rankings"]["data"][0]["duration"]
+        fight_time = r["data"]["reportData"]["report"]["rankings"]["data"][0][
+            "duration"
+        ]
     fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
     report_start_time = r["data"]["reportData"]["report"]["startTime"]
     return (

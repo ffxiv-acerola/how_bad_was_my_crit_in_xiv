@@ -4,7 +4,8 @@ from dash import (
     dash_table,
     html,
 )
-from job_data.roles import abbreviated_job_map, role_stat_dict
+
+from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
 
 party_analysis_assumptions_modal = dbc.Modal(
     [

@@ -1,9 +1,3 @@
-# fmt: off
-import sys
-# I hate pythonpath i hate pythonpath i hate pythonpath i hate pythonpath
-sys.path.append("../") 
-# fmt: on
-
 import pickle
 import time
 from uuid import uuid4
@@ -11,17 +5,6 @@ from uuid import uuid4
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
-from api_queries import (
-    boss_healing_amount,
-    get_encounter_job_info,
-    headers,
-    limit_break_damage_events,
-    parse_etro_url,
-    parse_fflogs_url,
-)
-
-# from app import app
-from config import BLOB_URI, DRY_RUN
 from dash import (
     ALL,
     MATCH,
@@ -33,23 +16,39 @@ from dash import (
     html,
 )
 from dash.exceptions import PreventUpdate
-from dmg_distribution import (
+
+from crit_app.api_queries import (
+    boss_healing_amount,
+    get_encounter_job_info,
+    headers,
+    limit_break_damage_events,
+    parse_etro_url,
+    parse_fflogs_url,
+)
+
+# from app import app
+from crit_app.config import BLOB_URI, DRY_RUN
+from crit_app.dmg_distribution import (
     PartyRotation,
     SplitPartyRotation,
     job_analysis_to_data_class,
     rotation_dps_pdf,
     unconvovle_clipped_pdf,
 )
-from figures import (
+from crit_app.figures import (
     make_action_box_and_whisker_figure,
     make_kill_time_graph,
     make_party_rotation_pdf_figure,
     make_rotation_pdf_figure,
 )
-from job_data.job_data import caster_healer_strength, weapon_delays
-from job_data.roles import abbreviated_job_map, role_mapping, role_stat_dict
-from job_data.valid_encounters import boss_hp, valid_encounters
-from party_cards import (
+from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
+from crit_app.job_data.roles import abbreviated_job_map, role_mapping, role_stat_dict
+from crit_app.job_data.valid_encounters import (
+    boss_hp,
+    encounter_level,
+    valid_encounters,
+)
+from crit_app.party_cards import (
     create_fflogs_card,
     create_party_accordion,
     create_quick_build_div,
@@ -57,7 +56,7 @@ from party_cards import (
     create_tincture_input,
     party_analysis_assumptions_modal,
 )
-from shared_elements import (
+from crit_app.shared_elements import (
     check_prior_job_analyses,
     check_prior_party_analysis,
     etro_build,
@@ -77,8 +76,6 @@ from shared_elements import (
     validate_speed_stat,
     validate_weapon_damage,
 )
-
-from crit_app.job_data.valid_encounters import encounter_level
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
     damage_buff_table,

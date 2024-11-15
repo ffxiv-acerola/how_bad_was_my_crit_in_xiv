@@ -5,10 +5,10 @@ from typing import Tuple
 import coreapi
 import numpy as np
 import pandas as pd
-from config import DB_URI
-from job_data.job_data import caster_healer_strength, weapon_delays
-from job_data.roles import role_stat_dict
 
+from crit_app.config import DB_URI
+from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
+from crit_app.job_data.roles import role_stat_dict
 from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
 

@@ -9,7 +9,8 @@ import plotly.graph_objects as go
 from dash import dash_table
 from dash.dash_table import FormatTemplate
 from dash.dash_table.Format import Format, Scheme
-from dmg_distribution import get_dps_dmg_percentile, summarize_actions
+
+from crit_app.dmg_distribution import get_dps_dmg_percentile, summarize_actions
 
 
 def make_rotation_pdf_figure(

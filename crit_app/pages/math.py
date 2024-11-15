@@ -1,49 +1,27 @@
-# fmt: off
-import sys
-# I hate pythonpath i hate pythonpath i hate pythonpath i hate pythonpath
-sys.path.append("../../") 
-# fmt: on
-
-
 import dash
-from dash import html, dcc
 import dash_bootstrap_components as dbc
-import plotly.express as px
 import pandas as pd
-
+import plotly.express as px
+from dash import dcc, html
 
 dash.register_page(
     __name__,
     path="/math",
 )
 
-one_hit_df = pd.read_parquet(
-    "math_data/1-hit.parquet"
-)
+one_hit_df = pd.read_parquet("crit_app/math_data/1-hit.parquet")
 
-two_hit_df = pd.read_parquet(
-    "math_data/2-hit.parquet"
-)
+two_hit_df = pd.read_parquet("crit_app/math_data/2-hit.parquet")
 
-five_hit_df = pd.read_parquet(
-    "math_data/5-hit.parquet"
-)
+five_hit_df = pd.read_parquet("crit_app/math_data/5-hit.parquet")
 
-ten_hit_df = pd.read_parquet(
-    "math_data/10-hit.parquet"
-)
+ten_hit_df = pd.read_parquet("crit_app/math_data/10-hit.parquet")
 
-fifteen_hit_df = pd.read_parquet(
-    "math_data/15-hit.parquet"
-)
+fifteen_hit_df = pd.read_parquet("crit_app/math_data/15-hit.parquet")
 
-one_hit_dmg_df = pd.read_parquet(
-    "math_data/1-hit-dmg.parquet"
-)
+one_hit_dmg_df = pd.read_parquet("crit_app/math_data/1-hit-dmg.parquet")
 
-one_hit_crit_df = pd.read_parquet(
-    "math_data/1-hit-crit.parquet"
-)
+one_hit_crit_df = pd.read_parquet("crit_app/math_data/1-hit-crit.parquet")
 
 green = "#009670"
 
@@ -135,17 +113,21 @@ one_hit_crit_fig = px.line(
     color_discrete_sequence=[green],
 )
 
-rotation_df = pd.read_json(
-    "math_data/rotation_df.json"
-).rename(
-    columns={
-        "action_name": "Action",
-        "base_action": "Base action",
-        "l_c": "Critical damage mult.",
-        "damage_type": "Damage Type",
-    }
-).sort_values(["Base action", "n"], ascending=[True, False])
-rotation_df[["p_n", "p_c", "p_d", "p_cd"]] = rotation_df[["p_n", "p_c", "p_d", "p_cd"]].round(3)
+rotation_df = (
+    pd.read_json("crit_app/math_data/rotation_df.json")
+    .rename(
+        columns={
+            "action_name": "Action",
+            "base_action": "Base action",
+            "l_c": "Critical damage mult.",
+            "damage_type": "Damage Type",
+        }
+    )
+    .sort_values(["Base action", "n"], ascending=[True, False])
+)
+rotation_df[["p_n", "p_c", "p_d", "p_cd"]] = rotation_df[
+    ["p_n", "p_c", "p_d", "p_cd"]
+].round(3)
 
 
 math_layout = html.Div(
