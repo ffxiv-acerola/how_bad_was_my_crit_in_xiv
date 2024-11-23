@@ -80,7 +80,8 @@ def get_encounter_job_info(code: str, fight_id: int):
                         kill,
                         startTime,
                         endTime,
-                        name
+                        name,
+                        lastPhase
                     }
                     playerDetails(fightIDs: $id)
                     table(fightIDs: $id, dataType: DamageDone)
@@ -98,6 +99,7 @@ def get_encounter_job_info(code: str, fight_id: int):
     encounter_info = r["data"]["reportData"]["report"]["fights"][0]
     encounter_id = encounter_info["encounterID"]
     start_time = encounter_info["startTime"]
+    furthest_phase_index = encounter_info["lastPhase"]
 
     # This probably isn't needed, but would require updating a table schema.
     server_info = r["data"]["reportData"]["report"]["playerDetails"]["data"][
@@ -156,6 +158,7 @@ def get_encounter_job_info(code: str, fight_id: int):
         fight_time / 1000,
         fight_name,
         report_start_time,
+        furthest_phase_index,
         r,
     )
 

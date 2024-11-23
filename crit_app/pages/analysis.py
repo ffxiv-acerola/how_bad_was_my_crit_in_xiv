@@ -37,6 +37,7 @@ from crit_app.job_data.job_warnings import job_warnings
 from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
 from crit_app.job_data.valid_encounters import (
     encounter_level,
+    encounter_phases,
     patch_times,
     valid_encounters,
 )
@@ -256,6 +257,32 @@ def show_job_options(job_information, role, start_time):
     )
 
 
+def get_phase_selector_options(furthest_phase_index:int, encounter_id:int):
+    """Create a dictionary of phase select options for an encounter.
+    Also create boolean indicator for whether the phase selector should be visible.
+
+    For encounters without phases, the phase always defaults to 0 and hidden.
+
+    Args:
+        furthest_phase_index (int): Index of the furthest-reached phase for a fight ID
+        encounter_id (int): ID of the encounter
+
+    Returns:
+        List of dictionaries for dbc.Select `options` argument
+        Boolean for whether the selector should be visible or not.
+    """
+    phase_select_options = [{"label": "Entire Fight", "value": 0}]
+    phase_select_hidden = True
+    if encounter_id in encounter_phases.keys():
+        phase_select_options.extend(
+            {"label": encounter_phases[encounter_id][a], "value": a}
+            for a in range(1, furthest_phase_index + 1)
+        )
+        phase_select_hidden = False
+
+    return phase_select_options, phase_select_hidden
+
+
 def layout(analysis_id=None):
     """
     Display a previously-analyzed rotation by its analysis ID.
@@ -338,7 +365,7 @@ def layout(analysis_id=None):
             # Encounter Info
             boss_name = analysis_details["encounter_name"]
             fight_duration = format_kill_time_str(analysis_details["kill_time"])
-            encounter_info = f"{boss_name} ({fight_duration})"
+            encounter_name_time = f"{boss_name} ({fight_duration})"
             # Job selection info
 
             # Player information
@@ -348,6 +375,8 @@ def layout(analysis_id=None):
             player_id = analysis_details["player_id"]
             role = analysis_details["role"]
             encounter_id = encounter_df["encounter_id"].iloc[0]
+            fight_phase = int(report_df["phase_id"].iloc[0])
+            furthest_phase = int(encounter_df["last_phase_index"].iloc[0])
             level = encounter_level[encounter_id]
 
             redo_rotation = analysis_details["redo_rotation_flag"]
@@ -586,9 +615,16 @@ def layout(analysis_id=None):
                 party_bonus,
                 medication_amt,
             )
+
+            phase_select_options, phase_select_hidden = get_phase_selector_options(
+                furthest_phase, encounter_id
+            )
             fflogs_card = initialize_fflogs_card(
                 fflogs_url,
-                encounter_info,
+                encounter_name_time,
+                phase_select_options,
+                fight_phase,
+                phase_select_hidden,
                 job_radio_options_dict,
                 job_radio_value_dict,
                 False,
@@ -834,6 +870,8 @@ def job_build_defined(
     """
     Check if any job build elements are missing, hide everything else if they are.
     """
+    return False
+
     if (role == "Tank") & (tenacity is None):
         tenacity_missing = True
 
@@ -871,8 +909,10 @@ def validate_sps(spell_speed):
 
 
 @callback(
-    Output("fflogs-url-feedback", "children"),
-    Output("read-fflogs-url", "children"),
+    Output("encounter-name-time", "children"),
+    Output("phase-select", "options"),
+    Output("phase-select-div", "hidden"),
+    # Output("read-fflogs-url", "children"),
     Output("select-job", "children"),
     Output("tank-jobs", "options"),
     Output("tank-jobs", "value"),
@@ -936,11 +976,22 @@ def process_fflogs_url(n_clicks, url, role):
         kill_time,
         encounter_name,
         start_time,
+        furthest_phase_index,
         r,
     ) = get_encounter_job_info(report_id, int(fight_id))
 
     print(kill_time)
     fight_time_str = format_kill_time_str(kill_time)
+
+    # Encounter info
+    # If there's phase info, also make a selector for that.
+    # Otherwise, have a mostly empty selector that's hidden
+    phase_select_options, phase_select_hidden = get_phase_selector_options(
+        furthest_phase_index, encounter_id
+    )
+
+    # Display the encounter name and kill time as H3 header
+    encounter_name_time = f"{encounter_name} ({fight_time_str})"
 
     if encounter_id not in valid_encounters:
         feedback_text = f"Sorry, {encounter_name} is not supported."
@@ -959,6 +1010,7 @@ def process_fflogs_url(n_clicks, url, role):
             report_id,
             fight_id,
             encounter_id,
+            furthest_phase_index,
             encounter_name,
             kill_time,
             k["player_name"],
@@ -974,8 +1026,9 @@ def process_fflogs_url(n_clicks, url, role):
         update_encounter_table(db_rows)
 
     return (
-        [],
-        f"{encounter_name} ({fight_time_str})",
+        encounter_name_time,
+        phase_select_options,
+        phase_select_hidden,
         "Please select a job:",
         tank_radio_items,
         radio_value,
@@ -1095,6 +1148,7 @@ def copy_analysis_link(n, selected):
     # State("DEL", "value"),
     State("tincture-grade", "value"),
     State("fflogs-url", "value"),
+    State("phase-select", "value"),
     State("etro-url", "value"),
     Input("healer-jobs", "value"),
     Input("tank-jobs", "value"),
@@ -1115,6 +1169,7 @@ def analyze_and_register_rotation(
     # delay,
     medication_amt,
     fflogs_url,
+    fight_phase,
     etro_url,
     healer_jobs=None,
     tank_jobs=None,
@@ -1129,6 +1184,10 @@ def analyze_and_register_rotation(
     if n_clicks is None:
         raise PreventUpdate
 
+    if isinstance(fight_phase, list):
+        fight_phase = fight_phase[0]
+    else:
+        fight_phase = int(fight_phase)
     job_player = [x for x in job_player if x is not None][0]
     report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
     encounter_df = read_encounter_table()
@@ -1191,6 +1250,7 @@ def analyze_and_register_rotation(
         comparison_columns = [
             "report_id",
             "fight_id",
+            "phase_id",
             "job",
             "player_name",
             "main_stat",
@@ -1207,6 +1267,7 @@ def analyze_and_register_rotation(
         db_check = (
             report_id,
             fight_id,
+            fight_phase,
             job_no_space,
             player,
             main_stat,
@@ -1252,6 +1313,7 @@ def analyze_and_register_rotation(
                 determination,
                 medication_amt,
                 level,
+                fight_phase,
                 damage_buff_table,
                 critical_hit_rate_table,
                 direct_hit_rate_table,
@@ -1300,6 +1362,7 @@ def analyze_and_register_rotation(
                     analysis_id,
                     report_id,
                     fight_id,
+                    fight_phase,
                     encounter_name,
                     t,
                     job_no_space,
@@ -1336,6 +1399,7 @@ def analyze_and_register_rotation(
             report_id,
             fight_id,
             encounter_id,
+            fight_phase,
             job_no_space,
             player,
             int(main_stat_pre_bonus),

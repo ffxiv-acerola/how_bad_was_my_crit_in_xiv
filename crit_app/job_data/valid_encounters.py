@@ -1,4 +1,4 @@
-valid_encounters = [88, 89, 90, 91, 92, 93, 94, 95, 96, 1069, 1070, 1072, 1078]
+valid_encounters = [88, 89, 90, 91, 92, 93, 94, 95, 96, 1069, 1070, 1072, 1077, 1078]
 valid_encounter_text = ""
 
 encounter_level = {
@@ -14,9 +14,21 @@ encounter_level = {
     97: 100,
     1069: 90,
     1070: 90,
+    1077: 90,
     1071: 100,
     1072: 100,
     1078: 100,
+}
+
+encounter_phases = {
+    1077: {
+        1: "P1: Omega",
+        2: "P2: Omega-M/F",
+        3: "P3: Omega Reconfigured",
+        4: "P4: Blue Screen",
+        5: "P5: Run: Dynamis",
+        6: "P6: Alpha Omega"
+    }
 }
 
 # Used for Party analysis

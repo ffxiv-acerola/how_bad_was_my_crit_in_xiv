@@ -37,6 +37,7 @@ class ActionTable(object):
         determination: int,
         medication_amt: int,
         level: int,
+        phase: int,
         damage_buff_table,
         critical_hit_rate_buff_table,
         direct_hit_rate_buff_table,
@@ -78,6 +79,7 @@ class ActionTable(object):
         self.player_id = player_id
         self.pet_ids = pet_ids
         self.level = level
+        self.phase = phase
 
         self.critical_hit_stat = crit_stat
         self.direct_hit_stat = dh_stat
@@ -85,7 +87,7 @@ class ActionTable(object):
         self.medication_amt = medication_amt
 
         self.debug = debug
-
+        self.fight_information(headers)
         self.damage_events(headers)
         self.ability_name_mapping_str = dict(
             zip(
@@ -310,6 +312,169 @@ class ActionTable(object):
             ):
                 return k
 
+    def fight_information(self, headers):
+        """Query a report to get report/fight information:
+        - Report start time
+        - Fight/phase timings
+            - Start time
+            - End time
+            - Fight time, active time used for DPS, (end - start - downtime)
+            - Phase information, if present.
+        - Ability name mapping
+        - Echo present
+
+        Args:
+            headers (dict): _description_
+        """
+
+        query = """
+        query FightInformation($code: String!, $id: [Int]!) {
+            reportData {
+                report(code: $code) {
+                    startTime
+                    masterData {
+                        abilities {
+                            name
+                            gameID
+                        }
+                    }
+                    rankings(fightIDs: $id)
+                    table(fightIDs: $id, dataType: DamageDone)
+                    fights(fightIDs: $id, translate: true) {
+                        encounterID
+                        kill
+                        startTime
+                        endTime
+                        name
+                        hasEcho
+                        phaseTransitions {
+                            id
+                            startTime
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        # Initial query that gets the fight duration
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+        }
+        json_payload = {
+            "query": query,
+            "variables": variables,
+            "operationName": "FightInformation",
+        }
+        r = requests.post(url=url, json=json_payload, headers=headers)
+        r = json.loads(r.text)
+
+        # Fight name
+        self.fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
+
+        # Map ability ID with ability name so they're human readable
+        self.ability_name_mapping = r["data"]["reportData"]["report"]["masterData"][
+            "abilities"
+        ]
+        self.ability_name_mapping = {
+            x["gameID"]: x["name"] for x in self.ability_name_mapping
+        }
+
+        # If true, an additional multiplicative buff is added later.
+        self.has_echo = r["data"]["reportData"]["report"]["fights"][0]["hasEcho"]
+        # All other timestamps are relative to this one
+        self.report_start_time = r["data"]["reportData"]["report"]["startTime"]
+
+        self.phase_information = r["data"]["reportData"]["report"]["fights"][0]["phaseTransitions"]
+        # Check if it was selected to analyze a phase.
+        # If there is, this affects the start/end time and any downtime, if present
+        # A follow-up query is required to correctly that information.
+        if self.phase > 0:
+            phase_start_time = [
+                p["startTime"] for p in self.phase_information if p["id"] == self.phase
+            ][0]
+            phase_end_time = [
+                p["startTime"]
+                for p in self.phase_information
+                if p["id"] == self.phase + 1
+            ][0]
+            phase_response = self.phase_fight_times(headers, phase_start_time, phase_end_time)
+            downtime = self.get_downtime(phase_response)
+
+            self.fight_start_time = self.report_start_time + phase_start_time 
+            self.fight_end_time = self.report_start_time + phase_end_time
+
+        # If no phase is present, all the information is there.
+        else:
+            self.fight_start_time = (
+                self.report_start_time
+                + r["data"]["reportData"]["report"]["fights"][0]["startTime"]
+            )
+            self.fight_end_time = (
+                self.report_start_time
+                + r["data"]["reportData"]["report"]["fights"][0]["endTime"]
+            )
+            downtime = self.get_downtime(r)
+
+        self.fight_time = (self.fight_end_time - self.fight_start_time - downtime) / 1000
+
+        pass
+
+    def get_downtime(self, response:dict) -> int:
+        """Get the downtime of a fight, if present.
+
+        Args:
+            response (dict): FFLogs fights graph response.
+
+        Returns:
+            int: Downtime in ms.
+        """
+        if (
+            "downtime"
+            in response["data"]["reportData"]["report"]["table"]["data"].keys()
+        ):
+            return response["data"]["reportData"]["report"]["table"]["data"][
+                "downtime"
+            ]
+        else:
+            return 0
+
+    def phase_fight_times(self, headers:dict, phase_start:int, phase_end:int):
+        """
+        Follow-up query to get the start time, end time, and downtime of a phase.
+        """
+        phased_query = """
+        query PhaseTime($code: String!, $id: [Int]!, $start: Float!, $end: Float!) {
+            reportData {
+                report(code: $code) {
+                    table(
+                        fightIDs: $id
+                        dataType: DamageDone
+                        startTime: $start
+                        endTime: $end
+                    )
+                }
+            }
+        }
+        """
+
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+            "start": phase_start,
+            "end": phase_end,
+        }
+
+        json_payload = {
+            "query": phased_query,
+            "variables": variables,
+            "operationName": "PhaseTime",
+        }
+        r = requests.post(url=url, json=json_payload, headers=headers)
+        r = json.loads(r.text)
+        return r
+
     def damage_events(self, headers):
         """
         Query the FFLogs API for damage events and other relevant information:
@@ -328,55 +493,41 @@ class ActionTable(object):
         """
         self.actions = []
 
-        # Why is job queried for instead of an actor ID?
-        # Doing so would exclude any pets, and only a single source ID can be passed in.
-        # The only gotcha is that for parties with dupes, e.g., double DRK,
-        # damage events of both players and Freys are returned, so they must be filtered out later,
-        # in `create_action_df`.
+        # Then remove that because damage done table and fight table doesn't need to be queried for every new page.
+        # There might be a more elegant way to do this, but this is good enough.
         query = """
-                query DpsActions(
-                    $code: String!
-                    $id: [Int]!
-                    $job: String!
-                ) {
-                    reportData {
-                        report(code: $code) {
-                            startTime,
-                            masterData{
-                                abilities{
-                                    name,
-                                    gameID
-                                },
-                            },
-                            events(
-                                fightIDs: $id
-                                dataType: DamageDone
-                                sourceClass: $job
-                                viewOptions: 1
-                            ) {
-                                data
-                                nextPageTimestamp
-                            }
-                            rankings(fightIDs: $id)
-                            table(fightIDs: $id, dataType: DamageDone)
-                            fights(fightIDs: $id, translate: true) {
-                                encounterID
-                                kill,
-                                startTime,
-                                endTime,
-                                name,
-                                hasEcho
-                            }
-                        }
+        query DpsActions(
+            $code: String!
+            $id: [Int]!
+            $job: String!
+            $startTime: Float!
+            $endTime: Float!
+        ) {
+            reportData {
+                report(code: $code) {
+                    events(
+                        fightIDs: $id
+                        startTime: $startTime
+                        endTime: $endTime
+                        dataType: DamageDone
+                        sourceClass: $job
+                        limit: 10000
+                    ) {
+                        data
+                        nextPageTimestamp
                     }
                 }
-        """
-        # Initial query that gets the fight duration
+            }
+        }
+                """
         variables = {
             "code": self.report_id,
             "id": [self.fight_id],
             "job": self.job,
+            "startTime": self.fight_start_time - self.report_start_time,
+            "endTime": self.fight_end_time - self.report_start_time,
         }
+
         json_payload = {
             "query": query,
             "variables": variables,
@@ -384,96 +535,7 @@ class ActionTable(object):
         }
         r = requests.post(url=url, json=json_payload, headers=headers)
         r = json.loads(r.text)
-        next_timestamp = r["data"]["reportData"]["report"]["events"][
-            "nextPageTimestamp"
-        ]
         self.actions.extend(r["data"]["reportData"]["report"]["events"]["data"])
-
-        # Get fight time by subtracting downtime from the total time
-        # Downtime wont exist as a key if there is no downtime, so check first.
-        fight_time = r["data"]["reportData"]["report"]["table"]["data"]["totalTime"]
-        if "downtime" in r["data"]["reportData"]["report"]["table"]["data"].keys():
-            downtime = r["data"]["reportData"]["report"]["table"]["data"]["downtime"]
-        else:
-            downtime = 0
-
-        self.fight_time = (fight_time - downtime) / 1000
-        self.fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
-
-        # All other timestamps are relative to this one
-        self.report_start_time = r["data"]["reportData"]["report"]["startTime"]
-        self.fight_end_time = (
-            self.report_start_time
-            + r["data"]["reportData"]["report"]["fights"][0]["endTime"]
-        )
-
-        self.ability_name_mapping = r["data"]["reportData"]["report"]["masterData"][
-            "abilities"
-        ]
-        self.ability_name_mapping = {
-            x["gameID"]: x["name"] for x in self.ability_name_mapping
-        }
-
-        self.has_echo = r["data"]["reportData"]["report"]["fights"][0]["hasEcho"]
-
-        # Then remove that because damage done table and fight table doesn't need to be queried for every new page.
-        # There might be a more elegant way to do this, but this is good enough.
-        query = """
-                query DpsActions(
-                    $code: String!
-                    $id: [Int]!
-                    $job: String!
-                    $startTime: Float!
-                    $endTime: Float!
-                ) {
-                    reportData {
-                        report(code: $code) {
-                            events(
-                                fightIDs: $id
-                                startTime: $startTime
-                                endTime: $endTime
-                                dataType: DamageDone
-                                sourceClass: $job
-                                viewOptions: 1
-                            ) {
-                                data
-                                nextPageTimestamp
-                            }
-                        }
-                    }
-                }
-                """
-        variables = {
-            "code": self.report_id,
-            "id": [self.fight_id],
-            "job": self.job,
-            "startTime": next_timestamp,
-            "endTime": int(time.time() * 1000),
-        }
-
-        # Loop until no more pages
-        while next_timestamp is not None:
-            json_payload = {
-                "query": query,
-                "variables": variables,
-                "operationName": "DpsActions",
-            }
-
-            r = requests.post(url=url, json=json_payload, headers=headers)
-            r = json.loads(r.text)
-            next_timestamp = r["data"]["reportData"]["report"]["events"][
-                "nextPageTimestamp"
-            ]
-            self.actions.extend(r["data"]["reportData"]["report"]["events"]["data"])
-            variables = {
-                "code": self.report_id,
-                "id": [self.fight_id],
-                "job": self.job,
-                "startTime": next_timestamp,
-                "endTime": int(time.time() * 1000),
-            }
-            print(variables)
-
         pass
 
     def ast_card_buff(self, card_id):
@@ -924,6 +986,7 @@ class RotationTable(ActionTable):
         determination: int,
         medication_amt: int,
         level: int,
+        phase: int,
         damage_buff_table,
         critical_hit_rate_buff_table,
         direct_hit_rate_buff_table,
@@ -970,6 +1033,7 @@ class RotationTable(ActionTable):
             determination,
             medication_amt,
             level,
+            phase,
             damage_buff_table,
             critical_hit_rate_buff_table,
             direct_hit_rate_buff_table,
@@ -983,6 +1047,7 @@ class RotationTable(ActionTable):
             (potency_table["valid_start"] <= self.fight_start_time)
             & (self.fight_start_time <= potency_table["valid_end"])
             & (potency_table["job"] == job)
+            & (potency_table["level"] == level)
         ]
         self.rotation_df = self.make_rotation_df(self.actions_df)
 
