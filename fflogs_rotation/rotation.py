@@ -1058,8 +1058,10 @@ class RotationTable(ActionTable):
             & (potency_table["level"] == level)
         ]
 
-        self.potency_table.fillna({"potency_falloff": "1."}, inplace=True)
-        self.potency_table["potency_falloff"] = self.potency_table[
+        self.potency_table.loc[
+            self.potency_table["potency_falloff"].isna(), "potency_falloff"
+        ] = "1."
+        self.potency_table.loc[:, "potency_falloff"] = self.potency_table[
             "potency_falloff"
         ].apply(lambda x: x.split(";"))
         self.rotation_df = self.make_rotation_df(self.actions_df)
@@ -1219,8 +1221,7 @@ class RotationTable(ActionTable):
         max_multi_hit = self.group_multi_target_hits(actions_df)
         actions_df = self.potency_falloff_fraction(actions_df, max_multi_hit)
         actions_df = self.match_potency_falloff(actions_df)
-        actions_df["action_name"] += ("_" + actions_df["matched_falloff"].astype(str)) 
-        
+        actions_df["action_name"] += "_" + actions_df["matched_falloff"].astype(str)
 
         group_by_columns = [
             "action_name",
@@ -1242,7 +1243,7 @@ class RotationTable(ActionTable):
             actions_df["buffs"].sort_values().apply(lambda x: sorted(x)).str.join(".")
         )
         # Need to add potency falloff so counting is correctly done later.
-        actions_df["buff_str"] += ("." + actions_df["matched_falloff"].astype(str)) 
+        actions_df["buff_str"] += "." + actions_df["matched_falloff"].astype(str)
 
         # And you cant value count nans
         actions_df["bonusPercent"] = actions_df["bonusPercent"].fillna(-1)
