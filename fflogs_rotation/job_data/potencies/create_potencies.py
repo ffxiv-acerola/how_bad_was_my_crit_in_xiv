@@ -38,6 +38,7 @@ if __name__ == "__main__":
                 "positional_potency": "Int64",
                 "combo_positional_bonus": "Int64",
                 "combo_positional_potency": "Int64",
+                "potency_falloff": "object"
             },
         )
         # Assign valid start/end times

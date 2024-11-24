@@ -1,29 +1,29 @@
-﻿job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency
-Bard,25783,Ladonsbite,100,,130,direct,,,,,,
-Bard,16495,Burst Shot,100,,220,direct,,,,,,
-Bard,7409,Refulgent Arrow,100,,280,direct,,,,,,
-Bard,8,Shot,100,,80,auto,,,,,,
-Bard,117,Rain of Death,100,,100,direct,,,,,,
-Bard,16494,Shadowbite,100,,170,direct,,,,,,
-Bard,16496,Apex Arrow,100,gauge_90,540,direct,,,,,,
-Bard,16496,Apex Arrow,100,gauge_100,600,direct,,,,,,
-Bard,3558,Empyreal Arrow,100,,260,direct,,,,,,
-Bard,7404,Pitch Perfect,100,pp1,100,direct,,,,,,
-Bard,7404,Pitch Perfect,100,pp2,220,direct,,,,,,
-Bard,7404,Pitch Perfect,100,pp3,360,direct,,,,,,
-Bard,1001201,Stormbite (tick),100,,25,physical-dot,,,,,,
-Bard,25784,Blast Arrow,100,,600,direct,,,,,,
-Bard,110,Bloodletter,100,,110,direct,,,,,,
-Bard,3562,Sidewinder,100,,400,direct,,,,,,
-Bard,1001200,Caustic Bite (tick),100,,20,physical-dot,,,,,,
-Bard,7407,Stormbite,100,,100,direct,,,,,,
-Bard,7406,Caustic Bite,100,,150,direct,,,,,,
-Bard,3560,Iron Jaws,100,,100,direct,,,,,,
-Bard,3559,the Wanderer's Minuet,100,,100,direct,,,,,,
-Bard,116,Army's Paeon,100,,100,direct,,,,,,
-Bard,114,Mage's Ballad,100,,100,direct,,,,,,
-Bard,36975,Heartbreak Shot,100,,180,direct,,,,,,
-Bard,36977,Radiant Encore,100,c1,500,direct,,,,,,
-Bard,36977,Radiant Encore,100,c2,600,direct,,,,,,
-Bard,36977,Radiant Encore,100,c3,900,direct,,,,,,
-Bard,36976,Resonant Arrow,100,,600,direct,,,,,,
+﻿job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
+Bard,25783,Ladonsbite,100,,130,direct,,,,,,,
+Bard,16495,Burst Shot,100,,220,direct,,,,,,,
+Bard,7409,Refulgent Arrow,100,,280,direct,,,,,,,
+Bard,8,Shot,100,,80,auto,,,,,,,
+Bard,117,Rain of Death,100,,100,direct,,,,,,,
+Bard,16494,Shadowbite,100,,170,direct,,,,,,,
+Bard,16496,Apex Arrow,100,gauge_90,540,direct,,,,,,,
+Bard,16496,Apex Arrow,100,gauge_100,600,direct,,,,,,,
+Bard,3558,Empyreal Arrow,100,,260,direct,,,,,,,
+Bard,7404,Pitch Perfect,100,pp1,100,direct,,,,,,,1;0.4
+Bard,7404,Pitch Perfect,100,pp2,220,direct,,,,,,,1;0.4
+Bard,7404,Pitch Perfect,100,pp3,360,direct,,,,,,,1;0.4
+Bard,1001201,Stormbite (tick),100,,25,physical-dot,,,,,,,
+Bard,25784,Blast Arrow,100,,600,direct,,,,,,,1;0.4
+Bard,110,Bloodletter,100,,110,direct,,,,,,,
+Bard,3562,Sidewinder,100,,400,direct,,,,,,,
+Bard,1001200,Caustic Bite (tick),100,,20,physical-dot,,,,,,,
+Bard,7407,Stormbite,100,,100,direct,,,,,,,
+Bard,7406,Caustic Bite,100,,150,direct,,,,,,,
+Bard,3560,Iron Jaws,100,,100,direct,,,,,,,
+Bard,3559,the Wanderer's Minuet,100,,100,direct,,,,,,,
+Bard,116,Army's Paeon,100,,100,direct,,,,,,,
+Bard,114,Mage's Ballad,100,,100,direct,,,,,,,
+Bard,36975,Heartbreak Shot,100,,180,direct,,,,,,,
+Bard,36977,Radiant Encore,100,c1,500,direct,,,,,,,1;0.5
+Bard,36977,Radiant Encore,100,c2,600,direct,,,,,,,1;0.5
+Bard,36977,Radiant Encore,100,c3,900,direct,,,,,,,1;0.5
+Bard,36976,Resonant Arrow,100,,600,direct,,,,,,,1;0.5
