@@ -423,6 +423,7 @@ def layout(analysis_id=None):
                     determination,
                     medication_amt,
                     level,
+                    fight_phase,
                     damage_buff_table,
                     critical_hit_rate_table,
                     direct_hit_rate_table,

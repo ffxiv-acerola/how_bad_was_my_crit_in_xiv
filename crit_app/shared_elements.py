@@ -9,6 +9,7 @@ import pandas as pd
 from crit_app.config import DB_URI
 from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
 from crit_app.job_data.roles import role_stat_dict
+from crit_app.job_data.valid_encounters import encounter_phases
 from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
 
@@ -52,7 +53,7 @@ def etro_build(gearset_id):
         build_role = "Tank"
         main_stat_str = "STR"
         speed_stat_str = "SKS"
-    elif job_abbreviated in ("BLM", "SMN", "RDM"):
+    elif job_abbreviated in ("BLM", "SMN", "RDM", "PCT"):
         build_role = "Magical Ranged"
         main_stat_str = "INT"
         speed_stat_str = "SPS"
@@ -260,12 +261,14 @@ def read_report_table():
     report_df["secondary_stat"] = (
         report_df["secondary_stat"]
         .replace("None", np.nan)
+        .infer_objects(copy=False)
         .astype(float)
         .astype("Int64")
     )
     report_df["secondary_stat_pre_bonus"] = (
         report_df["secondary_stat_pre_bonus"]
         .replace("None", np.nan)
+        .infer_objects(copy=False)
         .astype(float)
         .astype("Int64")
     )
@@ -322,7 +325,7 @@ def update_party_report_table(db_row):
         insert
         or replace into party_report
         values
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         db_row,
     )
@@ -420,6 +423,32 @@ def format_kill_time_str(kill_time):
     return f"{int(kill_time//60):02}:{int(kill_time%60):02}.{int(round((kill_time % 60 % 1) * 1000, 0))}"
 
 
+def get_phase_selector_options(furthest_phase_index: int, encounter_id: int):
+    """Create a dictionary of phase select options for an encounter.
+    Also create boolean indicator for whether the phase selector should be visible.
+
+    For encounters without phases, the phase always defaults to 0 and hidden.
+
+    Args:
+        furthest_phase_index (int): Index of the furthest-reached phase for a fight ID
+        encounter_id (int): ID of the encounter
+
+    Returns:
+        List of dictionaries for dbc.Select `options` argument
+        Boolean for whether the selector should be visible or not.
+    """
+    phase_select_options = [{"label": "Entire Fight", "value": 0}]
+    phase_select_hidden = True
+    if encounter_id in encounter_phases.keys():
+        phase_select_options.extend(
+            {"label": encounter_phases[encounter_id][a], "value": a}
+            for a in range(1, furthest_phase_index + 1)
+        )
+        phase_select_hidden = False
+
+    return phase_select_options, phase_select_hidden
+
+
 def check_prior_job_analyses(
     report_id,
     fight_id,
@@ -443,10 +472,12 @@ def check_prior_job_analyses(
         how="inner",
     )
 
+    # FIXME: update with party analysis phasing
     same_fight = report_df[
         (report_df["report_id"] == report_id)
         & (report_df["fight_id"] == fight_id)
         & (report_df["player_id"] == player_id)
+        & (report_df["phase_id"] == 0)
     ]
 
     if len(same_fight) == 0:

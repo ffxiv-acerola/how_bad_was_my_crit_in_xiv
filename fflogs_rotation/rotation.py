@@ -1161,7 +1161,9 @@ class RotationTable(ActionTable):
         actions_df = actions_df.drop(columns="potency_falloff_diff").rename(
             columns={"potency_falloff": "matched_falloff"}
         )
-        return actions_df
+        return actions_df.drop_duplicates(
+            subset=["elapsed_time", "packetID", "amount", "matched_falloff"]
+        )
 
     def make_rotation_df(
         self,

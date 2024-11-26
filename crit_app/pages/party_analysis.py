@@ -582,6 +582,7 @@ def party_fflogs_process(n_clicks, url):
         kill_time,
         encounter_name,
         report_start_time,
+        furthest_index_phase,
         r,
     ) = get_encounter_job_info(report_id, int(fight_id))
 
@@ -659,6 +660,7 @@ def party_fflogs_process(n_clicks, url):
                 report_id,
                 fight_id,
                 encounter_id,
+                furthest_index_phase,
                 encounter_name,
                 kill_time,
                 k["player_name"],
@@ -939,7 +941,6 @@ def job_progress(job_list, active_job):
     State({"type": "CRT", "index": ALL}, "value"),
     State({"type": "DH", "index": ALL}, "value"),
     State({"type": "WD", "index": ALL}, "value"),
-    # State({"type": "DEL", "index": ALL}, "value"),
     State({"type": "main-stat-label", "index": ALL}, "children"),
     State({"type": "player-name", "index": ALL}, "children"),
     State({"type": "etro-input", "index": ALL}, "value"),
@@ -996,6 +997,7 @@ def analyze_party_rotation(
     set_progress((0, len(job), "Getting LB damage", "Analysis progress:"))
     report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
     encounter_df = read_encounter_table()
+    fight_phase = 0
     matched_encounter = encounter_df[
         (encounter_df["report_id"] == report_id)
         & (encounter_df["fight_id"] == fight_id)
@@ -1029,13 +1031,13 @@ def analyze_party_rotation(
         lb_damage_events_df = pd.DataFrame(columns=["timestamp"])
         lb_damage = 0
 
-    # Our queen can heal herself, which affects her max HP. Gotta get that
-    if encounter_id in (94,):
-        boss_healing = boss_healing_amount(report_id, fight_id)
-    else:
-        boss_healing = 0
+    # # Our queen can heal herself, which affects her max HP. Gotta get that
+    # if encounter_id in (94,):
+    #     boss_healing = boss_healing_amount(report_id, fight_id)
+    # else:
+    #     boss_healing = 0
 
-    boss_total_hp = boss_hp[encounter_id] + boss_healing
+    # boss_total_hp = boss_hp[encounter_id] + boss_healing
     # Party bonus to main stat
     main_stat_multiplier = 1 + len(set(main_stat_label)) / 100
 
@@ -1114,6 +1116,7 @@ def analyze_party_rotation(
                 determination[a],
                 medication_amt,
                 level,
+                fight_phase,
                 damage_buff_table,
                 critical_hit_rate_table,
                 direct_hit_rate_table,
@@ -1161,6 +1164,7 @@ def analyze_party_rotation(
                 job_analysis_ids[a],
                 report_id,
                 fight_id,
+                fight_phase,
                 encounter_name,
                 job_rotation_analyses_list[a].fight_time,
                 full_job,
@@ -1287,6 +1291,11 @@ def analyze_party_rotation(
     # Export all the data we've generated
     ##########################################
 
+    # 
+    boss_total_hp = (
+        sum([a.actions_df["amount"].sum() for a in job_rotation_analyses_list])
+        + lb_damage
+    )
     # Job analyses
     for a in range(len(job_rotation_pdf_list)):
         # Write RotationTable
@@ -1367,6 +1376,7 @@ def analyze_party_rotation(
             party_analysis_id,
             report_id,
             fight_id,
+            fight_phase,
         ]
         + individual_analysis_ids
         + [0]

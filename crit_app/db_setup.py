@@ -75,6 +75,7 @@ create table if not exists party_report(
     party_analysis_id TEXT NOT NULL,
     report_id TEXT NOT NULL,
     fight_id INTEGER NOT NULL,
+    phase_id INTEGER NOT NULL,
     analysis_id_1 TEXT NOT NULL,
     analysis_id_2 TEXT NOT NULL,
     analysis_id_3 TEXT NOT NULL,
