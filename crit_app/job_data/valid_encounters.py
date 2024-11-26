@@ -37,16 +37,16 @@ encounter_level = {
     1079: 100,
 }
 
-# encounter_phases = {
-#     1077: {
-#         1: "P1: Omega",
-#         2: "P2: Omega-M/F",
-#         3: "P3: Omega Reconfigured",
-#         4: "P4: Blue Screen",
-#         5: "P5: Run: Dynamis",
-#         6: "P6: Alpha Omega",
-#     }
-# }
+encounter_phases = {
+    # 1077: {
+    #     1: "P1: Omega",
+    #     2: "P2: Omega-M/F",
+    #     3: "P3: Omega Reconfigured",
+    #     4: "P4: Blue Screen",
+    #     5: "P5: Run: Dynamis",
+    #     6: "P6: Alpha Omega",
+    # }
+}
 
 # Used for Party analysis
 boss_hp = {
