@@ -37,6 +37,7 @@ class ActionTable(object):
         determination: int,
         medication_amt: int,
         level: int,
+        phase: int,
         damage_buff_table,
         critical_hit_rate_buff_table,
         direct_hit_rate_buff_table,
@@ -78,6 +79,7 @@ class ActionTable(object):
         self.player_id = player_id
         self.pet_ids = pet_ids
         self.level = level
+        self.phase = phase
 
         self.critical_hit_stat = crit_stat
         self.direct_hit_stat = dh_stat
@@ -85,7 +87,7 @@ class ActionTable(object):
         self.medication_amt = medication_amt
 
         self.debug = debug
-
+        self.fight_information(headers)
         self.damage_events(headers)
         self.ability_name_mapping_str = dict(
             zip(
@@ -310,6 +312,173 @@ class ActionTable(object):
             ):
                 return k
 
+    def fight_information(self, headers):
+        """Query a report to get report/fight information:
+        - Report start time
+        - Fight/phase timings
+            - Start time
+            - End time
+            - Fight time, active time used for DPS, (end - start - downtime)
+            - Phase information, if present.
+        - Ability name mapping
+        - Echo present
+
+        Args:
+            headers (dict): _description_
+        """
+
+        query = """
+        query FightInformation($code: String!, $id: [Int]!) {
+            reportData {
+                report(code: $code) {
+                    startTime
+                    masterData {
+                        abilities {
+                            name
+                            gameID
+                        }
+                    }
+                    rankings(fightIDs: $id)
+                    table(fightIDs: $id, dataType: DamageDone)
+                    fights(fightIDs: $id, translate: true) {
+                        encounterID
+                        kill
+                        startTime
+                        endTime
+                        name
+                        hasEcho
+                        phaseTransitions {
+                            id
+                            startTime
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        # Initial query that gets the fight duration
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+        }
+        json_payload = {
+            "query": query,
+            "variables": variables,
+            "operationName": "FightInformation",
+        }
+        r = requests.post(url=url, json=json_payload, headers=headers)
+        r = json.loads(r.text)
+
+        # Fight name
+        self.fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
+
+        # Map ability ID with ability name so they're human readable
+        self.ability_name_mapping = r["data"]["reportData"]["report"]["masterData"][
+            "abilities"
+        ]
+        self.ability_name_mapping = {
+            x["gameID"]: x["name"] for x in self.ability_name_mapping
+        }
+
+        # If true, an additional multiplicative buff is added later.
+        self.has_echo = r["data"]["reportData"]["report"]["fights"][0]["hasEcho"]
+        # All other timestamps are relative to this one
+        self.report_start_time = r["data"]["reportData"]["report"]["startTime"]
+
+        self.phase_information = r["data"]["reportData"]["report"]["fights"][0][
+            "phaseTransitions"
+        ]
+        # Check if it was selected to analyze a phase.
+        # If there is, this affects the start/end time and any downtime, if present
+        # A follow-up query is required to correctly that information.
+        if self.phase > 0:
+            phase_start_time = [
+                p["startTime"] for p in self.phase_information if p["id"] == self.phase
+            ][0]
+            phase_end_time = [
+                p["startTime"]
+                for p in self.phase_information
+                if p["id"] == self.phase + 1
+            ][0]
+            phase_response = self.phase_fight_times(
+                headers, phase_start_time, phase_end_time
+            )
+            downtime = self.get_downtime(phase_response)
+
+            self.fight_start_time = self.report_start_time + phase_start_time
+            self.fight_end_time = self.report_start_time + phase_end_time
+
+        # If no phase is present, all the information is there.
+        else:
+            self.fight_start_time = (
+                self.report_start_time
+                + r["data"]["reportData"]["report"]["fights"][0]["startTime"]
+            )
+            self.fight_end_time = (
+                self.report_start_time
+                + r["data"]["reportData"]["report"]["fights"][0]["endTime"]
+            )
+            downtime = self.get_downtime(r)
+
+        self.fight_time = (
+            self.fight_end_time - self.fight_start_time - downtime
+        ) / 1000
+
+        pass
+
+    def get_downtime(self, response: dict) -> int:
+        """Get the downtime of a fight, if present.
+
+        Args:
+            response (dict): FFLogs fights graph response.
+
+        Returns:
+            int: Downtime in ms.
+        """
+        if (
+            "downtime"
+            in response["data"]["reportData"]["report"]["table"]["data"].keys()
+        ):
+            return response["data"]["reportData"]["report"]["table"]["data"]["downtime"]
+        else:
+            return 0
+
+    def phase_fight_times(self, headers: dict, phase_start: int, phase_end: int):
+        """
+        Follow-up query to get the start time, end time, and downtime of a phase.
+        """
+        phased_query = """
+        query PhaseTime($code: String!, $id: [Int]!, $start: Float!, $end: Float!) {
+            reportData {
+                report(code: $code) {
+                    table(
+                        fightIDs: $id
+                        dataType: DamageDone
+                        startTime: $start
+                        endTime: $end
+                    )
+                }
+            }
+        }
+        """
+
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+            "start": phase_start,
+            "end": phase_end,
+        }
+
+        json_payload = {
+            "query": phased_query,
+            "variables": variables,
+            "operationName": "PhaseTime",
+        }
+        r = requests.post(url=url, json=json_payload, headers=headers)
+        r = json.loads(r.text)
+        return r
+
     def damage_events(self, headers):
         """
         Query the FFLogs API for damage events and other relevant information:
@@ -328,55 +497,41 @@ class ActionTable(object):
         """
         self.actions = []
 
-        # Why is job queried for instead of an actor ID?
-        # Doing so would exclude any pets, and only a single source ID can be passed in.
-        # The only gotcha is that for parties with dupes, e.g., double DRK,
-        # damage events of both players and Freys are returned, so they must be filtered out later,
-        # in `create_action_df`.
+        # Then remove that because damage done table and fight table doesn't need to be queried for every new page.
+        # There might be a more elegant way to do this, but this is good enough.
         query = """
-                query DpsActions(
-                    $code: String!
-                    $id: [Int]!
-                    $job: String!
-                ) {
-                    reportData {
-                        report(code: $code) {
-                            startTime,
-                            masterData{
-                                abilities{
-                                    name,
-                                    gameID
-                                },
-                            },
-                            events(
-                                fightIDs: $id
-                                dataType: DamageDone
-                                sourceClass: $job
-                                viewOptions: 1
-                            ) {
-                                data
-                                nextPageTimestamp
-                            }
-                            rankings(fightIDs: $id)
-                            table(fightIDs: $id, dataType: DamageDone)
-                            fights(fightIDs: $id, translate: true) {
-                                encounterID
-                                kill,
-                                startTime,
-                                endTime,
-                                name,
-                                hasEcho
-                            }
-                        }
+        query DpsActions(
+            $code: String!
+            $id: [Int]!
+            $job: String!
+            $startTime: Float!
+            $endTime: Float!
+        ) {
+            reportData {
+                report(code: $code) {
+                    events(
+                        fightIDs: $id
+                        startTime: $startTime
+                        endTime: $endTime
+                        dataType: DamageDone
+                        sourceClass: $job
+                        limit: 10000
+                    ) {
+                        data
+                        nextPageTimestamp
                     }
                 }
-        """
-        # Initial query that gets the fight duration
+            }
+        }
+                """
         variables = {
             "code": self.report_id,
             "id": [self.fight_id],
             "job": self.job,
+            "startTime": self.fight_start_time - self.report_start_time,
+            "endTime": self.fight_end_time - self.report_start_time,
         }
+
         json_payload = {
             "query": query,
             "variables": variables,
@@ -384,96 +539,7 @@ class ActionTable(object):
         }
         r = requests.post(url=url, json=json_payload, headers=headers)
         r = json.loads(r.text)
-        next_timestamp = r["data"]["reportData"]["report"]["events"][
-            "nextPageTimestamp"
-        ]
         self.actions.extend(r["data"]["reportData"]["report"]["events"]["data"])
-
-        # Get fight time by subtracting downtime from the total time
-        # Downtime wont exist as a key if there is no downtime, so check first.
-        fight_time = r["data"]["reportData"]["report"]["table"]["data"]["totalTime"]
-        if "downtime" in r["data"]["reportData"]["report"]["table"]["data"].keys():
-            downtime = r["data"]["reportData"]["report"]["table"]["data"]["downtime"]
-        else:
-            downtime = 0
-
-        self.fight_time = (fight_time - downtime) / 1000
-        self.fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
-
-        # All other timestamps are relative to this one
-        self.report_start_time = r["data"]["reportData"]["report"]["startTime"]
-        self.fight_end_time = (
-            self.report_start_time
-            + r["data"]["reportData"]["report"]["fights"][0]["endTime"]
-        )
-
-        self.ability_name_mapping = r["data"]["reportData"]["report"]["masterData"][
-            "abilities"
-        ]
-        self.ability_name_mapping = {
-            x["gameID"]: x["name"] for x in self.ability_name_mapping
-        }
-
-        self.has_echo = r["data"]["reportData"]["report"]["fights"][0]["hasEcho"]
-
-        # Then remove that because damage done table and fight table doesn't need to be queried for every new page.
-        # There might be a more elegant way to do this, but this is good enough.
-        query = """
-                query DpsActions(
-                    $code: String!
-                    $id: [Int]!
-                    $job: String!
-                    $startTime: Float!
-                    $endTime: Float!
-                ) {
-                    reportData {
-                        report(code: $code) {
-                            events(
-                                fightIDs: $id
-                                startTime: $startTime
-                                endTime: $endTime
-                                dataType: DamageDone
-                                sourceClass: $job
-                                viewOptions: 1
-                            ) {
-                                data
-                                nextPageTimestamp
-                            }
-                        }
-                    }
-                }
-                """
-        variables = {
-            "code": self.report_id,
-            "id": [self.fight_id],
-            "job": self.job,
-            "startTime": next_timestamp,
-            "endTime": int(time.time() * 1000),
-        }
-
-        # Loop until no more pages
-        while next_timestamp is not None:
-            json_payload = {
-                "query": query,
-                "variables": variables,
-                "operationName": "DpsActions",
-            }
-
-            r = requests.post(url=url, json=json_payload, headers=headers)
-            r = json.loads(r.text)
-            next_timestamp = r["data"]["reportData"]["report"]["events"][
-                "nextPageTimestamp"
-            ]
-            self.actions.extend(r["data"]["reportData"]["report"]["events"]["data"])
-            variables = {
-                "code": self.report_id,
-                "id": [self.fight_id],
-                "job": self.job,
-                "startTime": next_timestamp,
-                "endTime": int(time.time() * 1000),
-            }
-            print(variables)
-
         pass
 
     def ast_card_buff(self, card_id):
@@ -743,6 +809,7 @@ class ActionTable(object):
             "type",
             "sourceID",
             "targetID",
+            "packetID",
             "abilityGameID",
             "ability_name",
             "buffs",
@@ -771,6 +838,9 @@ class ActionTable(object):
         if "directHit" not in actions_df.columns:
             actions_df["directHit"] = False
         # Only include player ID and any of their associated pet IDs
+
+        if "tick" not in actions_df.columns:
+            actions_df["tick"] = False
 
         if "bonusPercent" not in actions_df.columns:
             actions_df["bonusPercent"] = pd.NA
@@ -924,6 +994,7 @@ class RotationTable(ActionTable):
         determination: int,
         medication_amt: int,
         level: int,
+        phase: int,
         damage_buff_table,
         critical_hit_rate_buff_table,
         direct_hit_rate_buff_table,
@@ -970,6 +1041,7 @@ class RotationTable(ActionTable):
             determination,
             medication_amt,
             level,
+            phase,
             damage_buff_table,
             critical_hit_rate_buff_table,
             direct_hit_rate_buff_table,
@@ -983,10 +1055,115 @@ class RotationTable(ActionTable):
             (potency_table["valid_start"] <= self.fight_start_time)
             & (self.fight_start_time <= potency_table["valid_end"])
             & (potency_table["job"] == job)
+            & (potency_table["level"] == level)
         ]
+
+        self.potency_table.loc[
+            self.potency_table["potency_falloff"].isna(), "potency_falloff"
+        ] = "1."
+        self.potency_table.loc[:, "potency_falloff"] = self.potency_table[
+            "potency_falloff"
+        ].apply(lambda x: x.split(";"))
         self.rotation_df = self.make_rotation_df(self.actions_df)
 
         pass
+
+    def normalize_hit_types(self, actions_df):
+        """Undo damage bonuses from hit types, treating all hits as normal hits.
+
+        Args:
+            actions_df (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        actions_df["base_damage"] = actions_df["amount"].astype(float)
+        actions_df.loc[actions_df["hitType"] == 2, "base_damage"] /= (
+            actions_df.loc[actions_df["hitType"] == 2, "l_c"] / 1000
+        )
+        actions_df.loc[actions_df["directHit"] == True, "base_damage"] /= 1.25
+        return actions_df
+
+    def group_multi_target_hits(self, actions_df):
+        """Actions which hit multiple enemies share the same `packetID`.
+        This allows us to group by packetID and compute damage falloffs.
+
+        Exceptions are DoT ticks and ground effects, but AoE versions of these
+        have no damage falloff.
+
+        Args:
+            actions_df (_type_): _description_
+        """
+        return (
+            actions_df.groupby("packetID")
+            .max("base_damage")
+            .reset_index()
+            .rename(columns={"base_damage": "max_base"})[["packetID", "max_base"]]
+        ).copy()
+
+    def potency_falloff_fraction(self, actions_df, max_multi_hit):
+        """Compute the fractional potency of actions which hit multiple targets.
+        Used later to match with
+
+        Args:
+            actions_df (_type_): _description_
+            max_multi_hit (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+
+        actions_df = actions_df.merge(max_multi_hit, how="left", on="packetID")
+        actions_df["fractional_potency"] = (
+            actions_df["base_damage"] / actions_df["max_base"]
+        )
+
+        # Set DoT ticks and ground effects to a fractional potency of 1.
+        # They either don't have a packet ID, is the same for multiple ticks,
+        # and/or is not easy to factor out hit type damage from DoTs.
+        # Either way, AoE dots and ground effects have no potency falloff.
+        actions_df.loc[
+            (actions_df["tick"] == True) | (actions_df["packetID"].isna()),
+            "fractional_potency",
+        ] = 1
+        return actions_df
+
+    def match_potency_falloff(self, actions_df):
+        """Match actual potency falloff to values in the potency table.
+        Because of the +/- 5% damage roll, actual falloff values must be
+        within 0.1. I don't think there's any potency falloff values within 10%
+        of each other where this would overlap.
+
+        Args:
+            actions_df (_type_): _description_
+            potencies (_type_): _description_
+        """
+        exploded_potencies = self.potency_table.explode("potency_falloff")[
+            ["ability_id", "potency_falloff"]
+        ]
+        exploded_potencies["potency_falloff"] = exploded_potencies[
+            "potency_falloff"
+        ].astype(float)
+
+        actions_df = actions_df.merge(
+            exploded_potencies,
+            left_on="abilityGameID",
+            right_on="ability_id",
+            how="left",
+        )
+
+        actions_df["potency_falloff_diff"] = (
+            actions_df["fractional_potency"] - actions_df["potency_falloff"]
+        ).abs()
+
+        # Filter down to matches
+        actions_df = actions_df[actions_df["potency_falloff_diff"] < 0.1]
+        actions_df = actions_df.drop(columns="potency_falloff_diff").rename(
+            columns={"potency_falloff": "matched_falloff"}
+        )
+        return actions_df.drop_duplicates(
+            subset=["elapsed_time", "packetID", "amount", "matched_falloff"]
+        )
 
     def make_rotation_df(
         self,
@@ -1038,6 +1215,16 @@ class RotationTable(ActionTable):
             # raise RuntimeWarning(
             #     f"Cliping the DataFrame by {t_start_clip} from the start and {t_end_clip} seconds from the end led to any empty DataFrame. Either change the amount to clip the DataFrame by or the portion which is returned"
             # )
+
+        # First step is looking for multi-target and identifying any associated potency falloffs
+        # Potency falloff is identified, and then applied to the final potency
+
+        actions_df = self.normalize_hit_types(actions_df)
+        max_multi_hit = self.group_multi_target_hits(actions_df)
+        actions_df = self.potency_falloff_fraction(actions_df, max_multi_hit)
+        actions_df = self.match_potency_falloff(actions_df)
+        actions_df["action_name"] += "_" + actions_df["matched_falloff"].astype(str)
+
         group_by_columns = [
             "action_name",
             "abilityGameID",
@@ -1050,12 +1237,16 @@ class RotationTable(ActionTable):
             "multiplier",
             "l_c",
             "main_stat_add",
+            "matched_falloff",
         ]
 
         # Lists are unhashable, so make as an ordered string.
         actions_df["buff_str"] = (
             actions_df["buffs"].sort_values().apply(lambda x: sorted(x)).str.join(".")
         )
+        # Need to add potency falloff so counting is correctly done later.
+        actions_df["buff_str"] += "." + actions_df["matched_falloff"].astype(str)
+
         # And you cant value count nans
         actions_df["bonusPercent"] = actions_df["bonusPercent"].fillna(-1)
         rotation_df = (
@@ -1148,6 +1339,11 @@ class RotationTable(ActionTable):
             .head(1)
         )
 
+        # Now that all correct potencies have been assigned,
+        # Multiply by damage falloff
+        rotation_df["potency"] = (
+            rotation_df["potency"] * rotation_df["matched_falloff"]
+        ).astype(int)
         rotation_df = rotation_df[
             [
                 "action_name",

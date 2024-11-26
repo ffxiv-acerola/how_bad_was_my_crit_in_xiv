@@ -1,33 +1,33 @@
-job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency
-Paladin,16460,Atonement,100,,460,direct,,,,,,
-Paladin,7,Attack,100,,90,auto,,,,,,
-Paladin,25748,Blade of Faith,100,1001368,760,direct,,,,,,
-Paladin,25748,Blade of Faith,100,,260,direct,,,,,,
-Paladin,25749,Blade of Truth,100,1001368,880,direct,,,,,,
-Paladin,25749,Blade of Truth,100,,380,direct,,,,,,
-Paladin,25750,Blade of Valor,100,1001368,1000,direct,,,,,,
-Paladin,25750,Blade of Valor,100,,500,direct,,,,,,
-Paladin,23,Circle of Scorn,100,,140,direct,,,,,,
-Paladin,1000248,Circle of Scorn (tick),100,,30,physical-dot,,,,,,
-Paladin,16459,Confiteor,100,,500,direct,,,,,,
-Paladin,16459,Confiteor,100,1001368,1000,direct,,,,,,
-Paladin,25747,Expiacion,100,,450,direct,,,,,,
-Paladin,9,Fast Blade,100,,220,direct,,,,,,
-Paladin,3538,Goring Blade,100,,700,direct,,,,,,
-Paladin,16458,Holy Circle,100,,100,direct,,,,,,
-Paladin,16458,Holy Circle,100,1001368,300,direct,,,,,,
-Paladin,16458,Holy Circle,100,1002673,200,direct,,,,,,
-Paladin,7384,Holy Spirit,100,,400,direct,,,,,,
-Paladin,7384,Holy Spirit,100,1001368,700,direct,,,,,,
-Paladin,7384,Holy Spirit,100,1002673,500,direct,,,,,,
-Paladin,16461,Intervene,100,,150,direct,,,,,,
-Paladin,16457,Prominence,100,,100,direct,41,170,,,,
-Paladin,7383,Requiescat,100,,320,direct,,,,,,
-Paladin,15,Riot Blade,100,,170,direct,48,330,,,,
-Paladin,3539,Royal Authority,100,,200,direct,56,460,,,,
-Paladin,24,Shield Lob,100,,100,direct,,,,,,
-Paladin,7381,Total Eclipse,100,,100,direct,,,,,,
-Paladin,36918,Supplication,100,,500,direct,,,,,,
-Paladin,36919,Sepulchre,100,,540,direct,,,,,,
-Paladin,36921,Imperator,100,,580,direct,,,,,,
-Paladin,36922,Blade of Honor,100,,1000,direct,,,,,,
+job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
+Paladin,16460,Atonement,100,,460,direct,,,,,,,
+Paladin,7,Attack,100,,90,auto,,,,,,,
+Paladin,25748,Blade of Faith,100,1001368,760,direct,,,,,,,1;0.5
+Paladin,25748,Blade of Faith,100,,260,direct,,,,,,,1;0.5
+Paladin,25749,Blade of Truth,100,1001368,880,direct,,,,,,,1;0.5
+Paladin,25749,Blade of Truth,100,,380,direct,,,,,,,1;0.5
+Paladin,25750,Blade of Valor,100,1001368,1000,direct,,,,,,,1;0.5
+Paladin,25750,Blade of Valor,100,,500,direct,,,,,,,1;0.5
+Paladin,23,Circle of Scorn,100,,140,direct,,,,,,,
+Paladin,1000248,Circle of Scorn (tick),100,,30,physical-dot,,,,,,,
+Paladin,16459,Confiteor,100,,500,direct,,,,,,,1;0.5
+Paladin,16459,Confiteor,100,1001368,1000,direct,,,,,,,1;0.5
+Paladin,25747,Expiacion,100,,450,direct,,,,,,,1;0.4
+Paladin,9,Fast Blade,100,,220,direct,,,,,,,
+Paladin,3538,Goring Blade,100,,700,direct,,,,,,,
+Paladin,16458,Holy Circle,100,,100,direct,,,,,,,
+Paladin,16458,Holy Circle,100,1001368,300,direct,,,,,,,
+Paladin,16458,Holy Circle,100,1002673,200,direct,,,,,,,
+Paladin,7384,Holy Spirit,100,,400,direct,,,,,,,
+Paladin,7384,Holy Spirit,100,1001368,700,direct,,,,,,,
+Paladin,7384,Holy Spirit,100,1002673,500,direct,,,,,,,
+Paladin,16461,Intervene,100,,150,direct,,,,,,,
+Paladin,16457,Prominence,100,,100,direct,41,170,,,,,
+Paladin,7383,Requiescat,100,,320,direct,,,,,,,
+Paladin,15,Riot Blade,100,,170,direct,48,330,,,,,
+Paladin,3539,Royal Authority,100,,200,direct,56,460,,,,,
+Paladin,24,Shield Lob,100,,100,direct,,,,,,,
+Paladin,7381,Total Eclipse,100,,100,direct,,,,,,,
+Paladin,36918,Supplication,100,,500,direct,,,,,,,
+Paladin,36919,Sepulchre,100,,540,direct,,,,,,,
+Paladin,36921,Imperator,100,,580,direct,,,,,,,1;0.5
+Paladin,36922,Blade of Honor,100,,1000,direct,,,,,,,1;0.5

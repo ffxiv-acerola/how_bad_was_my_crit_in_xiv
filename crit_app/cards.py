@@ -417,7 +417,10 @@ def initialize_job_build(
 # FIXME: Handle loading in
 def initialize_fflogs_card(
     fflogs_url=None,
-    encounter_info=[],
+    encounter_name_time=[],
+    phase_select_options=[],
+    phase_select_value=0,
+    phase_selector_hidden=True,
     job_radio_options_dict={
         "Tank": [],
         "Healer": [],
@@ -464,10 +467,27 @@ def initialize_fflogs_card(
         class_name="mb-3",
         style={"padding-bottom": "15px"},
     )
-
+    phase_select_row = html.Div(
+        dbc.Row(
+            children=[
+                dbc.Label("Phase:", width=12, md=2, id="phase-label"),
+                dbc.Col(
+                    dbc.Select(
+                        options=phase_select_options,
+                        value=[phase_select_value],
+                        id="phase-select",
+                    ),
+                    width=1,
+                    md=5,
+                ),
+            ],
+        ),
+        id="phase-select-div",
+        hidden=phase_selector_hidden,
+        style={"padding-bottom": "15px"},
+    )
     encounter_info = dbc.Row(
         [
-            html.H3(children=encounter_info, id="read-fflogs-url"),
             html.H4(
                 [
                     html.Span("Job selection:", id="role-tooltip"),
@@ -530,8 +550,12 @@ def initialize_fflogs_card(
                     dbc.Form(
                         [
                             fflogs_url,
+                            html.H3(
+                                children=encounter_name_time, id="encounter-name-time"
+                            ),
+                            phase_select_row,
                             html.Div(
-                                encounter_info,
+                                [encounter_info],
                                 id="encounter-info",
                                 hidden=encounter_hidden,
                             ),

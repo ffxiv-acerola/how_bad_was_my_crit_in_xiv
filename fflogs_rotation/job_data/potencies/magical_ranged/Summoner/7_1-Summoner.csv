@@ -1,38 +1,38 @@
-job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency
-Summoner,25854,Aerial Blast (Pet),100,,800,pet,,,,,,
-Summoner,7449,Akh Morn (Pet),100,,1300,pet,,,,,,
-Summoner,25820,Astral Impulse,100,,500,direct,,,,,,
-Summoner,7,Attack,100,,90,auto,,,,,,
-Summoner,25835,Crimson Cyclone,100,,490,direct,,,,,,
-Summoner,25885,Crimson Strike,100,,490,direct,,,,,,
-Summoner,3582,Deathflare,100,,500,direct,,,,,,
-Summoner,25853,Earthen Fury (Pet),100,,800,pet,,,,,,
-Summoner,25825,Emerald Rite,100,,240,direct,,,,,,
-Summoner,16508,Energy Drain,100,,200,direct,,,,,,
-Summoner,181,Fester,100,,340,direct,,,,,,
-Summoner,16514,Fountain of Fire,100,,580,direct,,,,,,
-Summoner,25852,Inferno (Pet),100,,800,pet,,,,,,
-Summoner,25836,Mountain Buster,100,,160,direct,,,,,,
-Summoner,16518,Revelation (Pet),100,,1300,pet,,,,,,
-Summoner,25823,Ruby Rite,100,,540,direct,,,,,,
-Summoner,3579,Ruin III,100,,360,direct,,,,,,
-Summoner,7426,Ruin IV,100,,490,direct,,,,,,
-Summoner,16519,Scarlet Flame (Pet),100,,150,pet,,,,,,
-Summoner,25837,Slipstream,100,,490,direct,,,,,,
-Summoner,1002706,Slipstream (tick),100,,30,direct,,,,,,
-Summoner,25824,Topaz Rite,100,,340,direct,,,,,,
-Summoner,7428,Wyrmwave (Pet),100,,150,pet,,,,,,
-Summoner,16515,Brand of Purgatory,100,,240,direct,,,,,,
-Summoner,25821,Astral Flare,100,,180,direct,,,,,,
-Summoner,3578,Painflare,100,,150,direct,,,,,,
-Summoner,25833,Topaz Catastrophe,100,,140,direct,,,,,,
-Summoner,25834,Emerald Catastrophe,100,,100,direct,,,,,,
-Summoner,16510,Energy Siphon,100,,100,direct,,,,,,
-Summoner,25826,Tri-disaster,100,,120,direct,,,,,,
-Summoner,36990,Necrotize,100,,440,direct,,,,,,
-Summoner,36991,Searing Flash,100,,600,direct,,,,,,
-Summoner,36994,Umbral Impulse,100,,620,direct,,,,,,
-Summoner,36995,Umbral Flare,100,,280,direct,,,,,,
-Summoner,36996,Sunflare,100,,700,direct,,,,,,
-Summoner,36999,Exodus (Pet),100,,1400,pet,,,,,,
-Summoner,36993,Luxwave (Pet),100,,160,pet,,,,,,
+job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
+Summoner,25854,Aerial Blast (Pet),100,,800,pet,,,,,,,1;0.4
+Summoner,7449,Akh Morn (Pet),100,,1300,pet,,,,,,,1;0.4
+Summoner,25820,Astral Impulse,100,,500,direct,,,,,,,
+Summoner,7,Attack,100,,90,auto,,,,,,,
+Summoner,25835,Crimson Cyclone,100,,490,direct,,,,,,,1;0.35
+Summoner,25885,Crimson Strike,100,,490,direct,,,,,,,1;0.35
+Summoner,3582,Deathflare,100,,500,direct,,,,,,,
+Summoner,25853,Earthen Fury (Pet),100,,800,pet,,,,,,,1;0.4
+Summoner,25825,Emerald Rite,100,,240,direct,,,,,,,
+Summoner,16508,Energy Drain,100,,200,direct,,,,,,,
+Summoner,181,Fester,100,,340,direct,,,,,,,
+Summoner,16514,Fountain of Fire,100,,580,direct,,,,,,,
+Summoner,25852,Inferno (Pet),100,,800,pet,,,,,,,1;0.4
+Summoner,25836,Mountain Buster,100,,160,direct,,,,,,,1;0.3
+Summoner,16518,Revelation (Pet),100,,1300,pet,,,,,,,1;0.4
+Summoner,25823,Ruby Rite,100,,540,direct,,,,,,,
+Summoner,3579,Ruin III,100,,360,direct,,,,,,,
+Summoner,7426,Ruin IV,100,,490,direct,,,,,,,
+Summoner,16519,Scarlet Flame (Pet),100,,150,pet,,,,,,,1;0.4
+Summoner,25837,Slipstream,100,,490,direct,,,,,,,1;0.35
+Summoner,1002706,Slipstream (tick),100,,30,direct,,,,,,,
+Summoner,25824,Topaz Rite,100,,340,direct,,,,,,,
+Summoner,7428,Wyrmwave (Pet),100,,150,pet,,,,,,,
+Summoner,16515,Brand of Purgatory,100,,240,direct,,,,,,,
+Summoner,25821,Astral Flare,100,,180,direct,,,,,,,
+Summoner,3578,Painflare,100,,150,direct,,,,,,,
+Summoner,25833,Topaz Catastrophe,100,,140,direct,,,,,,,
+Summoner,25834,Emerald Catastrophe,100,,100,direct,,,,,,,
+Summoner,16510,Energy Siphon,100,,100,direct,,,,,,,
+Summoner,25826,Tri-disaster,100,,120,direct,,,,,,,
+Summoner,36990,Necrotize,100,,440,direct,,,,,,,
+Summoner,36991,Searing Flash,100,,600,direct,,,,,,,
+Summoner,36994,Umbral Impulse,100,,620,direct,,,,,,,
+Summoner,36995,Umbral Flare,100,,280,direct,,,,,,,
+Summoner,36996,Sunflare,100,,800,direct,,,,,,,1;0.6
+Summoner,36999,Exodus (Pet),100,,1400,pet,,,,,,,1;0.4
+Summoner,36993,Luxwave (Pet),100,,160,pet,,,,,,,

@@ -1,8 +1,8 @@
-job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency
-Scholar,25865,Broil IV,100,,310,direct,,,,,,
-Scholar,17870,Ruin II,100,,220,direct,,,,,,
-Scholar,1001895,Biolysis (tick),100,,75,magic-dot,,,,,,
-Scholar,167,Energy Drain,100,,100,direct,,,,,,
-Scholar,7,Attack,100,,90,auto,,,,,,
-Scholar,25866,Art of War II,100,,180,direct,,,,,,
-Scholar,1003883,Baneful Impaction (tick),100,,140,magic-dot,,,,,,
+job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
+Scholar,25865,Broil IV,100,,310,direct,,,,,,,
+Scholar,17870,Ruin II,100,,220,direct,,,,,,,
+Scholar,1001895,Biolysis (tick),100,,75,magic-dot,,,,,,,
+Scholar,167,Energy Drain,100,,100,direct,,,,,,,
+Scholar,7,Attack,100,,90,auto,,,,,,,
+Scholar,25866,Art of War II,100,,180,direct,,,,,,,
+Scholar,1003883,Baneful Impaction (tick),100,,140,magic-dot,,,,,,,

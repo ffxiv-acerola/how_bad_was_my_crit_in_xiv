@@ -44,7 +44,9 @@ header = html.Div(
         ),
         html.P(
             [
-                "This site supports analysis from Anabeiseos, Dawntrail's EX2, and AAC Light-Heavyweight. If you have any suggestions, come across bugs, or would like to contribute, join the ",
+                "This site supports analysis from Anabeiseos, Dawntrail's EX2, AAC Light-Heavyweight, ",
+                html.I("and now FRU!"), 
+                " If you have any suggestions, come across bugs, or would like to contribute, join the ",
                 html.A(
                     "Discord server",
                     href="https://discord.gg/8eezSgy3sC",
