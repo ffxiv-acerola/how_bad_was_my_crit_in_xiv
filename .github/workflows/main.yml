@@ -24,7 +24,7 @@ jobs:
     - name: Deploy tracked Git files with rsync
       run: |
         git ls-files > tracked_files.txt
-        rsync . root@howbadwasmycritinxiv.com:/root/testing/
+        rsync -avz -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" ./ root@howbadwasmycritinxiv.com:/root/testing/
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
