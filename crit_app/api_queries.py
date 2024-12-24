@@ -52,8 +52,12 @@ def parse_fflogs_url(fflogs_url: str):
         fight_id = parse_qs(parts.fragment)["fight"][0]
         fight_id = int(fight_id)
     except (KeyError, ValueError):
-        fight_id = None
-        error_code = 2
+        try:
+            fight_id = parse_qs(parts.query)["fight"][0]
+            fight_id = int(fight_id)
+        except (KeyError, ValueError):
+            fight_id = None
+            error_code = 2        
 
     if parts.netloc != "www.fflogs.com":
         error_code = 1

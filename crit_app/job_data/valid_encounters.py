@@ -38,6 +38,13 @@ encounter_level = {
 }
 
 encounter_phases = {
+    1079: {
+        1: "P1: Fatebreaker",
+        2: "P2: Usurper of Frost",
+        3: "P3: Oracle of Darkness",
+        4: "P4: Enter the Dragon",
+        5: "P5: Pandora"
+    }
     # 1077: {
     #     1: "P1: Omega",
     #     2: "P2: Omega-M/F",

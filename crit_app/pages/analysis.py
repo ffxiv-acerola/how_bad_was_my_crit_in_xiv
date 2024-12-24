@@ -871,7 +871,7 @@ def job_build_defined(
     """
     Check if any job build elements are missing, hide everything else if they are.
     """
-    return False
+    # return False
 
     if (role == "Tank") & (tenacity is None):
         tenacity_missing = True
@@ -942,6 +942,7 @@ def process_fflogs_url(n_clicks, url, role):
         raise PreventUpdate
     radio_value = None
     error_return = [
+        [],
         [],
         [],
         [],
