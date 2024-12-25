@@ -3,7 +3,7 @@ name: Deploy Tracked Files with rsync
 on:
   push:
     branches:
-      - main
+      - actions-patch
 
 jobs:
   deploy:
