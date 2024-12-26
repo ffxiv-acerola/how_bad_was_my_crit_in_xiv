@@ -745,7 +745,6 @@ def fill_role_stat_labels(role):
     Output("CRT", "value"),
     Output("DH", "value"),
     Output("WD", "value"),
-    # Output("DEL", "value"),
     Output("party-bonus-warning", "children"),
     Input("etro-url-button", "n_clicks"),
     State("etro-url", "value"),
@@ -773,7 +772,6 @@ def process_etro_url(n_clicks, url, default_role):
         [],
         [],
         [],
-        # [],
         [],
     ]
 
@@ -840,22 +838,19 @@ def process_etro_url(n_clicks, url, default_role):
         ch,
         dh,
         wd,
-        # delay,
         warning_row,
     )
 
 
 @callback(
     Output("fflogs-card", "hidden"),
-    Input("main-stat", "value"),
-    Input("TEN", "value"),
-    Input("DET", "value"),
-    Input("speed-stat", "value"),
-    Input("CRT", "value"),
-    Input("DH", "value"),
-    Input("WD", "value"),
-    Input("role-select", "value"),
-    Input("results-div", "hidden"),
+    Input("main-stat", "valid"),
+    Input("TEN", "valid"),
+    Input("DET", "valid"),
+    Input("speed-stat", "valid"),
+    Input("CRT", "valid"),
+    Input("DH", "valid"),
+    Input("WD", "valid"),
 )
 def job_build_defined(
     main_stat,
@@ -865,36 +860,73 @@ def job_build_defined(
     crit,
     direct_hit,
     weapon_damage,
-    role,
-    results_hidden,
 ):
     """
-    Check if any job build elements are missing, hide everything else if they are.
+    Check if any job build elements are missing/invalid, hide everything else if they are.
     """
-    # return False
-
-    if (role == "Tank") & (tenacity is None):
-        tenacity_missing = True
-
-    else:
-        tenacity_missing = False
-
-    # TODO: will need to handle None secondary stat for roles without them.
-    job_build_missing = (
-        any(
-            (elem is None) or (elem == [])
-            for elem in [
-                main_stat,
-                determination,
-                speed,
-                crit,
-                direct_hit,
-                weapon_damage,
-            ]
-        )
-        | tenacity_missing
+    return not all(
+        [
+            main_stat,
+            tenacity,
+            determination,
+            speed,
+            crit,
+            direct_hit,
+            weapon_damage,
+        ]
     )
-    return job_build_missing
+
+
+@callback(
+    Output("main-stat", "valid"),
+    Output("main-stat", "invalid"),
+    Input("main-stat", "value"),
+)
+def valid_main_stat(main_stat_value: int) -> tuple[bool, bool]:
+    """
+    Validate the main stat input.
+
+    Parameters:
+    main_stat_value (int): The value of the main stat to validate.
+
+    Returns:
+    tuple[bool, bool]: A tuple containing the validation results for the main stat.
+    """
+    if main_stat_value is None:
+        raise PreventUpdate
+    if validate_meldable_stat(
+        "test",
+        main_stat_value,
+        stat_ranges["main_stat"]["lower"],
+        stat_ranges["main_stat"]["upper"],
+    )[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
+
+
+@callback(Output("DET", "valid"), Output("DET", "invalid"), Input("DET", "value"))
+def valid_determination(determination: int) -> tuple[bool, bool]:
+    """
+    Validate the determination stat input.
+
+    Parameters:
+    determination (int): The value of the determination stat to validate.
+
+    Returns:
+    tuple[bool, bool]: A tuple containing the validation results for the determination stat.
+    """
+    if determination is None:
+        raise PreventUpdate
+    if validate_meldable_stat(
+        "test",
+        determination,
+        stat_ranges["DET"]["lower"],
+        stat_ranges["DET"]["upper"],
+    )[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
 
 
 @callback(
@@ -902,18 +934,132 @@ def job_build_defined(
     Output("speed-stat", "invalid"),
     Input("speed-stat", "value"),
 )
-def validate_sps(spell_speed):
-    if (spell_speed == []) or (spell_speed is None) or (spell_speed > 3):
-        return True, False
+def valid_speed(speed: int) -> tuple:
+    """
+    Validate the speed stat input.
+
+    Parameters:
+    speed (int): The value of the speed stat to validate.
+
+    Returns:
+    tuple: A tuple containing the validation results for the speed stat.
+    """
+    if speed is None:
+        raise PreventUpdate
+    if validate_meldable_stat(
+        "test",
+        speed,
+        stat_ranges["SPEED"]["lower"],
+        stat_ranges["SPEED"]["upper"],
+    )[0]:
+        return valid_stat_return
     else:
-        return False, True
+        return invalid_stat_return
+
+
+@callback(Output("CRT", "valid"), Output("CRT", "invalid"), Input("CRT", "value"))
+def valid_critical_hit(critical_hit: int) -> tuple:
+    """
+    Validate the critical hit stat input.
+
+    Parameters:
+    critical_hit (int): The value of the critical hit stat to validate.
+
+    Returns:
+    tuple: A tuple containing the validation results for the critical hit stat.
+    """
+    if critical_hit is None:
+        raise PreventUpdate
+    if validate_meldable_stat(
+        "test",
+        critical_hit,
+        stat_ranges["CRT"]["lower"],
+        stat_ranges["CRT"]["upper"],
+    )[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
+
+
+@callback(Output("DH", "valid"), Output("DH", "invalid"), Input("DH", "value"))
+def valid_direct_hit(direct_hit: int) -> tuple:
+    """
+    Validate the direct hit stat input.
+
+    Parameters:
+    direct_hit (int): The value of the direct hit stat to validate.
+
+    Returns:
+    tuple: A tuple containing the validation results for the direct hit stat.
+    """
+    if direct_hit is None:
+        raise PreventUpdate
+    if validate_meldable_stat(
+        "test",
+        direct_hit,
+        stat_ranges["DH"]["lower"],
+        stat_ranges["DH"]["upper"],
+    )[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
+
+
+@callback(Output("WD", "valid"), Output("WD", "invalid"), Input("WD", "value"))
+def valid_weapon_damage(weapon_damage: int) -> tuple:
+    """
+    Validate the weapon damage stat input.
+
+    Parameters:
+    weapon_damage (int): The value of the weapon damage stat to validate.
+
+    Returns:
+    tuple: A tuple containing the validation results for the weapon damage stat.
+    """
+    if weapon_damage is None:
+        raise PreventUpdate
+    if validate_weapon_damage(weapon_damage)[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
+
+
+@callback(
+    Output("TEN", "valid"),
+    Output("TEN", "invalid"),
+    Input("TEN", "value"),
+    Input("role-select", "value"),
+)
+def valid_tenacity(tenacity: int, role: str) -> tuple:
+    """
+    Validate the direct hit stat input.
+
+    Parameters:
+    direct_hit (int): The value of the direct hit stat to validate.
+
+    Returns:
+    tuple: A tuple containing the validation results for the direct hit stat.
+    """
+    if role != "Tank":
+        return valid_stat_return
+
+    if tenacity is None:
+        raise PreventUpdate
+    if validate_meldable_stat(
+        "test",
+        tenacity,
+        stat_ranges["TEN"]["lower"],
+        stat_ranges["TEN"]["upper"],
+    )[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
 
 
 @callback(
     Output("encounter-name-time", "children"),
     Output("phase-select", "options"),
     Output("phase-select-div", "hidden"),
-    # Output("read-fflogs-url", "children"),
     Output("select-job", "children"),
     Output("tank-jobs", "options"),
     Output("tank-jobs", "value"),
@@ -1147,7 +1293,6 @@ def copy_analysis_link(n, selected):
     State("CRT", "value"),
     State("DH", "value"),
     State("WD", "value"),
-    # State("DEL", "value"),
     State("tincture-grade", "value"),
     State("fflogs-url", "value"),
     State("phase-select", "value"),
@@ -1168,7 +1313,6 @@ def analyze_and_register_rotation(
     ch,
     dh,
     wd,
-    # delay,
     medication_amt,
     fflogs_url,
     fight_phase,

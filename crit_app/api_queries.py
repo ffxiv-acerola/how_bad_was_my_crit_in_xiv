@@ -3,6 +3,7 @@ API queries made to FFLogs and Etro.
 """
 
 import json
+from typing import Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 import pandas as pd
@@ -34,20 +35,28 @@ def parse_etro_url(etro_url: str):
     return gearset_id, error_code
 
 
-def parse_fflogs_url(fflogs_url: str):
+def parse_fflogs_url(fflogs_url: str) -> Tuple[Optional[str], Optional[int], int]:
     """
     Read the parts of an FFLogs URL to get report ID and fight ID.
-    Returns and error code if an incorrect link is returned.
+    Returns an error code if an incorrect link is provided.
+
+    Parameters:
+    fflogs_url (str): The FFLogs URL to parse.
 
     Returns:
-    report_id - string of the report ID
-    fight_id - int of the fight ID
-    error_code - 0: no error; 1: site is not fflogs.com; 2: fight ID not specified, 3: invalid report ID
+    tuple[Optional[str], Optional[int], int]: A tuple containing the report ID, fight ID, and an error code.
+                                              Error codes:
+                                              0 - No error
+                                              1 - Site is not fflogs.com
+                                              2 - Fight ID not specified
+                                              3 - Invalid report ID
     """
     parts = urlparse(fflogs_url)
 
     error_code = 0
 
+    # FFLogs sneakily switched from # to ? for fight ID
+    # Need to try both
     try:
         fight_id = parse_qs(parts.fragment)["fight"][0]
         fight_id = int(fight_id)
@@ -57,7 +66,7 @@ def parse_fflogs_url(fflogs_url: str):
             fight_id = int(fight_id)
         except (KeyError, ValueError):
             fight_id = None
-            error_code = 2        
+            error_code = 2
 
     if parts.netloc != "www.fflogs.com":
         error_code = 1

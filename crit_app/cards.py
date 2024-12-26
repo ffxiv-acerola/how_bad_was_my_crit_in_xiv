@@ -4,6 +4,7 @@ Create cards used to display content.
 
 import dash_bootstrap_components as dbc
 from dash import dcc, html
+from crit_app.job_data.encounter_data import stat_ranges
 
 
 def initialize_job_build(
@@ -134,36 +135,33 @@ def initialize_job_build(
     top_stat_list = [
         dbc.Label(children=None, width=12, md=1, id="main-stat-label"),
         dbc.Col(
-            dbc.Input(
-                value=main_stat,
-                type="number",
-                placeholder=None,
-                min=100,
-                max=6000,
-                id="main-stat",
-            )
+            [
+                dbc.Input(
+                    value=main_stat,
+                    type="number",
+                    placeholder=None,
+                    id="main-stat",
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['main_stat']['lower']} - {stat_ranges['main_stat']['upper']}",
+                    type="invalid",
+                ),
+            ]
         ),
-        # dbc.Label(children=None, width=12, md=1, id="secondary-stat-label"),
-        # dbc.Col(
-        #     dbc.Input(
-        #         value=secondary_stat,
-        #         type="number",
-        #         placeholder=None,
-        #         min=100,
-        #         max=5000,
-        #         id="secondary-stat",
-        #     )
-        # ),
         dbc.Label(children="DET:", width=12, md=1, id="det-label"),
         dbc.Col(
-            dbc.Input(
-                value=determination,
-                type="number",
-                placeholder="Determination",
-                min=100,
-                max=5000,
-                id="DET",
-            )
+            [
+                dbc.Input(
+                    value=determination,
+                    type="number",
+                    placeholder="Determination",
+                    id="DET",
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['DET']['lower']} - {stat_ranges['DET']['upper']}",
+                    type="invalid",
+                ),
+            ]
         ),
         dbc.Label(
             children=[
@@ -180,106 +178,90 @@ def initialize_job_build(
                     "Your Skill/Spell Speed stat, not your GCD.",
                     target="speed-tooltip",
                 ),
-                dbc.FormFeedback(
-                    "Please enter your Skill/Spell Speed stat, not GCD.",
-                    type="invalid",
-                    id="speed-feedback",
-                ),
             ],
             width=12,
             md=1,
             id="speed-stat-label",
         ),
         dbc.Col(
-            dbc.Input(
-                value=speed,
-                type="number",
-                placeholder=None,
-                min=100,
-                max=5000,
-                id="speed-stat",
-            )
+            [
+                dbc.Input(
+                    value=speed,
+                    type="number",
+                    placeholder=None,
+                    id="speed-stat",
+                ),
+                dbc.FormFeedback(
+                    f"Value must be between {stat_ranges['SPEED']['lower']} - {stat_ranges['SPEED']['upper']}. Do not enter your GCD.",
+                    type="invalid",
+                ),
+            ]
         ),
     ]
 
     middle_stat_list = [
         dbc.Label("CRT:", width=12, md=1, id="crt-label"),
         dbc.Col(
-            dbc.Input(
-                value=crit,
-                type="number",
-                placeholder="Critical Hit",
-                min=100,
-                max=5000,
-                id="CRT",
-            )
+            [
+                dbc.Input(
+                    value=crit,
+                    type="number",
+                    placeholder="Critical Hit",
+                    id="CRT",
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['CRT']['lower']} - {stat_ranges['CRT']['upper']}",
+                    type="invalid",
+                ),
+            ]
         ),
         dbc.Label("DH:", width=12, md=1, id="dh-label"),
         dbc.Col(
-            dbc.Input(
-                value=direct_hit,
-                type="number",
-                placeholder="Direct Hit",
-                min=100,
-                max=5000,
-                id="DH",
-            )
+            [
+                dbc.Input(
+                    value=direct_hit,
+                    type="number",
+                    placeholder="Direct Hit",
+                    id="DH",
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['DH']['lower']} - {stat_ranges['DH']['upper']}",
+                    type="invalid",
+                ),
+            ]
         ),
         dbc.Label("WD:", width=12, md=1, id="wd-label"),
         dbc.Col(
-            dbc.Input(
-                value=weapon_damage,
-                type="number",
-                placeholder="Weapon Damage",
-                min=100,
-                max=500,
-                id="WD",
-            )
+            [
+                dbc.Input(
+                    value=weapon_damage,
+                    type="number",
+                    placeholder="Weapon Damage",
+                    id="WD",
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['WD']['lower']} - {stat_ranges['WD']['upper']}",
+                    type="invalid",
+                ),
+            ]
         ),
-        # dbc.Label(
-        #     [
-        #         html.Span(
-        #             "DEL:",
-        #             id="del-tooltip",
-        #             style={
-        #                 "textDecoration": "underline",
-        #                 "textDecorationStyle": "dotted",
-        #                 "cursor": "pointer",
-        #             },
-        #         ),
-        #         dbc.Tooltip(
-        #             "Delay, under weapon stats, for auto-attacks. "
-        #             "Should be a value like 3.44.",
-        #             target="del-tooltip",
-        #         ),
-        #     ],
-        #     width=12,
-        #     md=1,
-        #     id="delay-label",
-        # ),
-        # dbc.Col(
-        #     dbc.Input(
-        #         value=delay,
-        #         type="number",
-        #         placeholder="Delay",
-        #         min=1.0,
-        #         max=4.0,
-        #         id="DEL",
-        #     )
-        # ),
     ]
 
     bottom_stat_list = [
         dbc.Label("TEN:", width=12, md=1, id="tenacity-label"),
         dbc.Col(
-            dbc.Input(
-                value=tenacity,
-                type="number",
-                placeholder="Tenacity",
-                min=100,
-                max=6000,
-                id="TEN",
-            ),
+            [
+                dbc.Input(
+                    value=tenacity,
+                    type="number",
+                    placeholder="Tenacity",
+                    id="TEN",
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['TEN']['lower']} - {stat_ranges['TEN']['upper']}",
+                    type="invalid",
+                ),
+            ],
             width=12,
             md=3,
         ),

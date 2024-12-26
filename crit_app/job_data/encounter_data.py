@@ -79,3 +79,13 @@ patch_times = {
     7.05: {"start": 1722322800000, "end": 1731427199999},
     7.1: {"start": 1731427200000, "end": 1741791600000},
 }
+
+stat_ranges = {
+    "main_stat": {"lower": 3400, "upper": 6000},
+    "DET": {"lower": 380, "upper": 5000},
+    "SPEED": {"lower": 380, "upper": 5000},
+    "CRT": {"lower": 380, "upper": 5000},
+    "DH": {"lower": 380, "upper": 5000},
+    "WD": {"lower": 50, "upper": 250},
+    "TEN": {"lower": 380, "upper": 5000},
+}

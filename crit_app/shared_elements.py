@@ -9,7 +9,7 @@ import pandas as pd
 from crit_app.config import DB_URI
 from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
 from crit_app.job_data.roles import role_stat_dict
-from crit_app.job_data.valid_encounters import encounter_phases
+from crit_app.job_data.encounter_data import encounter_phases
 from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
 
@@ -66,24 +66,6 @@ def etro_build(gearset_id):
         main_stat_str = "DEX"
         speed_stat_str = "SKS"
 
-    # else:
-    #     build_role = "Unsupported"
-    #     return (
-    #         False,
-    #         f"Job {job_abbreviated} unsupported",
-    #         None,
-    #         None,
-    #         None,
-    #         None,
-    #         None,
-    #         None,
-    #         None,
-    #         None,
-    #         None,
-    #         None,
-    #         None,
-    #     )
-
     total_params = {}
 
     for p in build_result["totalParams"]:
@@ -98,22 +80,6 @@ def etro_build(gearset_id):
     speed = total_params[speed_stat_str]["value"]
     wd = total_params["Weapon Damage"]["value"]
     etro_party_bonus = build_result["partyBonus"]
-
-    # if build_role in ("Healer", "Magical Ranged"):
-    #     if job_abbreviated == "SCH":
-    #         secondary_stat = 350
-    #     elif job_abbreviated == "WHM":
-    #         secondary_stat = 214
-    #     elif job_abbreviated == "SGE":
-    #         secondary_stat = 233
-    #     elif job_abbreviated == "AST":
-    #         secondary_stat = 194
-    #     elif job_abbreviated == "RDM":
-    #         secondary_stat = 226
-    #     elif job_abbreviated == "SMN":
-    #         secondary_stat = 370
-    #     else:
-    #         secondary_stat = 194
 
     if build_role == "Tank":
         secondary_stat = total_params["TEN"]["value"]
@@ -158,9 +124,14 @@ def etro_build(gearset_id):
         etro_party_bonus,
     )
 
+def validate_main_stat(stat_name, stat_value, lower=3000, upper=6500):
+    if (stat_value >= lower) and (stat_value < upper):
+        return True, None
+    else:
+        return False, f"{stat_name} must be between 3000-6500."
 
-def validate_meldable_stat(stat_name, stat_value):
-    if (stat_value >= 380) and (stat_value < 5500):
+def validate_meldable_stat(stat_name, stat_value, lower=380, upper=6000):
+    if (stat_value >= lower) and (stat_value < upper):
         return True, None
     else:
         return False, f"{stat_name} must be between 380-5500."
