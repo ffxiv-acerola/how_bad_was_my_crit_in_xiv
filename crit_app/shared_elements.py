@@ -158,7 +158,7 @@ def validate_speed_stat(speed_stat):
     Returns:
         _type_: _description_
     """
-    if speed_stat > 3:
+    if speed_stat >= 380:
         return True, None
     else:
         return False, "Enter the speed stat, not the GCD."
@@ -169,13 +169,6 @@ def validate_weapon_damage(weapon_damage):
         return True, None
     else:
         return False, "Weapon damage must be less than 380."
-
-
-def validate_delay(delay):
-    if (delay > 1) and (delay < 4):
-        return True, None
-    else:
-        return False, "Weapon delay must be between 1 and 4."
 
 
 def set_secondary_stats(
@@ -306,7 +299,13 @@ def update_party_report_table(db_row):
     pass
 
 
-def unflag_report_recompute(analysis_id):
+def unflag_report_recompute(analysis_id: str) -> None:
+    """
+    Set the recompute flag to 0 for a given analysis ID.
+    
+    Parameters:
+    analysis_id (str): The ID of the analysis to update.
+    """
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
 
@@ -319,7 +318,13 @@ def unflag_report_recompute(analysis_id):
     pass
 
 
-def unflag_redo_rotation(analysis_id):
+def unflag_redo_rotation(analysis_id: str) -> None:
+    """
+    Set the redo rotation flag to 0 for a given analysis ID.
+    
+    Parameters:
+    analysis_id (str): The ID of the analysis to update.
+    """
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
 
@@ -332,17 +337,19 @@ def unflag_redo_rotation(analysis_id):
     pass
 
 
-def unflag_party_report_recompute(analysis_id):
+def unflag_party_report_recompute(analysis_id: str) -> None:
     """
     Set the recompute flag to 0 for a party analysis ID.
     Used after the report has been recomputed.
-
+    
+    Parameters:
+    analysis_id (str): The ID of the party analysis to update.
     """
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
 
     cur.execute(f"""
-    update party_report set redo_analysis_flag = 0 where party_analysis_id = "{analysis_id}"
+    update report set redo_party_report_flag = 0 where analysis_id = "{analysis_id}"
     """)
     con.commit()
     cur.close()

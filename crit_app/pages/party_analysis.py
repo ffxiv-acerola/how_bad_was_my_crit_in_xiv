@@ -18,7 +18,6 @@ from dash import (
 from dash.exceptions import PreventUpdate
 
 from crit_app.api_queries import (
-    boss_healing_amount,
     get_encounter_job_info,
     headers,
     limit_break_damage_events,
@@ -43,8 +42,7 @@ from crit_app.figures import (
 )
 from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
 from crit_app.job_data.roles import abbreviated_job_map, role_mapping, role_stat_dict
-from crit_app.job_data.valid_encounters import (
-    boss_hp,
+from crit_app.job_data.encounter_data import (
     encounter_level,
     valid_encounters,
 )
@@ -164,6 +162,12 @@ def layout(party_analysis_id=None):
         job_information = job_information[
             job_information["analysis_id"].isin(job_analysis_ids)
         ]
+        # Drop duplicate rows
+        # Don't use pet IDs as a unique identifier because it's a list
+        job_information = job_information.drop_duplicates(
+            subset=job_information.drop(columns=["pet_ids"]).columns
+        )
+
         ############################
         ### FFLogs Card Elements ###
         ############################
@@ -1291,7 +1295,7 @@ def analyze_party_rotation(
     # Export all the data we've generated
     ##########################################
 
-    # 
+    #
     boss_total_hp = (
         sum([a.actions_df["amount"].sum() for a in job_rotation_analyses_list])
         + lb_damage
