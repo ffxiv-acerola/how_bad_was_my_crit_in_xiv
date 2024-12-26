@@ -21,6 +21,7 @@ jobs:
         chmod 600 ~/.ssh/id_rsa
         chmod 644 ~/.ssh/known_hosts
         ls -lha ~/.ssh
+        wc id_rsa known_hosts
 
     - name: Deploy tracked Git files with rsync
       run: |
