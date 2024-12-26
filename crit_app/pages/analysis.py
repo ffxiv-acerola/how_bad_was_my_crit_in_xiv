@@ -1,13 +1,14 @@
 import datetime
 import pickle
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
-from typing import List, Dict, Any, Tuple, Optional
 
 import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, Patch, State, callback, dcc, html
 from dash.exceptions import PreventUpdate
 from plotly.graph_objs import Figure
+
 from crit_app.api_queries import (
     get_encounter_job_info,
     headers,
@@ -33,16 +34,16 @@ from crit_app.figures import (
     make_rotation_pdf_figure,
     make_rotation_percentile_table,
 )
-from crit_app.job_data.job_data import weapon_delays
-from crit_app.job_data.job_warnings import job_warnings
-from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
 from crit_app.job_data.encounter_data import (
     encounter_level,
     encounter_phases,
     patch_times,
-    valid_encounters,
     stat_ranges,
+    valid_encounters,
 )
+from crit_app.job_data.job_data import weapon_delays
+from crit_app.job_data.job_warnings import job_warnings
+from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
 from crit_app.shared_elements import (
     etro_build,
     format_kill_time_str,
