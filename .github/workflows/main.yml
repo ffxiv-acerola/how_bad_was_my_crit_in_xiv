@@ -20,10 +20,11 @@ jobs:
         echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
         chmod 600 ~/.ssh/id_rsa
         chmod 644 ~/.ssh/known_hosts
+        ls -lha ~/.ssh
 
     - name: Deploy tracked Git files with rsync
       run: |
-        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no root@howbadwasmycritinxiv.com "hostname"
+        ssh -i ~/.ssh/id_rsa root@howbadwasmycritinxiv.com "hostname"
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
