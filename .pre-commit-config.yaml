@@ -12,3 +12,8 @@ repos:
     # Run the formatter.
     - id: ruff-format
       name: format with ruff
+
+- repo: https://github.com/DanielNoord/pydocstringformatter
+  rev: v0.7.3
+  hooks:
+    - id: pydocstringformatter
