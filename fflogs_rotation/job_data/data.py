@@ -1,4 +1,4 @@
-"""FFXIV game information pertaining to buffs and potencies, stored as importable pandas DataFrames"""
+"""FFXIV game information pertaining to buffs and potencies, stored as importable pandas DataFrames."""
 
 from pathlib import Path
 

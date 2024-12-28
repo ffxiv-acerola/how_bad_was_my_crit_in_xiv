@@ -1,3 +1,5 @@
+from typing import Dict, Set
+
 import numpy as np
 import pandas as pd
 
@@ -7,11 +9,11 @@ from fflogs_rotation.base import BuffQuery, disjunction
 class MachinistActions(BuffQuery):
     def __init__(
         self,
-        headers: dict,
-        report_id: int,
+        headers: Dict[str, str],
+        report_id: str,
         fight_id: int,
         player_id: int,
-        weaponskill_ids: set = {
+        weaponskill_ids: Set[int] = {
             7410,
             7411,
             7412,
@@ -26,7 +28,7 @@ class MachinistActions(BuffQuery):
             36982,
             36978,
         },
-        battery_gauge_amount: dict = {
+        battery_gauge_amount: Dict[int, int] = {
             7413: 10,
             16500: 20,
             25788: 20,
@@ -35,6 +37,19 @@ class MachinistActions(BuffQuery):
         wildfire_id: int = 1001946,
         queen_automaton_id: int = 16501,
     ) -> None:
+        """
+        Initialize the MachinistActions class.
+
+        Parameters:
+        headers (Dict[str, str]): Headers for the GraphQL query.
+        report_id (str): Report ID for the fight.
+        fight_id (int): Fight ID.
+        player_id (int): Player ID.
+        weaponskill_ids (Set[int]): Set of weaponskill IDs.
+        battery_gauge_amount (Dict[int, int]): Dictionary mapping ability IDs to battery gauge amounts.
+        wildfire_id (int): Wildfire ability ID.
+        queen_automaton_id (int): Queen Automaton ability ID.
+        """
         self.report_id = report_id
         self.fight_id = fight_id
         self.player_id = player_id
@@ -44,6 +59,7 @@ class MachinistActions(BuffQuery):
         self.queen_automaton_id = queen_automaton_id
         self.pet_ability_ids = {16503, 16504, 17206, 25787}
 
+        # FIXME: read in from potency.csv
         self.gauge_potency_map = {
             "Arm Punch (Pet)": {
                 x: 120 + idx * 24 for idx, x in enumerate(range(50, 110, 10))
@@ -61,9 +77,13 @@ class MachinistActions(BuffQuery):
 
         self._set_wildfire_timings(headers)
 
-        pass
+    def _set_wildfire_timings(self, headers: Dict[str, str]) -> None:
+        """
+        Set the timings for Wildfire and Queen Automaton based on the provided headers.
 
-    def _set_wildfire_timings(self, headers):
+        Parameters:
+            headers (Dict[str, str]): Headers for the GraphQL query.
+        """
         query = """
                 query machinistBuffs(
                     $code: String!
@@ -110,18 +130,18 @@ class MachinistActions(BuffQuery):
         self.queen_summons["timestamp"] += self.report_start
         self.queen_summons["ability_name"] = "Queen Automaton"
         self.queen_summons["queen_group"] = np.arange(self.queen_summons.shape[0])
-        pass
 
-    def _wildfire_gcds(self, actions_df):
-        """Find out how many GCDs occured during Wildfire to compute potency.
+    def _wildfire_gcds(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Find out how many GCDs occurred during Wildfire to compute potency.
 
-        Args:
-            actions_df (DataFrame): Pandas DataFrame of actions
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame of actions.
 
         Returns:
-            DataFrame: Pandas DataFrame of actions, with a buff indicating the wildfire potency.
+            pd.DataFrame: DataFrame of actions, with a buff indicating the wildfire potency.
         """
-        # Find weaponskills which occured during wildfire
+        # Find weaponskills which occurred during wildfire
         wildfire_betweens = list(
             actions_df["timestamp"].between(b[0], b[1], inclusive="both")
             for b in self.wildfire_times
@@ -137,7 +157,7 @@ class MachinistActions(BuffQuery):
             n_wildfire_gcds["elapsed_time"] - n_wildfire_gcds["next_gcd_time"]
         )
 
-        # Group them with cumsum if theyre null or > 10s apart
+        # Group them with cumsum if they're null or > 10s apart
         n_wildfire_gcds["wildfire_group"] = 0
         n_wildfire_gcds.loc[
             (n_wildfire_gcds["timediff"] > 10) | (n_wildfire_gcds["timediff"].isna()),
@@ -185,19 +205,22 @@ class MachinistActions(BuffQuery):
         )
         return actions_df.drop(columns="wildfire_buff_name")
 
-    def _battery_gauge(self, actions_df):
-        """Figure out the battery gague level when Automaton Queen is summoned,
-        which affects the potency of her actions
-
-        Args:
-            actions_df (DataFrame): pandas DataFrame of actions
+    def _battery_gauge(self, actions_df: pd.DataFrame) -> pd.DataFrame:
         """
+        Figure out the battery gauge level when Automaton Queen is summoned,.
 
+        which affects the potency of her actions.
+
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame of actions.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with battery gauge levels.
+        """
         # Figure out how much battery gauge was present when queen is summoned
-        # Filter to battery gauage granting actiosn and queen summons
+        # Filter to battery gauge granting actions and queen summons
         battery_gauge = actions_df[
             actions_df["abilityGameID"].isin(self.battery_gauge_amount.keys())
-            # | actions_df["abilityGameID"].isin(self.pet_ability_ids)
         ][["timestamp", "ability_name", "abilityGameID"]]
         battery_gauge = (
             pd.concat([battery_gauge, self.queen_summons])
@@ -223,7 +246,7 @@ class MachinistActions(BuffQuery):
             .reset_index()
         )
 
-        # If queen group 0 not present, assume resource run and assign 100 guage.
+        # If queen group 0 not present, assume resource run and assign 100 gauge.
         if battery_gauge["queen_group"].min() == 1:
             battery_gauge = pd.concat(
                 [
@@ -274,7 +297,16 @@ class MachinistActions(BuffQuery):
         )
         return actions_df.drop(columns=["buff_name"])
 
-    def apply_mch_potencies(self, actions_df):
+    def apply_mch_potencies(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply potency calculations for Machinist actions.
+
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame of actions.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with applied potencies.
+        """
         # Wildfire
         actions_df = self._wildfire_gcds(actions_df)
 

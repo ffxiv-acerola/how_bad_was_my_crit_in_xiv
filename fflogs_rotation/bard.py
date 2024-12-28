@@ -1,10 +1,15 @@
-from fflogs_rotation.base import BuffQuery, disjunction
+from typing import Dict
+
+import pandas as pd
+
+from fflogs_rotation.base import BuffQuery
 
 
 class BardActions(BuffQuery):
     def __init__(
         self,
-        pitch_perfect_potencies: dict = {1: 100, 2: 220, 3: 360},
+        # FIXME: read in from potency.csv
+        pitch_perfect_potencies: Dict[int, int] = {1: 100, 2: 220, 3: 360},
         burst_shot_potency: int = 220,
         pitch_perfect_id: int = 7404,
         burst_shot_id: int = 16495,
@@ -17,9 +22,17 @@ class BardActions(BuffQuery):
         self.burst_shot_id = burst_shot_id
 
         self.radiant_encore_id = radiant_encore_id
-        pass
 
-    def estimate_pitch_perfect_potency(self, actions_df):
+    def estimate_pitch_perfect_potency(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Estimate the potency of Pitch Perfect actions based on relative damage amounts.
+
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame containing action data.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with estimated Pitch Perfect potencies.
+        """
         l_c = actions_df["l_c"].iloc[0]
 
         # Find base damage, divide out crits/direct hits/buff multipliers
@@ -89,13 +102,18 @@ class BardActions(BuffQuery):
 
         return actions_df
 
-    def estimate_radiant_encore_potency(self, actions_df):
-        """Incredibly simple method of estimating Radiant Encore potency:
+    def estimate_radiant_encore_potency(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Incredibly simple method of estimating Radiant Encore potency:
+
         - elapsed time < 40 seconds -> 1 coda
         - elapsed time > 40 seconds -> 3 coda
 
-        Args:
+        Parameters:
             actions_df (pd.DataFrame): Action DataFrame without Radiant Encore potency estimated.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with estimated Radiant Encore potencies.
         """
         actions_df.loc[
             (actions_df["abilityGameID"] == self.radiant_encore_id)

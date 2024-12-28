@@ -1,3 +1,5 @@
+from typing import Dict
+
 import numpy as np
 import pandas as pd
 
@@ -7,13 +9,13 @@ from fflogs_rotation.base import BuffQuery, disjunction
 class BlackMageActions(BuffQuery):
     def __init__(
         self,
-        headers,
-        report_id,
-        fight_id,
-        player_id,
-        level,
-        patch_number,
-        thundercloud_id=1000164,
+        headers: Dict[str, str],
+        report_id: str,
+        fight_id: int,
+        player_id: int,
+        level: int,
+        patch_number: float,
+        thundercloud_id: int = 1000164,
     ) -> None:
         self.report_id = report_id
         self.player_id = player_id
@@ -35,7 +37,7 @@ class BlackMageActions(BuffQuery):
         else:
             self.enochian_buff = 1.32
 
-        # Paradox and transpose are exlcuded because they affect both fire and ice
+        # Paradox and transpose are excluded because they affect both fire and ice
         # Checks are explicitly applied for these actions
         self.fire_granting_actions = {
             "Despair": {"time": 15, "stacks": 3},
@@ -84,9 +86,14 @@ class BlackMageActions(BuffQuery):
         self.thunder_application_names = {"Thunder III", "High Thunder"}
 
         self.thunder_tick_names = {"Thunder III (tick)", "High Thunder (tick)"}
-        pass
 
-    def get_transpose_umbral_soul_casts(self, headers):
+    def get_transpose_umbral_soul_casts(self, headers: Dict[str, str]) -> None:
+        """
+        Retrieve transpose and umbral soul casts, and thundercloud buff data.
+
+        Parameters:
+            headers (Dict[str, str]): Headers for the GraphQL query.
+        """
         query = """
         query BlackMageCasts(
             $code: String!
@@ -168,16 +175,20 @@ class BlackMageActions(BuffQuery):
         # Post Dawntrail this is impossible, so just make a 1 x 2 array with impossible timestamps.
         else:
             self.thundercloud_times = np.array([[0, 0]])
-        pass
 
-    def _set_elemental_timings(self, actions_df):
-        """Find when Astral Fire and Umbral Ice, along with the number of
+    def _set_elemental_timings(self, actions_df: pd.DataFrame) -> None:
+        """
+        Find when Astral Fire and Umbral Ice, along with the number of.
+
         respective stacks. These values will be used to determine when Enochian is up
         and also apply the relevant (de)buffs to fire and ice spells.
+
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame containing action data.
         """
         no_dot_actions_df = actions_df[actions_df["tick"] != True]
 
-        # Concatenate umbral souls and tranpose casts
+        # Concatenate umbral souls and transpose casts
         no_dot_actions_df = (
             pd.concat(
                 [
@@ -215,7 +226,7 @@ class BlackMageActions(BuffQuery):
         elemental_remaining_time.append(0)
         n_stacks.append(0)
         for idx, row in no_dot_actions_df.iloc[1:].iterrows():
-            action = row["ability_name"]
+            # action = row["ability_name"]
             previous_action = row["previous_action"]
 
             time_delta = row["elapsed_time"] - row["previous_time"]
@@ -367,25 +378,35 @@ class BlackMageActions(BuffQuery):
         self.elemental_status["n_stacks"] = self.elemental_status["n_stacks"].astype(
             int
         )
-        pass
 
-    def apply_elemental_buffs(self, actions_df):
-        """Apply buffs related to elemental job guage:
+    def apply_elemental_buffs(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply buffs related to elemental job gauge:
+
         - Astral Fire I - III
         - Umbral Ice I - III
         - Enochian
+
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame containing action data.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with applied elemental buffs.
         """
 
-        def elemental_damage_multiplier(ability_name, elemental_status, n_stacks):
-            """Map ability_name, elemental_status, and n_stacks to the corresponding damage buff for fire/ice actions.
+        def elemental_damage_multiplier(
+            ability_name: str, elemental_status: str, n_stacks: int
+        ) -> tuple:
+            """
+            Map ability_name, elemental_status, and n_stacks to the corresponding damage buff for fire/ice actions.
 
-            Args:
-                ability_name (str): Name of the ability being used.
-                elemental_status (str): Which element status (AF/UI) is active.
-                n_stacks (int): Number of stacks present for elemental status.
+            Parameters:
+            ability_name (str): Name of the ability being used.
+            elemental_status (str): Which element status (AF/UI) is active.
+            n_stacks (int): Number of stacks present for elemental status.
 
             Returns:
-                int: corresponding damage buff.
+            tuple: Corresponding damage buff and list of buffs.
             """
             if elemental_status is None:
                 return 1, []
@@ -472,9 +493,3 @@ class BlackMageActions(BuffQuery):
         )
 
         return blm_actions_df[actions_df.columns]
-
-
-if __name__ == "__main__":
-    from fflogs_rotation.rotation import headers
-
-    blm = BlackMageActions(headers, "N1rJByQCKjzkTnG9", 18, 1238, 100, 7.01)

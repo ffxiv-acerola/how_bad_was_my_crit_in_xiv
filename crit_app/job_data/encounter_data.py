@@ -43,7 +43,7 @@ encounter_phases = {
         2: "P2: Usurper of Frost",
         3: "P3: Oracle of Darkness",
         4: "P4: Enter the Dragon",
-        5: "P5: Pandora"
+        5: "P5: Pandora",
     }
     # 1077: {
     #     1: "P1: Omega",

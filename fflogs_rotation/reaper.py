@@ -1,3 +1,5 @@
+from typing import Dict
+
 import pandas as pd
 
 from fflogs_rotation.base import BuffQuery, disjunction
@@ -45,7 +47,16 @@ class ReaperActions(BuffQuery):
         self.set_enhanced_times(headers)
         pass
 
-    def set_enhanced_times(self, headers):
+    def set_enhanced_times(self, headers: Dict[str, str]) -> None:
+        """
+        Perform an API call to get buff intervals for enhanced abilities and immortal sacrifice stacks.
+
+        Sets values as a 2 x n Numpy array, where the first column is the start time
+        and the second column is the end time.
+
+        Parameters:
+            headers (Dict[str, str]): FFLogs API header.
+        """
         query = """
         query reaperEnhanced(
             $code: String!
@@ -56,7 +67,6 @@ class ReaperActions(BuffQuery):
             $enhancedGibbetID: Float!
             $enhancedVoidReapingID: Float!
             $immortalSacrificeID: Float!
-
         ) {
             reportData {
                 report(code: $code) {
@@ -148,10 +158,18 @@ class ReaperActions(BuffQuery):
         self.immortal_sacrifice_times = self.immortal_sacrifice_times.astype(
             int
         ).to_numpy()
-
         pass
 
-    def apply_enhanced_buffs(self, actions_df):
+    def apply_enhanced_buffs(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply enhanced buffs to the actions DataFrame.
+
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame of actions.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with applied buffs.
+        """
         # Enhanced cross reaping
         enhanced_cross_reaping_betweens = list(
             actions_df["timestamp"].between(b[0], b[1], inclusive="right")

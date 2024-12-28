@@ -1,7 +1,17 @@
+from typing import Dict
+
+import pandas as pd
+
 from fflogs_rotation.base import BuffQuery, disjunction
 
 
 class ViperActions(BuffQuery):
+    """
+    Handles Viper job-specific actions and buff tracking.
+
+    Manages buffs and potency increases for Viper abilities and combos.
+    """
+
     def __init__(
         self,
         headers: dict,
@@ -19,6 +29,25 @@ class ViperActions(BuffQuery):
         honed_reavers_id: int = 1003772,
         honed_steel_id: int = 1003672,
     ) -> None:
+        """
+        Initialize ViperActions with report details and buff IDs.
+
+        Parameters:
+            headers (Dict[str, str]): FFLogs API headers
+            report_id (str): FFLogs report ID
+            fight_id (int): Fight ID within the report
+            player_id (int): Player ID to track
+            flankstung_venom_id (int): Buff ID for Flankstung Venom
+            flanksbane_venom_id (int): Buff ID for Flanksbane Venom
+            hindstung_venom_id (int): Buff ID for Hindstung Venom
+            hindsbane_venom_id (int): Buff ID for Hindsbane Venom
+            hunters_venom_id (int): Buff ID for Hunter's Venom
+            swiftskins_venom_id (int): Buff ID for Swiftskin's Venom
+            poised_twinfang_id (int): Buff ID for Poised Twinfang
+            poised_twinblood_id (int): Buff ID for Poised Twinblood
+            honed_reavers_id (int): Buff ID for Honed Reavers
+            honed_steel_id (int): Buff ID for Honed Steel
+        """
         self.report_id = report_id
         self.fight_id = fight_id
         self.player_id = player_id
@@ -93,7 +122,7 @@ class ViperActions(BuffQuery):
             34631,
         }
 
-        self.generation_combo_piror_combo_ids = {
+        self.generation_combo_prior_combo_ids = {
             34627: 34626,
             34628: 34627,
             34629: 34628,
@@ -103,8 +132,9 @@ class ViperActions(BuffQuery):
         self.set_viper_buff_times(headers)
         pass
 
-    def set_viper_buff_times(self, headers):
+    def set_viper_buff_times(self, headers: Dict[str, str]) -> None:
         """Set buffs so corresponding actions have their potency increased.
+
         By Buff -> Action potency increase:
         - Flankesbane Venom -> Flanksbane Fang
         - Flankstung Venom -> Flanksting Strike
@@ -231,14 +261,22 @@ class ViperActions(BuffQuery):
         self.grimskins_venom_times = self._get_buff_times("grimskins")
         pass
 
-    def _apply_generation_combo_chains(self, actions_df):
-        """Check if Nth Generation followed the correct combo chain and apply a buff so
+    def _apply_generation_combo_chains(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Check if Nth Generation followed the correct combo chain and apply a buff so.
+
         the correct potency is applied.
 
         - Reawaken -> First Generation
         - First Generation -> Second Generation
         - Second Generation -> Third Generation
         - Third Generation -> Fourth Generation
+
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame of actions.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with applied buffs for generation combos.
         """
         # Filter to just weaponskills
         weaponskill_df = actions_df[
@@ -251,7 +289,7 @@ class ViperActions(BuffQuery):
         generation_combo_chains = list(
             (weaponskill_df["abilityGameID"] == combo)
             & (weaponskill_df["priorWeaponskillID"] == prior)
-            for combo, prior in self.generation_combo_piror_combo_ids.items()
+            for combo, prior in self.generation_combo_prior_combo_ids.items()
         )
 
         generation_combo_condition = disjunction(*generation_combo_chains)
@@ -264,21 +302,30 @@ class ViperActions(BuffQuery):
         # Just get new action name and buff list
         weaponskill_df = weaponskill_df[
             weaponskill_df["abilityGameID"].isin(
-                self.generation_combo_piror_combo_ids.keys()
+                self.generation_combo_prior_combo_ids.keys()
             )
         ][["action_name", "buffs"]]
 
         # Update original values in the actions DF
         actions_df.loc[
             actions_df["abilityGameID"].isin(
-                self.generation_combo_piror_combo_ids.keys()
+                self.generation_combo_prior_combo_ids.keys()
             ),
             ["action_name", "buffs"],
         ] = weaponskill_df
 
         return actions_df
 
-    def apply_viper_buffs(self, actions_df):
+    def apply_viper_buffs(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply Viper buffs to the actions DataFrame.
+
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame of actions.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with applied buffs.
+        """
         actions_df = self._apply_generation_combo_chains(actions_df)
 
         # Loop through and apply all the buffs to each action

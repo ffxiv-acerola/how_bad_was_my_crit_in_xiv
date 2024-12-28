@@ -1,14 +1,17 @@
-# from .base import BuffQuery, disjunction
+from typing import Dict
+
 import pandas as pd
 
 from fflogs_rotation.base import BuffQuery, disjunction
+
+# FIXME: add enhanced ranged attack buff
 
 
 class DragoonActions(BuffQuery):
     def __init__(
         self,
-        headers: dict,
-        report_id: int,
+        headers: Dict[str, str],
+        report_id: str,
         fight_id: int,
         player_id: int,
         patch_number: float,
@@ -17,7 +20,7 @@ class DragoonActions(BuffQuery):
         fang_and_claw_bared_id: int = 1000802,
         wheel_in_motion_id: int = 1000803,
         life_of_the_dragon_id: int = 1003177,
-    ):
+    ) -> None:
         self.report_id = report_id
         self.fight_id = fight_id
         self.player_id = player_id
@@ -32,12 +35,16 @@ class DragoonActions(BuffQuery):
         self.life_of_the_dragon_id = life_of_the_dragon_id
         if patch_number < 7.0:
             self._set_combo_finisher_timings(headers)
-
         else:
             self._set_life_of_the_dragon_timings(headers)
-        pass
 
-    def _set_combo_finisher_timings(self, headers):
+    def _set_combo_finisher_timings(self, headers: Dict[str, str]) -> None:
+        """
+        Set the timings for combo finishers based on the provided headers.
+
+        Parameters:
+            headers (Dict[str, str]): Headers for the GraphQL query.
+        """
         query = """
         query dragoonFinishers(
             $code: String!
@@ -132,9 +139,13 @@ class DragoonActions(BuffQuery):
             int
         ).to_numpy()
 
-        pass
+    def _set_life_of_the_dragon_timings(self, headers: Dict[str, str]) -> None:
+        """
+        Set the timings for Life of the Dragon based on the provided headers.
 
-    def _set_life_of_the_dragon_timings(self, headers):
+        Parameters:
+            headers (Dict[str, str]): Headers for the GraphQL query.
+        """
         query = """
         query dragoonLOTD(
             $code: String!
@@ -175,16 +186,24 @@ class DragoonActions(BuffQuery):
             .to_numpy()
         )
         self.life_of_the_dragon_times += self.report_start
-        pass
 
-    def apply_endwalker_combo_finisher_potencies(self, actions_df):
+    def apply_endwalker_combo_finisher_potencies(
+        self, actions_df: pd.DataFrame
+    ) -> pd.DataFrame:
         """
-        Check if wheeling thrust/fang and claw buffs were applied by the penultimate
+        Check if wheeling thrust/fang and claw buffs were applied by the penultimate.
+
         or antepenultimate action in the combo. This dictates if the action gets the
         100 potency bonus.
 
         We have to go through all this effort to properly account for the combo finisher
         when a position is missed...
+
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame containing action data.
+
+        Returns:
+        pd.DataFrame: Updated DataFrame with applied combo finisher potencies.
         """
         if self.patch_number >= 7.0:
             raise ValueError(
