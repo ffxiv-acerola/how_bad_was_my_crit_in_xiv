@@ -27,9 +27,16 @@ pyarrow = "^17.0.0"
 ruff = "^0.6.4"
 ipykernel = "^6.29.5"
 pre-commit = "^4.0.1"
+docformatter = "^1.7.5"
+pydocstringformatter = "^0.7.3"
+
+[tool.ruff]
+# Same as Black.
+line-length = 88
 
 [tool.ruff.lint]
 ignore = ["E712"] # Pandas requires == True
+
 
 [build-system]
 requires = ["poetry-core"]
