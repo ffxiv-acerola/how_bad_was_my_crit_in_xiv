@@ -1,4 +1,5 @@
 """Set the `recompute_flag` in the report table so the analysis is recomputed.
+
 This is necessary when the ffxiv stats module updates.
 """
 

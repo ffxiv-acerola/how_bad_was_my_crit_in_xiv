@@ -183,6 +183,7 @@ def rotation_percentile_text_map(rotation_percentile: float) -> str:
 
 def ad_hoc_job_invalid(job: str, log_time: int) -> bool:
     """Collection of various conditions to make certain jobs un-analyzable.
+
     For example, 7.0 - 7.01 Monk's job gauge is not modeled, so it cannot be analyzed.
 
     These *should* be fairly rare.
@@ -302,6 +303,7 @@ def get_phase_selector_options(
 ) -> Tuple[List[Dict[str, int]], bool]:
     """
     Create a dictionary of phase select options for an encounter.
+
     Also create a boolean indicator for whether the phase selector should be visible.
 
     For encounters without phases, the phase always defaults to 0 and hidden.
@@ -1171,9 +1173,7 @@ def valid_tenacity(tenacity: int, role: str) -> tuple:
     prevent_initial_call=True,
 )
 def process_fflogs_url(n_clicks, url, role):
-    """
-    Get the report/fight ID from an fflogs URL, then determine the encounter ID, start time, and jobs present.
-    """
+    """Get the report/fight ID from an fflogs URL, then determine the encounter ID, start time, and jobs present."""
 
     if url is None:
         raise PreventUpdate
@@ -1311,7 +1311,9 @@ def display_compute_button(
     magic_ranged_value: Optional[str],
 ) -> bool:
     """
-    Display button to compute DPS distributions once a job is selected. Otherwise, no button is shown.
+    Display button to compute DPS distributions once a job is selected.
+
+    Otherwise, no button is shown.
 
     Parameters:
     healers (List[Dict[str, Any]]): List of healer job options.

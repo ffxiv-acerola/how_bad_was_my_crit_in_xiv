@@ -1,9 +1,7 @@
-"""
-API queries made to FFLogs and Etro.
-"""
+"""API queries made to FFLogs and Etro."""
 
 import json
-from typing import Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 import pandas as pd
@@ -18,16 +16,43 @@ api_key = FFLOGS_TOKEN  # or copy/paste your key here
 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
 
 
-def parse_etro_url(etro_url: str):
+def parse_etro_url(etro_url: str) -> Tuple[Optional[str], int]:
+    """
+    Extract gearset ID from Etro URL and validate format.
+
+    Args:
+        etro_url: Full Etro gearset URL
+
+    Returns:
+        Tuple containing:
+            - Gearset ID (UUID) if valid, None if invalid
+            - Error code:
+                0 = Success
+                1 = Invalid domain (not etro.gg)
+                2 = Invalid UUID length
+                3 = Parse error
+
+    Example:
+        ```python
+        # Valid URL
+        gid, err = parse_etro_url("https://etro.gg/gearset/123e4567-e89b...")
+        assert err == 0
+
+        # Invalid domain
+        gid, err = parse_etro_url("https://google.com")
+        assert err == 1
+        ```
+    """
     error_code = 0
     try:
         parts = urlparse(etro_url)
         if parts.netloc != "etro.gg":
             return None, 1
-        gearset_id = [segment for segment in parts.path.split("/") if segment][-1]
 
+        gearset_id = [segment for segment in parts.path.split("/") if segment][-1]
         if len(gearset_id) != 36:
             return None, 2
+
     except Exception:
         gearset_id = None
         error_code = 3
@@ -38,18 +63,19 @@ def parse_etro_url(etro_url: str):
 def parse_fflogs_url(fflogs_url: str) -> Tuple[Optional[str], Optional[int], int]:
     """
     Read the parts of an FFLogs URL to get report ID and fight ID.
+
     Returns an error code if an incorrect link is provided.
 
     Parameters:
-    fflogs_url (str): The FFLogs URL to parse.
+        fflogs_url (str): The FFLogs URL to parse.
 
     Returns:
-    tuple[Optional[str], Optional[int], int]: A tuple containing the report ID, fight ID, and an error code.
-                                              Error codes:
-                                              0 - No error
-                                              1 - Site is not fflogs.com
-                                              2 - Fight ID not specified
-                                              3 - Invalid report ID
+        tuple[Optional[str], Optional[int], int]: A tuple containing the report ID, fight ID, and an error code.
+                                                Error codes:
+                                                0 - No error
+                                                1 - Site is not fflogs.com
+                                                2 - Fight ID not specified
+                                                3 - Invalid report ID
     """
     parts = urlparse(fflogs_url)
 
@@ -78,7 +104,33 @@ def parse_fflogs_url(fflogs_url: str) -> Tuple[Optional[str], Optional[int], int
     return report_id, fight_id, error_code
 
 
-def get_encounter_job_info(code: str, fight_id: int):
+# TODO: can be split up into multiple functions later
+def get_encounter_job_info(
+    code: str, fight_id: int
+) -> Tuple[int, int, List[Dict], List[Dict], float, str, int, int, Dict[str, Any]]:
+    """
+    Fetch encounter details and job information from FFLogs API.
+
+    Args:
+        code: FFLogs report code (e.g. "a1b2c3d4")
+        fight_id: Fight ID within the report
+
+    Returns:
+        Tuple containing:
+            - encounter_id: FFLogs encounter identifier
+            - start_time: Fight start timestamp (ms)
+            - jobs: List of player/job info dicts
+            - limit_break: List of limit break usage dicts
+            - fight_time: Duration in seconds
+            - fight_name: Name of encounter
+            - report_start_time: Report start timestamp (ms)
+            - furthest_phase_index: Highest phase reached
+            - raw_response: Complete API response
+
+    Example:
+        >>> info = get_encounter_job_info("a1b2c3d4", 1)
+        >>> encounter_id, start_time, jobs, *_ = info
+    """
     variables = {"code": code, "id": [fight_id]}
 
     json_payload = {
@@ -176,9 +228,30 @@ def get_encounter_job_info(code: str, fight_id: int):
     )
 
 
-def limit_break_damage_events(report_id: str, fight_id: int, limit_break_id: int):
+def limit_break_damage_events(
+    report_id: str, fight_id: int, limit_break_id: int
+) -> pd.DataFrame:
     """
-    Get all LB damage events which successfully landed on its target as a pandas DataFrame.
+    Get all limit break damage events that successfully landed on targets.
+
+    Args:
+        report_id: FFLogs report identifier (e.g. "a1b2c3d4")
+        fight_id: Fight ID within the report
+        limit_break_id: Actor ID for limit break
+
+    Returns:
+        DataFrame containing damage events with columns:
+            - report_id: Original report ID
+            - fight_id: Fight identifier
+            - timestamp: Event timestamp (ms)
+            - target_id: Target actor ID
+            - amount: Damage amount
+
+    Example:
+        >>> events = limit_break_damage_events("a1b2c3", 1, 16)
+        >>> print(events.head())
+           report_id  fight_id  timestamp  target_id  amount
+        0    a1b2c3         1  12345678        101   50000
     """
     variables = {"code": report_id, "id": [fight_id], "limitBreakID": limit_break_id}
 
@@ -224,36 +297,38 @@ def limit_break_damage_events(report_id: str, fight_id: int, limit_break_id: int
         return lb_df
 
 
-def boss_healing_amount(report_id: str, fight_id: int):
-    """Get boss healing events, which affects total HP/damage dealt.
-    Used for party analysis.
+# TODO: DEPRECATED
+# def boss_healing_amount(report_id: str, fight_id: int):
+#     """Get boss healing events, which affects total HP/damage dealt.
 
-    Args:
-        report_id (str): FFLogs report ID
-        fight_id (int): FFLogs fight ID
-    """
+#     Used for party analysis.
 
-    variables = {"code": report_id, "id": [fight_id]}
+#     Args:
+#         report_id (str): FFLogs report ID
+#         fight_id (int): FFLogs fight ID
+#     """
 
-    json_payload = {
-        "query": """
-            query bossHealing($code: String!, $id: [Int]!) {
-                reportData {
-                    report(code: $code) {
-                        startTime
-                        table(dataType: Healing, fightIDs: $id, hostilityType: Enemies)
-                    }
-                }
-            }
-    """,
-        "variables": variables,
-        "operationName": "bossHealing",
-    }
-    r = requests.post(url=url, json=json_payload, headers=headers)
-    r = json.loads(r.text)
+#     variables = {"code": report_id, "id": [fight_id]}
 
-    healing_amount = r["data"]["reportData"]["report"]["table"]["data"]["entries"]
-    if len(healing_amount) == 0:
-        return 0
-    else:
-        return sum([h["total"] for h in healing_amount])
+#     json_payload = {
+#         "query": """
+#             query bossHealing($code: String!, $id: [Int]!) {
+#                 reportData {
+#                     report(code: $code) {
+#                         startTime
+#                         table(dataType: Healing, fightIDs: $id, hostilityType: Enemies)
+#                     }
+#                 }
+#             }
+#     """,
+#         "variables": variables,
+#         "operationName": "bossHealing",
+#     }
+#     r = requests.post(url=url, json=json_payload, headers=headers)
+#     r = json.loads(r.text)
+
+#     healing_amount = r["data"]["reportData"]["report"]["table"]["data"]["entries"]
+#     if len(healing_amount) == 0:
+#         return 0
+#     else:
+#         return sum([h["total"] for h in healing_amount])

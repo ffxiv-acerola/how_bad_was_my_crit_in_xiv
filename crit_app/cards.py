@@ -1,33 +1,53 @@
-"""
-Create cards used to display content.
-"""
+"""Create cards used to display content."""
+
+from typing import Dict, List, Optional
 
 import dash_bootstrap_components as dbc
-from dash import dcc, html
+from dash import dash_table, dcc, html
+from plotly.graph_objs._figure import Figure
+
 from crit_app.job_data.encounter_data import stat_ranges
 
 
 def initialize_job_build(
-    etro_url=None,
-    role="Healer",
-    main_stat=None,
-    tenacity=None,
-    determination=None,
-    speed=None,
-    crit=None,
-    direct_hit=None,
-    weapon_damage=None,
-    delay=None,
-    party_bonus=1.05,
-    medication_amt=392,
-):
+    etro_url: Optional[str] = None,
+    role: str = "Healer",
+    main_stat: Optional[int] = None,
+    tenacity: Optional[int] = None,
+    determination: Optional[int] = None,
+    speed: Optional[int] = None,
+    crit: Optional[int] = None,
+    direct_hit: Optional[int] = None,
+    weapon_damage: Optional[int] = None,
+    delay: Optional[float] = None,
+    party_bonus: float = 1.05,
+    medication_amt: int = 392,
+) -> html.Div:
     """
-    Create the job build div, optionally setting initial values for them.
-    Initial values are set when an `analysis_id` is present in the URL.
-    Callback decorators require an input to trigger them, which isn't possible
-    to automatically trigger them just once.
-    There doesn't seem to be a way to set/edit values without a callback except when
-    the element is created.
+    Create job build card with stat inputs and role selection.
+
+    The card allows:
+    - Loading builds from Etro URLs
+    - Manual stat entry with validation
+    - Role selection
+    - Medication/tincture selection
+
+    Args:
+        etro_url: Optional Etro build URL to preload stats
+        role: Selected role (Tank/Healer/etc)
+        main_stat: Main stat value for selected role
+        tenacity: Tenacity stat (tanks only)
+        determination: Determination stat
+        speed: Skill/Spell speed stat
+        crit: Critical hit stat
+        direct_hit: Direct hit stat
+        weapon_damage: Weapon damage stat
+        delay: Weapon delay value
+        party_bonus: Party composition bonus multiplier
+        medication_amt: Amount of main stat from tincture/food
+
+    Returns:
+        html.Div containing the complete job build card
     """
 
     etro_input = dbc.Row(
@@ -280,99 +300,18 @@ def initialize_job_build(
         id="bottom-build-row",
     )
 
-    # Party bonus/pot
-    party_bonus = dbc.Row(
-        [
-            # Party bonus
-            dbc.Col(
-                html.Div(
-                    [
-                        dbc.Label(
-                            [
-                                html.Span(
-                                    r"Add % bonus to main stat",
-                                    id="bonus-tooltip",
-                                    style={
-                                        "textDecoration": "underline",
-                                        "textDecorationStyle": "dotted",
-                                        "cursor": "pointer",
-                                    },
-                                ),
-                                dbc.Tooltip(
-                                    r"The % bonus added to main stat for each unique job present. For most cases, this should be 5%. If a job like Physical Ranged is missing, this value should be 4%.",
-                                    target="bonus-tooltip",
-                                ),
-                            ],
-                            # width=1,
-                        ),
-                        dcc.Slider(
-                            1.00,
-                            1.05,
-                            step=0.01,
-                            value=party_bonus,
-                            marks={
-                                1.00: "0%",
-                                1.01: "1%",
-                                1.02: "2%",
-                                1.03: "3%",
-                                1.04: "4%",
-                                1.05: "5%",
-                            },
-                            id="main-stat-slider",
-                        ),
-                    ]
-                ),
-                md=4,
-                width=12,
-            ),
-            # Medication
-            # dbc.Col(
-            #     [
-            #         dbc.Label(
-            #             [
-            #                 html.Span(
-            #                     "Tincture grade",
-            #                     id="tincture-tooltip",
-            #                     style={
-            #                         "textDecoration": "underline",
-            #                         "textDecorationStyle": "dotted",
-            #                         "cursor": "pointer",
-            #                     },
-            #                 ),
-            #                 dbc.Tooltip(
-            #                     "If no tincture was used, "
-            #                     "keep the default value selected.",
-            #                     target="tincture-tooltip",
-            #                 ),
-            #             ],
-            #         ),
-            #         dbc.Select(
-            #             name="Tincture grade",
-            #             id="tincture-grade",
-            #             options=[
-            #                 {
-            #                     "label": "Grade 8 Tincture (+262)",
-            #                     "value": 262,
-            #                 },
-            #                 {
-            #                     "label": "Grade 7 Tincture (+223)",
-            #                     "value": 223,
-            #                 },
-            #             ],
-            #             value=medication_amt,
-            #         ),
-            #     ]
-            # ),
-        ]
-    )
-
     job_build_card = html.Div(
         dbc.Card(
             dbc.CardBody(
                 [
                     html.H2("Select a role and enter job build"),
                     html.P(
-                        "A job build must be fully entered before a log can be analyzed. A build from an Etro URL can be loaded in or values can be manually entered. A role must be selected so the correct main/secondary stats can be used. If an Etro build is used, the role will be automatically selected. Do not include any percent bonus to main stat, this is automatically calculated."
+                        "A job build must be fully entered before a log can be analyzed. "
+                        "A build from an Etro URL can be loaded in or values can be manually entered. "
+                        "A role must be selected so the correct main/secondary stats can be used. "
+                        "If an Etro build is used, the role will be automatically selected. "
+                        "Do not include any percent bonus to main stat, this is automatically "
+                        "calculated."
                     ),
                     dbc.Form(
                         [
@@ -385,7 +324,6 @@ def initialize_job_build(
                             bottom_stat_row,
                             dbc.Row(id="party-bonus-warning"),
                             tincture_input,
-                            # party_bonus,
                         ]
                     ),
                 ]
@@ -396,30 +334,52 @@ def initialize_job_build(
     return job_build_card
 
 
-# FIXME: Handle loading in
 def initialize_fflogs_card(
-    fflogs_url=None,
-    encounter_name_time=[],
-    phase_select_options=[],
-    phase_select_value=0,
-    phase_selector_hidden=True,
-    job_radio_options_dict={
+    fflogs_url: Optional[str] = None,
+    encounter_name_time: List[str] = [],
+    phase_select_options: List[Dict[str, str]] = [],
+    phase_select_value: int = 0,
+    phase_selector_hidden: bool = True,
+    job_radio_options_dict: Dict[str, List[Dict[str, str]]] = {
         "Tank": [],
         "Healer": [],
         "Melee": [],
         "Physical Ranged": [],
         "Magical Ranged": [],
     },
-    job_radio_value_dict={
+    job_radio_value_dict: Dict[str, Optional[str]] = {
         "Tank": None,
         "Healer": None,
         "Melee": None,
         "Physical Ranged": None,
         "Magical Ranged": None,
     },
-    encounter_hidden=True,
-    analyze_hidden=True,
-):
+    encounter_hidden: bool = True,
+    analyze_hidden: bool = True,
+) -> html.Div:
+    """
+    Create FFLogs analysis card with URL input and job selection.
+
+    Builds a card with:
+    - FFLogs URL input and validation
+    - Phase selection for multi-phase fights
+    - Job selection radio buttons by role
+    - Analysis button
+
+    Args:
+        fflogs_url: FFLogs report URL
+        encounter_name_time: List of encounter name and timestamp
+        phase_select_options: Options for phase select dropdown
+        phase_select_value: Selected phase value
+        phase_selector_hidden: Whether to show phase selector
+        job_radio_options_dict: Job options for each role's radio buttons
+        job_radio_value_dict: Selected job for each role
+        encounter_hidden: Whether to show encounter info
+        analyze_hidden: Whether to show analyze button
+
+    Returns:
+        html.Div containing the complete FFLogs analysis card
+    """
     fflogs_url = dbc.Row(
         [
             dbc.Label("Log URL", width=12, md=2),
@@ -563,20 +523,40 @@ def initialize_fflogs_card(
     return fflogs_card
 
 
-def initialize_rotation_card(rotation_figure=None, rotation_percentile_table=None):
+def initialize_rotation_card(
+    rotation_figure: Optional[Figure] = None,
+    rotation_percentile_table: Optional[dash_table.DataTable] = None,
+) -> html.Div:
+    """
+    Create card displaying rotation DPS distribution and percentiles.
+
+    Args:
+        rotation_figure: Plotly figure showing DPS distribution
+        rotation_percentile_table: DataTable with DPS percentiles
+
+    Returns:
+        Card with two-column layout containing plot and table
+    """
     rotation_dmg_pdf_card = dbc.Card(
         dbc.CardBody(
             [
+                # Header
                 html.H2("Rotation DPS distribution"),
+                # Description
                 html.P(
-                    "The DPS distribution and your DPS is plotted below. Your DPS and corresponding percentile is shown in green along with select percentiles."
+                    "The DPS distribution and your DPS is plotted below. "
+                    "Your DPS and corresponding percentile is shown in green "
+                    "along with select percentiles."
                 ),
                 html.P(
-                    "The DPS distribution is also summarized by its first three moments: mean, standard deviation, and skewness."
+                    "The DPS distribution is also summarized by its first "
+                    "three moments: mean, standard deviation, and skewness."
                 ),
+                # Two-column layout
                 html.Div(
                     dbc.Row(
                         [
+                            # Left: Plot
                             dbc.Col(
                                 html.Div(
                                     children=rotation_figure, id="rotation-pdf-fig-div"
@@ -584,6 +564,7 @@ def initialize_rotation_card(rotation_figure=None, rotation_percentile_table=Non
                                 width=12,
                                 md=9,
                             ),
+                            # Right: Table
                             dbc.Col(
                                 html.Div(
                                     children=rotation_percentile_table,
@@ -602,17 +583,35 @@ def initialize_rotation_card(rotation_figure=None, rotation_percentile_table=Non
 
 
 def initialize_action_card(
-    action_figure=None, action_summary_table=None, action_options=[], action_values=[]
-):
+    action_figure: Optional[Figure] = None,
+    action_summary_table: Optional[dash_table.DataTable] = None,
+    action_options: List[dict] = [],
+    action_values: List[str] = [],
+) -> html.Div:
+    """
+    Create card showing DPS distributions for individual actions.
+
+    Args:
+        action_figure: Plotly figure with action DPS distributions
+        action_summary_table: DataTable with action DPS summary stats
+        action_options: Options for action selector dropdown
+        action_values: Initially selected actions
+
+    Returns:
+        Card containing plot, action selector, and summary table
+    """
     action_dmg_pdf_card = dbc.Card(
         dbc.CardBody(
             [
                 html.H2("Action DPS distributions"),
                 html.P(
-                    "The DPS distribution for each action is shown below. Hover over the graph to see the controls and change the view, or use the dropdown below to remove/add actions."
+                    "The DPS distribution for each action is shown below. "
+                    "Hover over the graph to see the controls and change the view, "
+                    "or use the dropdown below to remove/add actions."
                 ),
                 html.P(
-                    "The table below shows DPS at the 50th percentile, your actual DPS, and the corresponding percentile."
+                    "The table below shows DPS at the 50th percentile, your actual DPS, "
+                    "and the corresponding percentile."
                 ),
                 html.Div(children=action_figure, id="action-pdf-fig-div"),
                 html.Div(
@@ -650,46 +649,78 @@ def initialize_action_card(
     return action_dmg_pdf_card
 
 
-def initialize_new_action_card(action_figure=None):
-    action_dmg_pdf_card = dbc.Card(
+def initialize_new_action_card(action_figure: Optional[Figure] = None) -> html.Div:
+    """
+    Create card showing box plots of action DPS distributions.
+
+    Args:
+        action_figure: Plotly figure with box plots for each action's DPS
+
+    Returns:
+        Card containing plot and descriptions
+    """
+    return dbc.Card(
         dbc.CardBody(
             [
                 html.H2("Action DPS distributions"),
                 html.P(
-                    "The DPS distribution for each action is shown below as box and whisker plots. Whiskers represent the 10th and 90th percentiles, respectively. Hover over a box plot to see the corresponding percentile, along with select other percentiles."
+                    "The DPS distribution for each action is shown below as box and whisker "
+                    "plots. Whiskers represent the 10th and 90th percentiles, respectively. "
+                    "Hover over a box plot to see the corresponding percentile, along with "
+                    "select other percentiles."
                 ),
                 html.P(
-                    "Note: reported DoT DPS values from FFLogs might be underestimated compared to the computed DPS distributions. This is a known issue with currently no fix because of how DoT damage information is conveyed via ACT."
+                    "Note: reported DoT DPS values from FFLogs might be underestimated "
+                    "compared to the computed DPS distributions. This is a known issue with "
+                    "currently no fix because of how DoT damage information is conveyed via ACT."
                 ),
                 html.Div(children=action_figure, id="action-pdf-fig-div"),
             ],
             className="mb-3",
         ),
     )
-    return action_dmg_pdf_card
 
 
 def initialize_results(
-    player_name=None,
-    crit_text=None,
-    job_alert=[],
-    rotation_card=[],
-    action_card=[],
-    analysis_url=None,
-    xiv_analysis_url=None,
-    results_hidden=True,
-):
-    if player_name is not None:
-        player_name = f"{player_name}, your crit was..."
-    else:
-        player_name = "Your crit was..."
+    player_name: Optional[str] = None,
+    crit_text: Optional[str] = None,
+    job_alert: List[html.Div] = [],
+    rotation_card: List[html.Div] = [],
+    action_card: List[html.Div] = [],
+    analysis_url: Optional[str] = None,
+    xiv_analysis_url: Optional[str] = None,
+    results_hidden: bool = True,
+) -> html.Div:
+    """
+    Create results card showing analysis outcome and details.
+
+    Args:
+        player_name: Player name for header
+        crit_text: Crit analysis result text
+        job_alert: Job specific alerts/warnings
+        rotation_card: Rotation analysis card
+        action_card: Action analysis card
+        analysis_url: URL to share analysis
+        xiv_analysis_url: URL for XIVAnalysis
+        results_hidden: Whether to show results
+
+    Returns:
+        Card containing complete analysis results
+    """
+    player_name = (
+        f"{player_name}, your crit was..." if player_name else "Your crit was..."
+    )
+
     crit_results = html.Div(
         dbc.Card(
             dbc.CardBody(
                 [
+                    # Header
                     html.H2(player_name),
+                    # Results content
                     html.Div(
                         [
+                            # Crit result and explanation
                             dbc.Row(
                                 [
                                     html.P(children=crit_text, id="crit-result-text"),
@@ -702,8 +733,10 @@ def initialize_results(
                                 ]
                             ),
                             html.Br(),
+                            # Job alerts
                             dbc.Row(html.Div(children=job_alert, id="job-alert-id")),
                             html.Br(),
+                            # Analysis links
                             dbc.Row(
                                 [
                                     dbc.Col(
@@ -731,6 +764,7 @@ def initialize_results(
                                 ]
                             ),
                             html.Br(),
+                            # XIVAnalysis link
                             dbc.Row(
                                 [
                                     html.A(
@@ -743,10 +777,11 @@ def initialize_results(
                                         ],
                                         href=xiv_analysis_url,
                                         target="_blank",
-                                    )
+                                    ),
                                 ]
                             ),
                             html.Br(),
+                            # Modal
                             dbc.Modal(
                                 [
                                     dbc.ModalHeader(
@@ -785,7 +820,7 @@ def initialize_results(
                         ],
                         id="crit-result-div",
                     ),
-                    # html.Br(),
+                    # Analysis results
                     rotation_card,
                     html.Br(),
                     action_card,

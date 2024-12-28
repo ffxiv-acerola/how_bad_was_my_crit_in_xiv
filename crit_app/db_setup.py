@@ -1,6 +1,4 @@
-"""
-Create database and tables for saving analyzed rotations so they do not need to be recomputed again.
-"""
+"""Create database and tables for saving analyzed rotations so they do not need to be recomputed again."""
 
 import sqlite3
 

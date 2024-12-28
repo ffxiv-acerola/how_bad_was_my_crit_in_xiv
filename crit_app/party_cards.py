@@ -1,3 +1,5 @@
+from typing import Any, Dict, List, Optional, Union
+
 import dash_bootstrap_components as dbc
 import pandas as pd
 from dash import (
@@ -37,8 +39,21 @@ party_analysis_assumptions_modal = dbc.Modal(
 )
 
 
-def create_fflogs_card(fflogs_url=None, encounter_info_children=None):
-    fflogs_url = dbc.Row(
+def create_fflogs_card(
+    fflogs_url: Optional[str] = None, encounter_info_children: Optional[List] = None
+) -> dbc.Card:
+    """
+    Create card component for FFLogs URL input and encounter info.
+
+    Args:
+        fflogs_url: Link to FFLogs report and fight.
+        encounter_info_children: Child components for encounter info section
+
+    Returns:
+        Bootstrap card containing URL input and encounter info
+    """
+    # URL input row
+    url_input = dbc.Row(
         [
             dbc.Label("Log URL", width=12, md=2),
             dbc.Col(
@@ -54,33 +69,79 @@ def create_fflogs_card(fflogs_url=None, encounter_info_children=None):
                 className="me-3",
             ),
             dbc.Col(
-                [
-                    dbc.Button(
-                        "Submit",
-                        color="primary",
-                        id="fflogs-url-state2",
-                    ),
-                ],
+                dbc.Button(
+                    "Submit",
+                    color="primary",
+                    id="fflogs-url-state2",
+                ),
                 width="auto",
             ),
         ],
         class_name="mb-3",
         style={"padding-bottom": "15px"},
     )
+
+    # Encounter info row
     encounter_info = dbc.Row(encounter_info_children, id="encounter-info")
+
     return dbc.Card(
-        dbc.CardBody([html.H2("Enter log to analyze"), fflogs_url, encounter_info])
+        dbc.CardBody([html.H2("Enter log to analyze"), url_input, encounter_info])
     )
 
 
-def create_quick_build_table(job_information):
+def create_quick_build_table(
+    job_information: List[Dict[str, Any]],
+) -> dash_table.DataTable:
+    """
+    Create quick build table with job and player information.
+
+    Args:
+        job_information: List of dicts containing job/player data
+
+    Returns:
+        Dash DataTable component with formatted job/player info
+    """
+
+    # Constants
+    # ROLE_ORDER = {
+    #     "Tank": 1,
+    #     "Healer": 2,
+    #     "Melee": 3,
+    #     "Physical Ranged": 4,
+    #     "Magical Ranged": 5
+    # }
+
+    TABLE_STYLES = {
+        "header": {"backgroundColor": "rgb(30, 30, 30)", "color": "white"},
+        "data": {"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
+    }
+
+    COLUMN_STYLES = [
+        {
+            "if": {"column_id": "job"},
+            "width": "50px",
+            "textAlign": "center",
+            "padding-bottom": "4px",
+            "font-family": "job-icons",
+            "font-size": "1.3em",
+        },
+        {
+            "if": {"column_id": "player_name"},
+            "width": "200px",
+            "textAlign": "left",
+            "padding-left": "10px",
+        },
+    ]
+
+    # Create and sort dataframe
     quick_build = pd.DataFrame(job_information)
+    # TODO: Verify this is correct
+    # quick_build["role_order"] = quick_build["role"].map(ROLE_ORDER)
     quick_build["role_order"] = 1
     quick_build.loc[quick_build["role"] == "Healer", "role_order"] = 2
     quick_build.loc[quick_build["role"] == "Melee", "role_order"] = 3
     quick_build.loc[quick_build["role"] == "Physical Ranged", "role_order"] = 4
     quick_build.loc[quick_build["role"] == "Magical Ranged", "role_order"] = 5
-
     quick_build["job"] = quick_build["job"].map(abbreviated_job_map)
     quick_build["etro_link"] = None
 
@@ -88,7 +149,8 @@ def create_quick_build_table(job_information):
         ["role_order", "job", "player_name", "player_id"]
     )[["job", "player_name", "etro_link"]]
 
-    quick_build_table = dash_table.DataTable(
+    # Create table
+    return dash_table.DataTable(
         data=quick_build.to_dict("records"),
         columns=[
             {"id": "job", "name": "Job", "editable": False, "selectable": False},
@@ -105,41 +167,32 @@ def create_quick_build_table(job_information):
                 "selectable": True,
             },
         ],
-        style_header={"backgroundColor": "rgb(30, 30, 30)", "color": "white"},
-        style_data={"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
+        style_header=TABLE_STYLES["header"],
+        style_data=TABLE_STYLES["data"],
+        style_cell_conditional=COLUMN_STYLES,
         editable=True,
-        style_data_conditional=[
-            {
-                "if": {"column_id": "job"},
-                "font-family": "job-icons",
-                "font-size": "1.3em",
-            }
-        ],
-        style_cell_conditional=[
-            {
-                "if": {"column_id": "job"},
-                "width": "50px",
-                "textAlign": "center",
-                "padding-bottom": "4px",
-            },
-            {
-                "if": {"column_id": "player_name"},
-                "width": "200px",
-                "textAlign": "left",
-                "padding-left": "10px",
-            },
-        ],
         id="quick-build-table",
     )
-    return quick_build_table
 
 
-def create_quick_build_div(quick_build_table):
+def create_quick_build_div(quick_build_table: Any) -> html.Div:
+    """
+    Create div containing quick build input components.
+
+    Args:
+        quick_build_table: Dash DataTable for entering build info
+
+    Returns:
+        Div containing header, instructions, table and fill button
+    """
     return html.Div(
         [
             html.H4("Quick build input"),
             html.P(
-                'Quickly input all Etro links by pasting them into the "Etro link" column below like you would a spreadsheet and then clicking the "Fill in Etro links" button. Otherwise, enter the build information one-by-one and then click the validate builds button.'
+                'Quickly input all Etro links by pasting them into the "Etro link" '
+                "column below like you would a spreadsheet and then clicking the "
+                '"Fill in Etro links" button. Otherwise, enter the build information '
+                "one-by-one and then click the validate builds button."
             ),
             quick_build_table,
             html.Br(),
@@ -149,19 +202,39 @@ def create_quick_build_div(quick_build_table):
     )
 
 
+# FIXME: remove job and delay
 def create_job_build_content(
     role: str,
     id_idx: int,
-    job: str = None,
-    main_stat=None,
-    tenacity=None,
-    determination=None,
-    speed=None,
-    crit=None,
-    direct_hit=None,
-    weapon_damage=None,
-    delay=None,
-):
+    job: Optional[str] = None,
+    main_stat: Optional[int] = None,
+    tenacity: Optional[int] = None,
+    determination: Optional[int] = None,
+    speed: Optional[int] = None,
+    crit: Optional[int] = None,
+    direct_hit: Optional[int] = None,
+    weapon_damage: Optional[int] = None,
+    delay: Optional[float] = None,
+) -> html.Div:
+    """
+    Create form component for entering job build stats.
+
+    Args:
+        role: Job role (Tank, Healer, etc)
+        id_idx: Index for component IDs
+        job: Job abbreviation
+        main_stat: Main stat value
+        tenacity: Tenacity stat (tanks only)
+        determination: Determination stat
+        speed: Skill/spell speed stat
+        crit: Critical hit stat
+        direct_hit: Direct hit stat
+        weapon_damage: Weapon damage value
+        delay: Weapon delay value
+
+    Returns:
+        Div containing form with stat input fields
+    """
     role_labels = role_stat_dict[role]
     top_stat_list = [
         dbc.Label(
@@ -299,7 +372,19 @@ def create_job_build_content(
     )
 
 
-def create_tincture_input(medication_amt=392, id_name="party-tincture-grade"):
+def create_tincture_input(
+    medication_amt: int = 392, id_name: str = "party-tincture-grade"
+) -> html.Div:
+    """
+    Create medication (tincture) selection component.
+
+    Args:
+        medication_amt: Default medication amount bonus
+        id_name: Component ID for select element
+
+    Returns:
+        Div containing medication grade selector
+    """
     tincture_input = html.Div(
         [
             html.H4("Medication"),
@@ -351,16 +436,41 @@ def create_accordion_items(
     name: str,
     player_id: int,
     id_idx: int,
-    main_stat: int = None,
-    secondary_stat: int = None,
-    determination: int = None,
-    speed: int = None,
-    crit: int = None,
-    direct_hit: int = None,
-    weapon_damage: int = None,
-    delay: float = None,
-    etro_url: str = None,
-):
+    main_stat: Optional[int] = None,
+    secondary_stat: Optional[int] = None,
+    determination: Optional[int] = None,
+    speed: Optional[int] = None,
+    crit: Optional[int] = None,
+    direct_hit: Optional[int] = None,
+    weapon_damage: Optional[int] = None,
+    delay: Optional[float] = None,
+    etro_url: Optional[str] = None,
+) -> dbc.AccordionItem:
+    """
+    Create accordion item for job build input.
+
+    Args:
+        role: Job role (Tank, Healer, etc)
+        job: Job abbreviation
+        name: Player name
+        player_id: Player identifier
+        id_idx: Index for component IDs
+        main_stat: Main stat value
+        secondary_stat: Secondary stat value
+        determination: Determination stat
+        speed: Skill/spell speed stat
+        crit: Critical hit stat
+        direct_hit: Direct hit stat
+        weapon_damage: Weapon damage value
+        delay: Weapon delay value
+        etro_url: Link to Etro build
+
+    Returns:
+        AccordionItem containing job build input form
+
+    Example:
+        >>> item = create_accordion_items("Tank", "WAR", "Player1", 123, 0)
+    """
     name_and_job = html.P(
         [
             html.Span(
@@ -431,23 +541,33 @@ def create_accordion_items(
     )
 
 
-def create_party_accordion(job_information: list, job_build_present=False):
-    """Create a list group where each member is an accordion that expands into stats.
+def create_party_accordion(
+    job_information: List[Dict[str, Union[str, int, float, None]]],
+    job_build_present: bool = False,
+) -> dbc.ListGroup:
+    """
+    Create accordion UI component grouping party members by role.
 
     Args:
-        job_information (list): job_information list of dictionaries,
-        containing role, job, player_name, and player_id. Optionally contains all job build stats:
-            - main_stat
-            - secondary_stat
-            - determination
-            - speed
-            - crit
-            - direct_hit
-            - weapon_damage
-            - delay
-        job_build_present (bool): whether job build stats are present in the dictionary
+        job_information: List of dicts containing player/job data:
+            - role: Job role (Tank, Healer, etc)
+            - job: Job abbreviation
+            - player_name: Character name
+            - player_id: Player identifier
+            Optional build stats if job_build_present:
+            - main_stat_pre_bonus: Pre-bonus main stat
+            - secondary_stat_pre_bonus: Pre-bonus secondary stat
+            - determination: Determination value
+            - speed: Skill/spell speed value
+            - critical_hit: Critical hit value
+            - direct_hit: Direct hit value
+            - weapon_damage: Weapon damage value
+            - delay: Weapon delay value
+            - etro_id: Etro build ID
+        job_build_present: Whether job build stats are included
+
     Returns:
-        _type_: _description_
+        ListGroup containing accordion sections for each role
     """
     tanks = []
     healers = []

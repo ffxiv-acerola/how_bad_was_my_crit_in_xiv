@@ -1,6 +1,4 @@
-"""
-Functions for processing results of API queries and computing damage distributions.
-"""
+"""Functions for processing results of API queries and computing damage distributions."""
 
 from dataclasses import dataclass
 from typing import Dict, List
@@ -57,6 +55,7 @@ class JobAnalysis:
 
     def interpolate_distributions(self, rotation_n=5000, action_n=5000):
         """Interpolate supplied distributions so the arrays have a fewer number of elements.
+
         Used after all convolving is complete
 
         Args:
@@ -88,7 +87,7 @@ class JobAnalysis:
 class KillTime:
     def _compute_kill_time_percentile(self, boss_hp, damage_pdf, damage_support):
         """
-        Compute the CDF from a PDF and support, then find the corresponding percentile a value has
+        Compute the CDF from a PDF and support, then find the corresponding percentile a value has.
 
         inputs:
         dps - float, DPS value to find a percentile
@@ -146,6 +145,7 @@ class PartyRotation(KillTime):
 
     def interpolate_distributions(self, rotation_n=5000, split_n=5000):
         """Interpolate supplied distributions so the arrays have a fewer number of elements.
+
         Used after all convolving is complete
 
         Args:
@@ -220,7 +220,7 @@ def job_analysis_to_data_class(job_analysis_object, active_dps_time):
 
 def get_dps_dmg_percentile(dps, dmg_distribution, dmg_distribution_support, t_div=1):
     """
-    Compute the CDF from a PDF and support, then find the corresponding percentile a value has
+    Compute the CDF from a PDF and support, then find the corresponding percentile a value has.
 
     inputs:
     dps - float, DPS value to find a percentile
