@@ -28,6 +28,30 @@ app.name = "Player analysis"
 app._favicon = "crit_app/assets/favicon.ico"
 server = app.server
 
+nav = dbc.Nav(
+    [
+        dbc.NavItem(dbc.NavLink("Player Analysis", active="partial", href="/analysis")),
+        dbc.NavItem(
+            dbc.NavLink("Party Analysis", active="partial", href="/party_analysis")
+        ),
+        dbc.DropdownMenu(
+            [
+                dbc.DropdownMenuItem(
+                    dbc.NavLink(
+                        "Supported fights", active="exact", href="/compatibility"
+                    )
+                ),
+                dbc.DropdownMenuItem(
+                    dbc.NavLink("FAQs", active="exact", href="/about")
+                ),
+            ],
+            label="About",
+            nav=True,
+        ),
+        dbc.NavItem(dbc.NavLink("Discord", href="https://discord.gg/8eezSgy3sC")),
+    ],
+    pills=True,
+)
 ###################################################
 ### Defining most of the layout/static elements ###
 ###################################################
@@ -49,107 +73,7 @@ header = html.Div(
             "and compares it to your actual DPS. To get started, all you need is your "
             "job build and link to a fight log."
         ),
-        html.P(
-            [
-                "This site supports analysis from Anabeiseos, Dawntrail's EX2, "
-                "AAC Light-Heavyweight, ",
-                html.I("and now FRU!"),
-                " If you have any suggestions, come across bugs, or would like to "
-                "contribute, join the ",
-                html.A(
-                    "Discord server",
-                    href="https://discord.gg/8eezSgy3sC",
-                    target="_blank",
-                ),
-                ".",
-            ]
-        ),
-        html.P(
-            [
-                "Compute damage distributions for a party and estimate kill time ",
-                html.A("here.", href="/party_analysis"),
-            ]
-        ),
-        html.A("More about this site", href="#", id="about-open"),
-        dbc.Modal(
-            [
-                dbc.ModalHeader(dbc.ModalTitle(html.H2("About this site"))),
-                dbc.ModalBody(
-                    [
-                        html.H3("How are damage distributions calculated?"),
-                        html.P("The short answer: lots of convolutions."),
-                        html.P(
-                            [
-                                "The long answer: check out ",
-                                html.A("this page", href="/math", target="_blank"),
-                                " for a more detailed explanation.",
-                            ]
-                        ),
-                        html.H3("Does this account for..."),
-                        html.P(
-                            "In most cases, yes. Damage variance due to different hit "
-                            "types (normal, critical, direct, and critical-direct) are "
-                            "accounted for along with the ±5% damage roll. Even the small "
-                            "gaps in the damage support due to integer math are accounted "
-                            "for. Rotational variance, like Minor Arcana or action procs "
-                            "are not accounted for because they cannot be reliably "
-                            "inferred from a log. This site only analyzes what is "
-                            "reported FFLogs and does not attempt to make any rotational "
-                            "inferences."
-                        ),
-                        html.P(
-                            "Most aspects of the battle system are also accounted for, "
-                            "including damage buffs, hit type buffs (including how they "
-                            "interact with guaranteed hit types, i.e. Chain Stratagem + "
-                            "Midare Setsugekka), and pet potency."
-                        ),
-                        html.H3("Why do I need to enter a job build?"),
-                        html.P(
-                            "Your job build is needed to compute how much damage each "
-                            "action does before any sort of damage variability as well "
-                            "as your critical hit rate and direct hit rate to accurately "
-                            "model damage variability. ACT and FFLogs is unable to "
-                            "reliably gather this information, so it must be explicitly "
-                            "specified."
-                        ),
-                        html.H3(
-                            "Is there an example with everything already filled out?"
-                        ),
-                        html.A(
-                            "Right here.",
-                            href="https://howbadwasmycritinxiv.com/analysis/"
-                            "3d009fc6-5198-4bca-97df-a156c67fb908",
-                        ),
-                        html.H3("Who is this site for?"),
-                        html.P(
-                            [
-                                "This sort of analysis is most helpful to people who "
-                                "have a rotation/kill time largely planned out and wish "
-                                "to see damage varied from run-to-run, or how likely a "
-                                "higher-DPS run is and by how much DPS. This site will "
-                                "not tell you how to improve your rotation - a site like ",
-                                html.A(
-                                    "xivanalysis",
-                                    href="https://xivanalysis.com/",
-                                    target="_blank",
-                                ),
-                                " is better-suited for that. In general, being able to "
-                                "perform a better rotation will have a much larger impact "
-                                "on damage dealt than good crit RNG.",
-                            ]
-                        ),
-                    ]
-                ),
-                dbc.ModalFooter(
-                    dbc.Button(
-                        "Close", id="about-close", className="ms-auto", n_clicks=0
-                    )
-                ),
-            ],
-            id="about-modal",
-            is_open=False,
-            size="lg",
-        ),
+        nav,
         html.Hr(),
     ]
 )
@@ -180,19 +104,12 @@ def toggle_interpretation_modal(n1, n2, is_open):
     return is_open
 
 
-@app.callback(
-    Output("about-modal", "is_open"),
-    Input("about-open", "n_clicks"),
-    Input("about-close", "n_clicks"),
-    State("about-modal", "is_open"),
-)
-def toggle_about_modal(n1, n2, is_open):
-    """Open/close the "about this site" modal."""
-    if n1 is None or n2 is None:
-        raise PreventUpdate
-    if n1 or n2:
-        return not is_open
-    return is_open
+@app.callback(Output("url", "pathname"), Input("url", "pathname"))
+def redirect_to_analysis(pathname: str) -> str:
+    """Redirect root URL to analysis page."""
+    if pathname == "/":
+        return "/analysis"
+    raise PreventUpdate
 
 
 @app.callback(

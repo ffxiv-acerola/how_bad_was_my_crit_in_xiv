@@ -304,20 +304,24 @@ def initialize_job_build(
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H2("Select a role and enter job build"),
+                    html.H2("Player analysis"),
+                    html.P("Analyze damage variability for a single player."),
+                    html.H3("Select a role and enter job build"),
                     html.P(
                         "A job build must be fully entered before a log can be analyzed. "
                         "A build from an Etro URL can be loaded in or values can be manually entered. "
                         "A role must be selected so the correct main/secondary stats can be used. "
                         "If an Etro build is used, the role will be automatically selected. "
-                        "Do not include any percent bonus to main stat, this is automatically "
-                        "calculated."
                     ),
                     dbc.Form(
                         [
                             etro_input,
                             role_input,
                             html.H3("Job stats"),
+                            html.P(
+                                "Do not include any percent bonus to main stat, this is automatically "
+                                "calculated."
+                            ),
                             dbc.Row(id="etro-build-name-div"),
                             top_stat_row,
                             middle_stat_row,

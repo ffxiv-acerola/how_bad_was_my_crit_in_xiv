@@ -146,7 +146,7 @@ def metas(analysis_id: str = None) -> list[dict[str, str]]:
 dash.register_page(
     __name__,
     path_template="/analysis/<analysis_id>",
-    path="/",
+    path="/analysis",
     name=page_title,
     meta_tags=metas,
 )
@@ -1137,7 +1137,8 @@ def valid_tenacity(tenacity: int, role: str) -> tuple:
         return valid_stat_return
 
     if tenacity is None:
-        raise PreventUpdate
+        return invalid_stat_return
+
     if validate_meldable_stat(
         "test",
         tenacity,

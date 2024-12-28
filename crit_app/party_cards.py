@@ -85,7 +85,17 @@ def create_fflogs_card(
     encounter_info = dbc.Row(encounter_info_children, id="encounter-info")
 
     return dbc.Card(
-        dbc.CardBody([html.H2("Enter log to analyze"), url_input, encounter_info])
+        dbc.CardBody(
+            [
+                html.H2("Party analysis"),
+                html.P(
+                    "Analyze damage variability for the whole party, including the likelihood of faster kill times."
+                ),
+                html.H3("Enter log to analyze"),
+                url_input,
+                encounter_info,
+            ]
+        )
     )
 
 
