@@ -1351,8 +1351,12 @@ class RotationTable(ActionTable):
             print(hits_df.head())
             ```
         """
+        # Filter out ticks because application damage + tick have same packet ID
+        # Only an issue for Dia, where application pot = tick pot.
+        # Caused fractional potency falloff condition to fail later.
         return (
-            actions_df.groupby("packetID")
+            actions_df[actions_df["tick"] != True]
+            .groupby("packetID")
             .max("base_damage")
             .reset_index()
             .rename(columns={"base_damage": "max_base"})[["packetID", "max_base"]]
@@ -1661,6 +1665,7 @@ class RotationTable(ActionTable):
         # Take the highest potency priority value by unique action
         sort_list = [
             "base_action",
+            "abilityGameID",
             "n",
             "buff_str",
             "p_n",
@@ -1705,94 +1710,14 @@ class RotationTable(ActionTable):
 
 if __name__ == "__main__":
     from crit_app.config import FFLOGS_TOKEN
-    from fflogs_rotation.job_data.data import (
-        critical_hit_rate_table,
-        damage_buff_table,
-        direct_hit_rate_table,
-        guaranteed_hits_by_action_table,
-        guaranteed_hits_by_buff_table,
-        potency_table,
-    )
+    # from fflogs_rotation.job_data.data import (
+    #     critical_hit_rate_table,
+    #     damage_buff_table,
+    #     direct_hit_rate_table,
+    #     guaranteed_hits_by_action_table,
+    #     guaranteed_hits_by_buff_table,
+    #     potency_table,
+    # )
 
     api_key = FFLOGS_TOKEN  # or copy/paste your key here
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-    job = "DarkKnight"
-    # TODO: turn these into tests
-    # RotationTable(
-    #     headers,
-    #     "2yDY81rxKFqPTdZC",
-    #     10,
-    #     "DarkKnight",
-    #     4,
-    #     2576,
-    #     940,
-    #     2182,
-    #     254,
-    #     damage_buff_table,
-    #     critical_hit_rate_table,
-    #     direct_hit_rate_table,
-    #     guaranteed_hits_by_action_table,
-    #     guaranteed_hits_by_buff_table,
-    #     potency_table,
-    #     pet_ids=[15],
-    # )
-
-    # RotationTable(
-    #     headers,
-    #     "bLcB1DYCKxq8tdf6",
-    #     6,
-    #     "Machinist",
-    #     7,
-    #     2002,
-    #     2220,
-    #     2607,
-    #     351,
-    #     100,
-    #     damage_buff_table,
-    #     critical_hit_rate_table,
-    #     direct_hit_rate_table,
-    #     guaranteed_hits_by_action_table,
-    #     guaranteed_hits_by_buff_table,
-    #     potency_table,
-    #     pet_ids=[13],
-    # )
-
-    # RotationTable(
-    #     headers,
-    #     "TxzfCRDj9WrkGp6H",
-    #     14,
-    #     "BlackMage",
-    #     4,
-    #     4341,
-    #     2032,
-    #     2064,
-    #     351,
-    #     90,
-    #     damage_buff_table,
-    #     critical_hit_rate_table,
-    #     direct_hit_rate_table,
-    #     guaranteed_hits_by_action_table,
-    #     guaranteed_hits_by_buff_table,
-    #     potency_table,
-    #     pet_ids=None,
-    # )
-
-    RotationTable(
-        headers,
-        "ZTHC2AVM3wcxXhKz",
-        2,
-        "Viper",
-        7,
-        4341,
-        2032,
-        2064,
-        351,
-        100,
-        damage_buff_table,
-        critical_hit_rate_table,
-        direct_hit_rate_table,
-        guaranteed_hits_by_action_table,
-        guaranteed_hits_by_buff_table,
-        potency_table,
-        pet_ids=None,
-    )
