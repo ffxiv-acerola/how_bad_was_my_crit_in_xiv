@@ -14,6 +14,7 @@ valid_encounters = [
     # 1077,
     1078,
     1079,
+    3009, # Byakko
 ]
 valid_encounter_text = ""
 
@@ -35,6 +36,7 @@ encounter_level = {
     1072: 100,
     1078: 100,
     1079: 100,
+    3009: 100, # Byakko
 }
 
 encounter_phases = {

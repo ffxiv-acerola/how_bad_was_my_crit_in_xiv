@@ -478,7 +478,11 @@ def layout(party_analysis_id=None):
             ]
         )
 
-
+@callback(
+    Output("job-rotation-pdf", "figure"),
+    Input("job-selector", "value"),
+    Input("job-graph-type", "value"),
+)
 def load_job_rotation_figure(job_analysis_id: Optional[str], graph_type: str) -> Figure:
     """
     Load and create job rotation figure based on analysis data.
