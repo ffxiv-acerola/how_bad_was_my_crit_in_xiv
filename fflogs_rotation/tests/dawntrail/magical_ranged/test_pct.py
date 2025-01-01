@@ -18,7 +18,7 @@ from ffxiv_stats.jobs import MagicalRanged
 class TestPictomancerActions:
     """Tests for Pictomancer job actions and rotations.
 
-    Based of Reality's speed kill for m1s
+    Based off Reality's speed kill for m1s
     https://www.fflogs.com/reports/B3gxKdn4j1W8NML9#fight=3
     """
 
@@ -125,3 +125,115 @@ class TestPictomancerActions:
 
         # Assert
         assert_frame_equal(actual_counts, expected_pct_7_05_action_counts)
+
+
+class TestPictomancerMultiTargetActions:
+    """Tests for Pictomancer job actions and rotations with multiple targets.
+
+    Based off
+    https://www.fflogs.com/reports/vZRCr94LWzcXYjFq?fight=15
+    """
+
+    def setup_method(self):
+        """Setup method to initialize common variables and RotationTable."""
+        self.report_id = "vZRCr94LWzcXYjFq"
+        self.fight_id = 15
+        self.level = 100
+        self.phase = 4
+        self.player_id = 200
+        self.pet_ids = None
+
+        self.main_stat = 5127
+        self.pet_attack_power = self.main_stat // 1.05
+        self.det = 2271
+        self.speed = 420
+
+        self.crt = 3140
+        self.dh = 2047
+        self.wd = 146
+
+        self.delay = 2.96
+        self.medication = 392
+
+        self.t = 393.947
+
+        self.pct_rotation_7_1 = RotationTable(
+            headers,
+            self.report_id,
+            self.fight_id,
+            "Pictomancer",
+            self.player_id,
+            self.crt,
+            self.dh,
+            self.det,
+            self.medication,
+            self.level,
+            self.phase,
+            damage_buff_table,
+            critical_hit_rate_table,
+            direct_hit_rate_table,
+            guaranteed_hits_by_action_table,
+            guaranteed_hits_by_buff_table,
+            potency_table,
+            pet_ids=self.pet_ids,
+        )
+
+        self.pct_analysis_7_1 = MagicalRanged(
+            self.main_stat,
+            400,
+            self.det,
+            self.speed,
+            self.crt,
+            self.dh,
+            self.wd,
+            self.delay,
+            self.pet_attack_power,
+            level=self.level,
+        )
+
+    @pytest.fixture
+    def expected_pct_7_1_multi_target_action_counts(self) -> pd.DataFrame:
+        """Fixture providing expected action count data."""
+        return (
+            pd.DataFrame(
+                [
+                    {"base_action": "Holy in White", "n": 14},
+                    {"base_action": "Comet in Black", "n": 5},
+                    {"base_action": "Polishing Hammer", "n": 4},
+                    {"base_action": "Hammer Brush", "n": 4},
+                    {"base_action": "Hammer Stamp", "n": 4},
+                    {"base_action": "Star Prism", "n": 2},
+                    {"base_action": "Mog of the Ages", "n": 2},
+                    {"base_action": "Clawed Muse", "n": 3},
+                    {"base_action": "Thunder in Magenta", "n": 2},
+                    {"base_action": "Rainbow Drip", "n": 4},
+                    {"base_action": "Blizzard in Cyan", "n": 2},
+                    {"base_action": "Stone in Yellow", "n": 2},
+                    {"base_action": "Pom Muse", "n": 2},
+                    {"base_action": "Retribution of the Madeen", "n": 2},
+                    {"base_action": "Fanged Muse", "n": 2},
+                    {"base_action": "Aero in Green", "n": 3},
+                    {"base_action": "Winged Muse", "n": 2},
+                    {"base_action": "Fire in Red", "n": 3},
+                    {"base_action": "Water in Blue", "n": 2},
+                ]
+            )
+            .sort_values(["n", "base_action"], ascending=[False, True])
+            .reset_index(drop=True)
+        )
+
+    def test_pct_7_10_multi_action_counts(
+        self, expected_pct_7_1_multi_target_action_counts: pd.DataFrame
+    ):
+        """Test that action counts match expected values for 7.05 log."""
+        # Arrange
+        actual_counts = (
+            self.pct_rotation_7_1.rotation_df.groupby("base_action")
+            .sum("n")
+            .reset_index()[["base_action", "n"]]
+            .sort_values(["n", "base_action"], ascending=[False, True])
+            .reset_index(drop=True)
+        )
+
+        # Assert
+        assert_frame_equal(actual_counts, expected_pct_7_1_multi_target_action_counts)

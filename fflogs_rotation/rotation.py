@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import requests
 
+from crit_app.job_data.encounter_data import encounter_phases
 from fflogs_rotation.bard import BardActions
 from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.dragoon import DragoonActions
@@ -415,14 +416,25 @@ class ActionTable(object):
         # If there is, this affects the start/end time and any downtime, if present
         # A follow-up query is required to correctly that information.
         if self.phase > 0:
+            # Start of phase
             phase_start_time = [
                 p["startTime"] for p in self.phase_information if p["id"] == self.phase
             ][0]
-            phase_end_time = [
-                p["startTime"]
-                for p in self.phase_information
-                if p["id"] == self.phase + 1
-            ][0]
+
+            # End of phase
+            encounter_id = r["data"]["reportData"]["report"]["fights"][0]["encounterID"]
+            # End time is beginning of next phase
+            if self.phase < max(encounter_phases[encounter_id].keys()):
+                phase_end_time = [
+                    p["startTime"]
+                    for p in self.phase_information
+                    if p["id"] == self.phase + 1
+                ][0]
+            # Unless the final phase is selected, use end time
+            else:
+                phase_end_time = r["data"]["reportData"]["report"]["fights"][0][
+                    "endTime"
+                ]
             phase_response = self.phase_fight_times(
                 headers, phase_start_time, phase_end_time
             )
