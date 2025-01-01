@@ -1151,6 +1151,7 @@ def valid_tenacity(tenacity: int, role: str) -> tuple:
 
 
 @callback(
+    Output("fflogs-url-feedback", "children"),
     Output("encounter-name-time", "children"),
     Output("phase-select", "options"),
     Output("phase-select-div", "hidden"),
@@ -1184,6 +1185,7 @@ def process_fflogs_url(n_clicks, url, role):
         [],
         [],
         [],
+        [],
         radio_value,
         [],
         radio_value,
@@ -1205,7 +1207,7 @@ def process_fflogs_url(n_clicks, url, role):
         feedback_text = """Please enter a log linked to a specific kill.\nfight=last in the URL is also currently unsupported."""
         return tuple([feedback_text] + error_return)
     if error_code == 3:
-        feedback_text = "Invalid report ID."
+        feedback_text = "Invalid report ID. The URL should look like https://www.fflogs.com/reports/{report}?fight={fight}"
         return tuple([feedback_text] + error_return)
 
     (
@@ -1234,7 +1236,17 @@ def process_fflogs_url(n_clicks, url, role):
     encounter_name_time = f"{encounter_name} ({fight_time_str})"
 
     if encounter_id not in valid_encounters:
-        feedback_text = f"Sorry, {encounter_name} is not supported."
+        feedback_text = html.Span(
+            [
+                f"Sorry, {encounter_name} is not supported. Please check the supported encounters ",
+                html.A(
+                    "here.",
+                    target="_blank",
+                    href="/compatibility",
+                    style={"color": "#e74c3a"},
+                ),
+            ]
+        )
         return tuple([feedback_text] + error_return)
 
     (
@@ -1266,6 +1278,7 @@ def process_fflogs_url(n_clicks, url, role):
         update_encounter_table(db_rows)
 
     return (
+        [],
         encounter_name_time,
         phase_select_options,
         phase_select_hidden,

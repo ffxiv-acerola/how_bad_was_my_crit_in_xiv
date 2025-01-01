@@ -73,8 +73,9 @@ header = html.Div(
             "and compares it to your actual DPS. To get started, all you need is your "
             "job build and link to a fight log."
         ),
-        nav,
         html.Hr(),
+        nav,
+        html.Br(),
     ]
 )
 

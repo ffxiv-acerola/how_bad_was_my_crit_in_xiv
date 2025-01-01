@@ -304,8 +304,16 @@ def initialize_job_build(
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H2("Player analysis"),
-                    html.P("Analyze damage variability for a single player."),
+                    html.H2(
+                        "Player analysis",
+                        className="display-3",
+                        style={"font-size": "2.5em"},
+                    ),
+                    html.P(
+                        "Analyze damage variability for a single player.",
+                        className="lead",
+                    ),
+                    html.Hr(className="my-2"),
                     html.H3("Select a role and enter job build"),
                     html.P(
                         "A job build must be fully entered before a log can be analyzed. "

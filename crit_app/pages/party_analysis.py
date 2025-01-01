@@ -370,9 +370,14 @@ def layout(party_analysis_id=None):
         )
 
         # Job-level view
-        job_selector = party_report_df[["report_id", "fight_id"]].merge(
-            job_report_df, on=["report_id", "fight_id"]
-        )[["job", "player_name", "analysis_id"]]
+        # FIXME: preserve order
+        job_selector = (
+            party_report_df[["report_id", "fight_id"]]
+            .merge(job_report_df, on=["report_id", "fight_id"])[
+                ["job", "player_name", "analysis_id"]
+            ]
+            .drop_duplicates()
+        )
 
         # Filter down to job analyses only in the party analysis.
         job_selector = (
@@ -477,6 +482,7 @@ def layout(party_analysis_id=None):
                 ),
             ]
         )
+
 
 @callback(
     Output("job-rotation-pdf", "figure"),
@@ -826,8 +832,8 @@ def etro_process(
             if etro_party_bonus > 1:
                 primary_stat = int(primary_stat / etro_party_bonus)
                 # Undo STR for healer/caster
-                if build_role in ("Healer", "Magical Ranged"):
-                    secondary_stat = int(secondary_stat / etro_party_bonus)
+                # if build_role in ("Healer", "Magical Ranged"):
+                #     secondary_stat = int(secondary_stat / etro_party_bonus)
 
             time.sleep(1)
             return (

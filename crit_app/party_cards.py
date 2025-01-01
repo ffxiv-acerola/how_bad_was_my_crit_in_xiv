@@ -87,10 +87,17 @@ def create_fflogs_card(
     return dbc.Card(
         dbc.CardBody(
             [
-                html.H2("Party analysis"),
-                html.P(
-                    "Analyze damage variability for the whole party, including the likelihood of faster kill times."
+                html.H2(
+                    "Party analysis",
+                    className="display-3",
+                    style={"font-size": "2.5em"},
                 ),
+                html.P(
+                    "Analyze damage variability for the whole party, "
+                    "including the likelihood of faster kill times.",
+                    className="lead",
+                ),
+                html.Hr(className="my-2"),
                 html.H3("Enter log to analyze"),
                 url_input,
                 encounter_info,
@@ -122,7 +129,12 @@ def create_quick_build_table(
     # }
 
     TABLE_STYLES = {
-        "header": {"backgroundColor": "rgb(30, 30, 30)", "color": "white"},
+        "header": {
+            "backgroundColor": "rgb(30, 30, 30)",
+            "color": "white",
+            "font-family": "sans-serif",
+            "font-size": "1.0em",
+        },
         "data": {"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
     }
 
