@@ -1,5 +1,6 @@
 import json
 from functools import reduce
+from typing import Any, Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -17,15 +18,34 @@ def disjunction(*conditions):
 
 
 class BuffQuery(object):
-    def __init__(
-        self,
-    ) -> None:
-        """Helper class to perform GraphQL queries, get buff timings, and and apply buffs to an actions DataFrame."""
-        pass
+    """
+    Helper class to perform GraphQL queries, get buff timings, and apply buffs to actions.
+
+    Provides base functionality for job-specific buff tracking classes.
+    """
+
+    def __init__(self) -> None:
+        self.report_start: int = 0
+        self.request_response: Dict[str, Any] = {}
 
     def _perform_graph_ql_query(
-        self, headers, query, variables, operation_name, report_start=True
-    ):
+        self,
+        headers: Dict[str, str],
+        query: str,
+        variables: Dict[str, Any],
+        operation_name: str,
+        report_start: bool = True,
+    ) -> None:
+        """
+        Perform GraphQL query to FFLogs API.
+
+        Args:
+            headers: API request headers
+            query: GraphQL query string
+            variables: Query variables
+            operation_name: Name of GraphQL operation
+            report_start: Whether to extract report start time
+        """
         json_payload = {
             "query": query,
             "variables": variables,
@@ -39,9 +59,18 @@ class BuffQuery(object):
             self.report_start = self.request_response["data"]["reportData"]["report"][
                 "startTime"
             ]
-        pass
 
-    def _get_buff_times(self, buff_name, absolute_time=True):
+    def _get_buff_times(self, buff_name: str, absolute_time: bool = True) -> np.ndarray:
+        """
+        Get buff duration intervals from API response.
+
+        Args:
+            buff_name: Name of buff in API response
+            absolute_time: Whether to convert to absolute timestamps
+
+        Returns:
+            Array of [start_time, end_time] intervals
+        """
         aura = self.request_response["data"]["reportData"]["report"][buff_name]["data"][
             "auras"
         ]
@@ -52,20 +81,23 @@ class BuffQuery(object):
         else:
             return np.array([[0, 0]])
 
-    def _apply_buffs(self, actions_df, condition, buff_id):
-        """Apply a buff to an actions DataFrame.
-        Updates the buffs list column and appends the buff ID to the action_name column
+    def _apply_buffs(
+        self, actions_df: pd.DataFrame, condition: pd.Series, buff_id: Union[str, int]
+    ) -> pd.DataFrame:
+        """
+        Apply a buff to an actions DataFrame.
 
         Args:
-            actions_df (DataFrame): Pandas DataFrame of actions
-            condition (bool): condition for which actions the buffs should be applied to.
-            buff_id (str): Buff to add to `buffs` and `action_name` columns
-        """
+            actions_df: DataFrame of actions
+            condition: Boolean mask for which actions to apply buff to
+            buff_id: ID of buff to add
 
-        actions_df.loc[
-            condition,
-            "buffs",
-        ] = actions_df["buffs"].apply(lambda x: x + [str(buff_id)])
+        Returns:
+            DataFrame with updated buff and action name columns
+        """
+        actions_df.loc[condition, "buffs"] = actions_df["buffs"].apply(
+            lambda x: x + [str(buff_id)]
+        )
 
         actions_df["action_name"] = (
             actions_df["action_name"].str.split("-").str[0]

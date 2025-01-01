@@ -1,5 +1,6 @@
 import pickle
 import time
+from typing import Optional, Tuple
 from uuid import uuid4
 
 import dash
@@ -16,6 +17,7 @@ from dash import (
     html,
 )
 from dash.exceptions import PreventUpdate
+from plotly.graph_objs._figure import Figure
 
 from crit_app.api_queries import (
     get_encounter_job_info,
@@ -40,12 +42,12 @@ from crit_app.figures import (
     make_party_rotation_pdf_figure,
     make_rotation_pdf_figure,
 )
-from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
-from crit_app.job_data.roles import abbreviated_job_map, role_mapping, role_stat_dict
 from crit_app.job_data.encounter_data import (
     encounter_level,
     valid_encounters,
 )
+from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
+from crit_app.job_data.roles import abbreviated_job_map, role_mapping, role_stat_dict
 from crit_app.party_cards import (
     create_fflogs_card,
     create_party_accordion,
@@ -368,9 +370,14 @@ def layout(party_analysis_id=None):
         )
 
         # Job-level view
-        job_selector = party_report_df[["report_id", "fight_id"]].merge(
-            job_report_df, on=["report_id", "fight_id"]
-        )[["job", "player_name", "analysis_id"]]
+        # FIXME: preserve order
+        job_selector = (
+            party_report_df[["report_id", "fight_id"]]
+            .merge(job_report_df, on=["report_id", "fight_id"])[
+                ["job", "player_name", "analysis_id"]
+            ]
+            .drop_duplicates()
+        )
 
         # Filter down to job analyses only in the party analysis.
         job_selector = (
@@ -482,7 +489,22 @@ def layout(party_analysis_id=None):
     Input("job-selector", "value"),
     Input("job-graph-type", "value"),
 )
-def load_job_rotation_figure(job_analysis_id, graph_type):
+def load_job_rotation_figure(job_analysis_id: Optional[str], graph_type: str) -> Figure:
+    """
+    Load and create job rotation figure based on analysis data.
+
+    Args:
+        job_analysis_id: Analysis ID to load data for
+        graph_type: Type of graph to create ('rotation' or 'action')
+
+    Returns:
+        Plotly figure showing either rotation PDF or action box plots
+
+    Raises:
+        PreventUpdate: If job_analysis_id not provided
+        FileNotFoundError: If analysis data files missing
+        ValueError: If invalid graph type specified
+    """
     if job_analysis_id is None:
         raise PreventUpdate
     with open(BLOB_URI / f"job-analysis-data-{job_analysis_id}.pkl", "rb") as f:
@@ -510,7 +532,16 @@ def load_job_rotation_figure(job_analysis_id, graph_type):
 
 
 @callback(Output("job-level-analysis", "href"), Input("job-selector", "value"))
-def job_analysis_redirect(job_analysis_id):
+def job_analysis_redirect(job_analysis_id: Optional[str]) -> str:
+    """
+    Redirect to individual analysis URL.
+
+    Args:
+        job_analysis_id: analysis ID to link to
+
+    Returns:
+        URL path string for job analysis page
+    """
     return f"/analysis/{job_analysis_id}"
 
 
@@ -519,7 +550,18 @@ def job_analysis_redirect(job_analysis_id):
     Output("party-collapse-button", "children"),
     Input("party-collapse-button", "n_clicks"),
 )
-def toggle_party_list(n_clicks):
+def toggle_party_list(n_clicks: Optional[int]) -> Tuple[bool, str]:
+    """
+    Toggle party list visibility and update button text.
+
+    Args:
+        n_clicks: Number of times button has been clicked
+
+    Returns:
+        Tuple containing:
+            - Boolean for if list should be visible
+            - String for button text
+    """
     if n_clicks % 2 == 1:
         return True, "Click to hide party list"
     else:
@@ -542,9 +584,7 @@ def quick_fill_job_build(n_clicks, etro_links):
     State("party-analysis-link", "value"),
 )
 def copy_party_analysis_link(n, selected):
-    """
-    Copy analysis link to clipboard
-    """
+    """Copy analysis link to clipboard."""
     if selected is None:
         raise PreventUpdate
     return selected
@@ -792,8 +832,8 @@ def etro_process(
             if etro_party_bonus > 1:
                 primary_stat = int(primary_stat / etro_party_bonus)
                 # Undo STR for healer/caster
-                if build_role in ("Healer", "Magical Ranged"):
-                    secondary_stat = int(secondary_stat / etro_party_bonus)
+                # if build_role in ("Healer", "Magical Ranged"):
+                #     secondary_stat = int(secondary_stat / etro_party_bonus)
 
             time.sleep(1)
             return (
@@ -980,7 +1020,9 @@ def analyze_party_rotation(
     fflogs_url,
 ):
     """
-    Analyze and compute the damage distribution of a whole party. This is done by
+    Analyze and compute the damage distribution of a whole party.
+
+    This is done by
     computing the damage distribution of each job and convolving each one together.
 
     The likelihood of faster kill times is also analyzed, by computing the percentile

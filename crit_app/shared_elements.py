@@ -1,15 +1,15 @@
 import sqlite3
 from ast import literal_eval
-from typing import Tuple
+from typing import Optional, Tuple, Union
 
 import coreapi
 import numpy as np
 import pandas as pd
 
 from crit_app.config import DB_URI
+from crit_app.job_data.encounter_data import encounter_phases
 from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
 from crit_app.job_data.roles import role_stat_dict
-from crit_app.job_data.encounter_data import encounter_phases
 from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
 
@@ -57,9 +57,9 @@ def etro_build(gearset_id):
         build_role = "Magical Ranged"
         main_stat_str = "INT"
         speed_stat_str = "SPS"
-    elif job_abbreviated in ("MNK", "DRG", "SAM", "RPR", "NIN"):
+    elif job_abbreviated in ("MNK", "DRG", "SAM", "RPR", "NIN", "VPR"):
         build_role = "Melee"
-        main_stat_str = "STR" if job_abbreviated != "NIN" else "DEX"
+        main_stat_str = "STR" if job_abbreviated not in ("NIN", "VPR") else "DEX"
         speed_stat_str = "SKS"
     elif job_abbreviated in ("BRD", "DNC", "MCH"):
         build_role = "Physical Ranged"
@@ -124,22 +124,96 @@ def etro_build(gearset_id):
         etro_party_bonus,
     )
 
-def validate_main_stat(stat_name, stat_value, lower=3000, upper=6500):
+
+def validate_main_stat(
+    stat_name: str, stat_value: int, lower: int = 3000, upper: int = 6500
+) -> tuple[bool, str | None]:
+    """
+    Validate that a main stat value falls within acceptable range.
+
+    Args:
+        stat_name: Name of stat being validated
+        stat_value: Stat value to check
+        lower: Minimum acceptable value (default: 3000)
+        upper: Maximum acceptable value (default: 6500)
+
+    Returns:
+        Tuple containing:
+            - Boolean indicating if value is valid
+            - Error message if invalid, None if valid
+
+    Example:
+        >>> valid, error = validate_main_stat("Strength", 3500)
+        >>> assert valid and error is None
+
+        >>> valid, error = validate_main_stat("Mind", 7000)
+        >>> assert not valid
+        >>> print(error)
+        'Mind must be between 3000-6500.'
+    """
     if (stat_value >= lower) and (stat_value < upper):
         return True, None
     else:
-        return False, f"{stat_name} must be between 3000-6500."
+        return False, f"{stat_name} must be between {lower}-{upper}."
 
-def validate_meldable_stat(stat_name, stat_value, lower=380, upper=6000):
+
+def validate_meldable_stat(
+    stat_name: str, stat_value: int, lower: int = 380, upper: int = 6000
+) -> tuple[bool, str | None]:
+    """
+    Validate that a meldable stat value falls within acceptable range.
+
+    Args:
+        stat_name: Name of stat being validated
+        stat_value: Stat value to check
+        lower: Minimum acceptable value (default: 380)
+        upper: Maximum acceptable value (default: 6000)
+
+    Returns:
+        Tuple containing:
+            - Boolean indicating if value is valid
+            - Error message if invalid, None if valid
+
+    Example:
+        >>> valid, error = validate_meldable_stat("Critical Hit", 2000)
+        >>> assert valid and error is None
+    """
     if (stat_value >= lower) and (stat_value < upper):
         return True, None
     else:
-        return False, f"{stat_name} must be between 380-5500."
+        return False, f"{stat_name} must be between {lower}-{upper}."
 
 
-def validate_secondary_stat(role, stat_value):
+def validate_secondary_stat(
+    role: str, stat_value: str | float | int
+) -> tuple[bool, str | None]:
+    """
+    Validate secondary stat values based on role.
+
+    Currently only validates Tenacity for Tanks.
+    Other roles always return valid.
+
+    Args:
+        role: Player role ("Tank", "Healer", etc)
+        stat_value: Stat value to validate
+
+    Returns:
+        Tuple containing:
+            - Boolean indicating if value is valid
+            - Error message if invalid, None if valid
+
+    Example:
+        >>> valid, error = validate_secondary_stat("Tank", 400)
+        >>> assert valid and error is None
+
+        >>> valid, error = validate_secondary_stat("Tank", 5000)
+        >>> assert not valid
+        >>> print(error)
+        'Tenacity must be between 380-4500.'
+    """
     if isinstance(stat_value, str):
         stat_value = float(stat_value)
+
     if role == "Tank":
         if (stat_value >= 380) & (stat_value < 4500):
             return True, None
@@ -149,16 +223,31 @@ def validate_secondary_stat(role, stat_value):
         return True, None
 
 
-def validate_speed_stat(speed_stat):
-    """Check that speed stat is inputted and not the GCD
+def validate_speed_stat(speed_stat: int | float | str) -> tuple[bool, str | None]:
+    """
+    Validate that input is actual speed stat and not GCD value.
 
     Args:
-        speed_stat (int, optional): Speed stat. Defaults to None.
+        speed_stat: Speed stat value to validate
 
     Returns:
-        _type_: _description_
+        Tuple containing:
+            - Boolean indicating if value is valid
+            - Error message if invalid, None if valid
+
+    Example:
+        >>> valid, error = validate_speed_stat(2000)  # Valid speed stat
+        >>> assert valid and error is None
+
+        >>> valid, error = validate_speed_stat(2.5)   # Invalid - GCD value
+        >>> assert not valid
     """
-    if speed_stat >= 380:
+    MIN_SPEED = 380
+
+    if isinstance(speed_stat, str):
+        speed_stat = float(speed_stat)
+
+    if speed_stat >= MIN_SPEED:
         return True, None
     else:
         return False, "Enter the speed stat, not the GCD."
@@ -172,22 +261,30 @@ def validate_weapon_damage(weapon_damage):
 
 
 def set_secondary_stats(
-    role: str, job: str, party_bonus: float, tenacity: float = None
-) -> Tuple[str, int, int]:
-    """Get secondary stat information based of job/role info.
-    For tanks, inputted tenacity stat is just returned.
+    role: str, job: str, party_bonus: float, tenacity: Optional[float] = None
+) -> Tuple[Optional[str], Optional[float], Optional[float]]:
+    """
+    Get secondary stat information based on job/role info.
 
     Args:
-        role (str): Role: Tank, Healer, Magical Ranged, Physical Ranged, Melee.
-        job (str): 3-character abbreviated job, all caps.
-        party_bonus (float): Percent bonus to main stat from each role.
-        tenacity (float, optional): Tenacity value for tanks. Defaults to None.
-
-    Raises:
-        ValueError: _description_
+        role: Role name (Tank, Healer, Magical Ranged, Physical Ranged, Melee)
+        job: 3-character abbreviated job name in caps
+        party_bonus: Percent bonus to main stat from each role
+        tenacity: Tenacity value for tanks
 
     Returns:
-        Tuple[str, int, int]: _description_
+        Tuple containing:
+            - Secondary stat type name or None
+            - Pre-bonus secondary stat value or None
+            - Post-bonus secondary stat value or None
+
+    Raises:
+        ValueError: If tenacity is required but not provided
+
+    Example:
+        >>> type, pre, post = set_secondary_stats("Tank", "WAR", 1.05, 1500)
+        >>> print(type, pre, post)
+        'tenacity' 1500 1500
     """
     # Pre-bonus secondary stat info:
     if role in ("Melee", "Physical Ranged"):
@@ -302,7 +399,7 @@ def update_party_report_table(db_row):
 def unflag_report_recompute(analysis_id: str) -> None:
     """
     Set the recompute flag to 0 for a given analysis ID.
-    
+
     Parameters:
     analysis_id (str): The ID of the analysis to update.
     """
@@ -321,9 +418,9 @@ def unflag_report_recompute(analysis_id: str) -> None:
 def unflag_redo_rotation(analysis_id: str) -> None:
     """
     Set the redo rotation flag to 0 for a given analysis ID.
-    
+
     Parameters:
-    analysis_id (str): The ID of the analysis to update.
+        analysis_id (str): The ID of the analysis to update.
     """
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
@@ -340,10 +437,11 @@ def unflag_redo_rotation(analysis_id: str) -> None:
 def unflag_party_report_recompute(analysis_id: str) -> None:
     """
     Set the recompute flag to 0 for a party analysis ID.
+
     Used after the report has been recomputed.
-    
+
     Parameters:
-    analysis_id (str): The ID of the party analysis to update.
+        analysis_id (str): The ID of the party analysis to update.
     """
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
@@ -380,7 +478,7 @@ def update_access_table(db_row):
     Update access table, keeping track of when and how much an analysis ID is accessed.
 
     Inputs:
-    db_row - tuple, of row to insert. Contains (`analysis_id`, `access_datetime`).
+        db_row - tuple, of row to insert. Contains (`analysis_id`, `access_datetime`).
     """
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
@@ -397,26 +495,57 @@ def update_access_table(db_row):
     pass
 
 
-def format_kill_time_str(kill_time):
-    return f"{int(kill_time//60):02}:{int(kill_time%60):02}.{int(round((kill_time % 60 % 1) * 1000, 0))}"
-
-
-def get_phase_selector_options(furthest_phase_index: int, encounter_id: int):
-    """Create a dictionary of phase select options for an encounter.
-    Also create boolean indicator for whether the phase selector should be visible.
-
-    For encounters without phases, the phase always defaults to 0 and hidden.
+def format_kill_time_str(kill_time: float) -> str:
+    """
+    Format kill time as MM:SS.mmm string.
 
     Args:
-        furthest_phase_index (int): Index of the furthest-reached phase for a fight ID
-        encounter_id (int): ID of the encounter
+        kill_time: Time in seconds to format
 
     Returns:
-        List of dictionaries for dbc.Select `options` argument
-        Boolean for whether the selector should be visible or not.
+        Formatted time string "MM:SS.mmm"
+
+    Example:
+        >>> print(format_kill_time_str(123.456))
+        '02:03.456'
+    """
+    if kill_time < 0:
+        raise ValueError("Kill time cannot be negative")
+
+    minutes = int(kill_time // 60)
+    seconds = int(kill_time % 60)
+    milliseconds = int(round((kill_time % 60 % 1) * 1000, 0))
+
+    return f"{minutes:02}:{seconds:02}.{milliseconds:03}"
+
+
+def get_phase_selector_options(
+    furthest_phase_index: int, encounter_id: int
+) -> tuple[list[dict[str, str | int]], bool]:
+    """
+    Create phase selector options and visibility flag for encounter.
+
+    Args:
+        furthest_phase_index: Index of furthest reached phase
+        encounter_id: Encounter identifier
+
+    Returns:
+        Tuple containing:
+            - List of phase options dicts with label/value pairs
+            - Boolean indicating if selector should be visible
+
+    Example:
+        >>> opts, visible = get_phase_selector_options(2, 1234)
+        >>> print(opts)
+        [
+            {"label": "Entire Fight", "value": 0},
+            {"label": "Phase 1", "value": 1},
+            {"label": "Phase 2", "value": 2}
+        ]
     """
     phase_select_options = [{"label": "Entire Fight", "value": 0}]
     phase_select_hidden = True
+
     if encounter_id in encounter_phases.keys():
         phase_select_options.extend(
             {"label": encounter_phases[encounter_id][a], "value": a}
@@ -428,20 +557,52 @@ def get_phase_selector_options(furthest_phase_index: int, encounter_id: int):
 
 
 def check_prior_job_analyses(
-    report_id,
-    fight_id,
-    player_id,
-    player_name,
-    main_stat_pre_bonus,
-    secondary_stat_pre_bonus,
-    determination,
-    speed,
-    critical_hit,
-    direct_hit,
-    weapon_damage,
-    delay,
-    medication_amount,
-):
+    # Query parameters
+    report_id: str,
+    fight_id: int,
+    player_id: int,
+    player_name: str,
+    # Build parameters
+    main_stat_pre_bonus: int,
+    secondary_stat_pre_bonus: Optional[int],
+    determination: int,
+    speed: int,
+    critical_hit: int,
+    direct_hit: int,
+    weapon_damage: int,
+    delay: float,
+    medication_amount: int,
+) -> Optional[str]:
+    """
+    Check for existing analysis matching report and build parameters.
+
+    Args:
+        report_id: FFLogs report identifier
+        fight_id: Fight ID within report
+        player_id: Player actor ID
+        player_name: Player character name
+        main_stat_pre_bonus: Pre-bonus main stat value
+        secondary_stat_pre_bonus: Pre-bonus secondary stat value
+        determination: Determination stat value
+        speed: Speed stat value
+        critical_hit: Critical hit stat value
+        direct_hit: Direct hit stat value
+        weapon_damage: Weapon damage value
+        delay: Weapon delay value
+        medication_amount: Amount of medication bonus
+
+    Returns:
+        Analysis ID if matching record found, None otherwise
+
+    Example:
+        >>> aid = check_prior_job_analyses(
+        ...     "abc123", 1, 16, "Player1",
+        ...     3000, None, 1500, 2000, 2500, 1400,
+        ...     120, 3.0, 0
+        ... )
+        >>> print(aid)
+        'analysis_123'
+    """
     report_df = read_report_table()
     encounter_df = read_encounter_table()
     report_df = report_df.merge(
@@ -489,7 +650,7 @@ def check_prior_job_analyses(
 def check_prior_party_analysis(
     job_analysis_id_list: list, report_id: str, fight_id: int, party_size=8
 ):
-    """Check if a list of job-level analysis IDs map to a party analysis ID
+    """Check if a list of job-level analysis IDs map to a party analysis ID.
 
     Args:
         job_analysis_id_list (_type_): _description_
@@ -528,7 +689,7 @@ def check_prior_party_analysis(
 def rotation_analysis(
     role: str,
     job_no_space: str,
-    rotation_df,
+    rotation_df: pd.DataFrame,
     t: float,
     main_stat: int,
     secondary_stat: int,
@@ -540,30 +701,46 @@ def rotation_analysis(
     delay: float,
     main_stat_pre_bonus: int,
     rotation_delta: int = 100,
-    rotation_step: int = 0.5,
+    rotation_step: float = 0.5,
     action_delta: int = 10,
     compute_mgf: bool = False,
-    level=100,
-):
-    """Analyze the rotation of a job.
+    level: int = 100,
+) -> Union[Healer, Tank, MagicalRanged, Melee, PhysicalRanged]:
+    """
+    Analyze job rotation and compute DPS distributions.
 
     Args:
-        role (str): Job role, Healer, Tank, Magical Ranged, Melee, or Physical Ranged
-        job_no_space (str): Pascal case job, e.g., "WhiteMage"
-        rotation_df (pandas DataFrame): rotation DataFrame
-        t (float): Active fight time used to compute DPS
-        main_stat (int): Amount of main stat.
-        secondary_stat (int): Amount of secondary stat
-        determination (int): Amount of determination stat.
-        speed_stat (int): Amount of Skill/Spell Speed stat.
-        ch (int): Amount of critical hit stat.
-        dh (int): Amount of direct hit rate stat.
-        wd (int): Amount of weapon damage stat.
-        delay (float): Amount of weapon delay stat.
-        main_stat_pre_bonus (int): Amount of main stat before n% party bonus, for pet attack power.
+        role: Job role (Healer/Tank/etc)
+        job_no_space: Pascal case job name
+        rotation_df: Rotation data frame
+        t: Fight duration in seconds
+        main_stat: Main stat value
+        secondary_stat: Secondary stat value
+        determination: Determination stat
+        speed_stat: Skill/spell speed stat
+        ch: Critical hit stat
+        dh: Direct hit stat
+        wd: Weapon damage
+        delay: Weapon delay
+        main_stat_pre_bonus: Pre-bonus main stat for pets
+        rotation_delta: Rotation delta value
+        rotation_step: Rotation step size
+        action_delta: Action delta value
+        compute_mgf: Whether to compute MGF
+        level: Character level
 
     Returns:
-        ffxiv_stats job object: Object with analyzed rotation and DPS distributions.
+        Job object containing analyzed rotation and DPS distributions
+
+    Raises:
+        ValueError: If role invalid or NaN in DPS distribution
+
+    Example:
+        >>> df = pd.DataFrame(...)  # Rotation data
+        >>> job = rotation_analysis(
+        ...     "Healer", "WhiteMage", df,
+        ...     t=360, main_stat=3000, ...
+        ... )
     """
 
     if role == "Healer":

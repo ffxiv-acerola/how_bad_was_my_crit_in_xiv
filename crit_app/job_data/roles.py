@@ -1,6 +1,4 @@
-"""
-Information specific to each role.
-"""
+"""Information specific to each role."""
 
 import dash_bootstrap_components as dbc
 from dash import html

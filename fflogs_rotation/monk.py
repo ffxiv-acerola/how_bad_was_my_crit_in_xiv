@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 
 from fflogs_rotation.base import BuffQuery, disjunction
@@ -24,6 +23,26 @@ class MonkActions(BuffQuery):
         rising_raptor_id: int = 36946,
         pouncing_coeurl_id: int = 36947,
     ) -> None:
+        """
+        Initialize the MonkActions class.
+
+        Parameters:
+            headers (dict): Headers for the GraphQL query.
+            report_id (str): Report ID for the fight.
+            fight_id (int): Fight ID.
+            player_id (int): Player ID.
+            patch_number (float): Patch number.
+            bootshine_id (int): Bootshine ability ID.
+            opo_opo_id (int): Opo-Opo Form ability ID.
+            formless_fist_id (int): Formless Fist ability ID.
+            leaden_fist_id (int): Leaden Fist ability ID.
+            dragon_kick_id (int): Dragon Kick ability ID.
+            twin_snakes_id (int): Twin Snakes ability ID.
+            demolish_id (int): Demolish ability ID.
+            leaping_opo_id (int): Leaping Opo ability ID.
+            rising_raptor_id (int): Rising Raptor ability ID.
+            pouncing_coeurl_id (int): Pouncing Coeurl ability ID.
+        """
         self.report_id = report_id
         self.fight_id = fight_id
         self.player_id = player_id
@@ -43,16 +62,16 @@ class MonkActions(BuffQuery):
         self.pouncing_coeurl_id = pouncing_coeurl_id
 
         self._set_mnk_buff_times(headers)
-        pass
 
-    def _set_mnk_buff_times(self, headers):
-        """Perform an API call to get buff intervals for Requiescat and Divine Might.
+    def _set_mnk_buff_times(self, headers: dict) -> None:
+        """
+        Perform an API call to get buff intervals for Requiescat and Divine Might.
+
         Sets values as a 2 x n Numpy array, where the first column is the start time
         and the second column is the end time.
 
-        Args:
+        Parameters:
             headers (dict): FFLogs API header.
-
         """
         query = """
         query MonkOpoOpo(
@@ -101,17 +120,20 @@ class MonkActions(BuffQuery):
         self.opo_opo_times = self._get_buff_times("opoOpo")
         self.formless_fist_times = self._get_buff_times("formlessFist")
         self.leaden_fist_times = self._get_buff_times("leadenFist")
-        pass
 
-    def apply_endwalker_mnk_buffs(self, actions_df):
-        """Apply opo opo form to the actions DF,
-        which is used to account if Bootshine is guaranteed
-        critical damage
-
-        Args:
-            actions_df (DataFrame): Pandas DataFrame of actions.
+    def apply_endwalker_mnk_buffs(self, actions_df: pd.DataFrame) -> pd.DataFrame:
         """
+        Apply opo opo form to the actions DF,.
 
+        which is used to account if Bootshine is guaranteed
+        critical damage.
+
+        Parameters:
+            actions_df (pd.DataFrame): Pandas DataFrame of actions.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with applied buffs.
+        """
         # Opo opo
         opo_opo_betweens = list(
             actions_df["timestamp"].between(b[0], b[1]) for b in self.opo_opo_times
@@ -133,35 +155,36 @@ class MonkActions(BuffQuery):
 
         # Apply to actions df
         actions_df = self._apply_buffs(actions_df, opo_opo_condition, self.opo_opo_id)
-
         actions_df = self._apply_buffs(
             actions_df, leaden_fist_condition, self.leaden_fist_id
         )
 
         return actions_df
 
-    def _dawntrail_one_stack_gauge(self, actions_df: pd.DataFrame, track_opo: bool):
-        """Track if Leaping Opo/Rising Raptor usages have a beast gauge stack, increasing their potency.
+    def _dawntrail_one_stack_gauge(
+        self, actions_df: pd.DataFrame, track_opo: bool
+    ) -> pd.DataFrame:
+        """
+        Track if Leaping Opo/Rising Raptor usages have a beast gauge stack, increasing their potency.
 
-        Args:
-            actions_df (pd.DataFrame): DataFrame of actions
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame of actions.
             track_opo (bool): Whether to track Leaping Opo (True) or Rising Raptor (False).
 
         Returns:
-            DataFrame: DataFrame of only Leaping Opo/Rising Raptor usages, and an indicator column for whether it is buffed.
+            pd.DataFrame: DataFrame of only Leaping Opo/Rising Raptor usages, and an indicator column for whether it is buffed.
         """
         if track_opo:
             # Opo beast gauge has to be under opo-opo form to generate stacks.
             # Create condition ensuring this (also include formless fist).
-            opo_opo_betweens = list(
-                actions_df["timestamp"].between(b[0], b[1])
-                for b in np.vstack((self.opo_opo_times, self.formless_fist_times))
-            )
-            opo_opo_condition = disjunction(*opo_opo_betweens)
+            # opo_opo_betweens = list(
+            #     actions_df["timestamp"].between(b[0], b[1])
+            #     for b in np.vstack((self.opo_opo_times, self.formless_fist_times))
+            # )
+            # opo_opo_condition = disjunction(*opo_opo_betweens)
 
             beast_action_df = actions_df[
                 (actions_df["abilityGameID"] == self.dragon_kick_id)
-                # & opo_opo_condition
                 | (actions_df["abilityGameID"] == self.leaping_opo_id)
             ][["abilityGameID", "ability_name"]].copy()
 
@@ -192,18 +215,20 @@ class MonkActions(BuffQuery):
             ["abilityGameID", "buffed_beast_action"]
         ]
 
-    def apply_dawntrail_mnk_buffs(self, actions_df):
-        """Track beast gauge stacks for Monk.
+    def apply_dawntrail_mnk_buffs(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Track beast gauge stacks for Monk.
 
         - Opo-opo's fury: 1 stack max, generated by Dragon Kick.
         - Raptor's fury: 1 stack max, generated by Twin Snakes.
         - Coeurl's fury: 2 stacks max, both stacks generated by Demolish.
 
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame of actions, with beast fury gauge stacks applied.
 
-        Args:
-            actions_df (DataFrame): DataFrame of actions, with beast fury gauge stacks applied.
+        Returns:
+            pd.DataFrame: Updated DataFrame with applied buffs.
         """
-
         ### Opo-opo gauge
         leaping_opo_buffs = self._dawntrail_one_stack_gauge(actions_df, track_opo=True)
         buffed_leaping_opo_indices = leaping_opo_buffs[
@@ -266,12 +291,25 @@ class MonkActions(BuffQuery):
 
     def apply_bootshine_autocrit(
         self,
-        actions_df,
-        critical_hit_stat,
-        direct_hit_rate_stat,
-        critical_hit_rate_buffs,
-        level,
-    ):
+        actions_df: pd.DataFrame,
+        critical_hit_stat: int,
+        direct_hit_rate_stat: int,
+        critical_hit_rate_buffs: dict,
+        level: int,
+    ) -> pd.DataFrame:
+        """
+        Apply autocrit calculations for Bootshine.
+
+        Parameters:
+            actions_df (pd.DataFrame): DataFrame of actions.
+            critical_hit_stat (int): Critical hit stat.
+            direct_hit_rate_stat (int): Direct hit rate stat.
+            critical_hit_rate_buffs (dict): Dictionary of critical hit rate buffs.
+            level (int): Player level.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with applied autocrit calculations.
+        """
         r = Rate(critical_hit_stat, direct_hit_rate_stat, level)
 
         def critical_hit_rate_increase(buffs, multiplier):

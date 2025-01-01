@@ -1,6 +1,9 @@
+"""Functions to create figures and tables after a damage distributions are.
+
+computed.
 """
-Functions to create figures and tables after a damage distributions are computed.
-"""
+
+from typing import Any, List
 
 import numpy as np
 import pandas as pd
@@ -9,30 +12,31 @@ import plotly.graph_objects as go
 from dash import dash_table
 from dash.dash_table import FormatTemplate
 from dash.dash_table.Format import Format, Scheme
+from plotly.graph_objs import Figure
 
 from crit_app.dmg_distribution import get_dps_dmg_percentile, summarize_actions
 
 
 def make_rotation_pdf_figure(
-    rotation_obj, rotation_dps, active_dps_time, analysis_time
-):
-    """
-    Make a plotly figure showing the DPS distribution for a rotation.
+    rotation_obj: Any, rotation_dps: float, active_dps_time: float, analysis_time: float
+) -> Figure:
+    """Make a plotly figure showing the DPS distribution for a rotation.
+
     The actual DPS for the run and first three moments of the DPS distribution are shown.
 
-    Inputs:
-    rotation_obj - Rotation object from ffxiv_stats with damage distributions computed.
-    rotation_dps - float, DPS actually dealt.
-    active_dps_time - float, elapsed time in seconds, used to convert damage dealt to DPS.
+    Parameters:
+        rotation_obj (Any): Rotation object from ffxiv_stats with damage distributions computed.
+        rotation_dps (float): DPS actually dealt.
+        active_dps_time (float): Elapsed time in seconds, used to convert damage dealt to DPS.
+        analysis_time (float): Total analysis time.
 
     Returns:
-    plotly figure object displaying rotation DPS distribution
+        Figure: Plotly figure object displaying rotation DPS distribution.
     """
     t_div = active_dps_time / analysis_time
     if t_div == 1:
         support = rotation_obj.rotation_dps_support
         density = rotation_obj.rotation_dps_distribution
-
     else:
         support = rotation_obj.rotation_dps_support / active_dps_time
         density = rotation_obj.rotation_dps_distribution / np.trapz(
@@ -84,17 +88,21 @@ def make_rotation_pdf_figure(
     return fig
 
 
-def make_rotation_percentile_table(rotation_obj, rotation_percentile):
-    """
-    Make a table showing percentiles and corresponding DPS values for the rotation DPS distribution.
+def make_rotation_percentile_table(
+    rotation_obj: Any, rotation_percentile: float
+) -> List[dash_table.DataTable]:
+    """Make a table showing percentiles and corresponding DPS values for the.
+
+    rotation DPS distribution.
+
     The actual DPS dealt and percentile is also shown, highlighted in green.
 
-    Inputs:
-    rotation_obj - Rotation object from ffxiv_stats with damage distributions computed.
-    rotation_dps - float, DPS actually dealt.
+    Parameters:
+        rotation_obj (Any): Rotation object from ffxiv_stats with damage distributions computed.
+        rotation_percentile (float): Percentile of the actual DPS dealt.
 
     Returns:
-    list containing a Dash table
+        List[dash_table.DataTable]: A list containing a Dash table.
     """
     percentiles = sorted(
         [0.1, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.999] + [rotation_percentile]
@@ -151,8 +159,9 @@ def make_rotation_percentile_table(rotation_obj, rotation_percentile):
     return rotation_percentile_table
 
 
-def how_tall_should_the_action_box_plot_be(n_actions: int):
+def how_tall_should_the_action_box_plot_be(n_actions: int) -> int:
     """Alter height of the box figure so it can fit and look good.
+
     More actions and the width of a single bar chart.
 
     Args:
@@ -174,10 +183,23 @@ def how_tall_should_the_action_box_plot_be(n_actions: int):
 
 
 def make_action_box_and_whisker_figure(
-    rotation_data, action_dps, active_dps_time, analysis_time
-):
-    """
-    Show DPS distributions for actions as a collection of box and whisker plots.
+    rotation_data: Any,
+    action_dps: pd.DataFrame,
+    active_dps_time: float,
+    analysis_time: float,
+) -> Figure:
+    """Show DPS distributions for actions as a collection of box and whisker.
+
+    plots.
+
+    Parameters:
+        rotation_data (Any): Rotation data object containing unique actions distribution.
+        action_dps (pd.DataFrame): DataFrame containing action DPS values.
+        active_dps_time (float): Elapsed time in seconds, used to convert damage dealt to DPS.
+        analysis_time (float): Total analysis time.
+
+    Returns:
+        Figure: Plotly figure object displaying action DPS distributions.
     """
     t_div = active_dps_time / analysis_time
 
@@ -200,7 +222,6 @@ def make_action_box_and_whisker_figure(
         if t_div == 1:
             density = v["dps_distribution"]
             support = v["support"]
-
         else:
             support = v["support"] / active_dps_time
             density = v["dps_distribution"] / np.trapz(v["dps_distribution"], support)
@@ -287,7 +308,7 @@ def make_action_box_and_whisker_figure(
     fig.update_xaxes(title="Damage per second (DPS)")
 
     # Title and place the legend at the top
-    # Horizonal space much more constrained than vertical.
+    # Horizontal space much more constrained than vertical.
     fig.update_layout(
         title="DPS distributions by action",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
@@ -295,17 +316,24 @@ def make_action_box_and_whisker_figure(
     return fig
 
 
-def make_action_pdfs_figure(rotation_obj, action_dps, active_dps_time, analysis_time):
-    """
-    Plot damage distributions for each action.
+def make_action_pdfs_figure(
+    rotation_obj: Any,
+    action_dps: pd.DataFrame,
+    active_dps_time: float,
+    analysis_time: float,
+) -> Figure:
+    """Plot damage distributions for each action.
+
     The actual damage dealt is also plotted.
 
-    Inputs:
-    rotation_obj - Rotation object from ffxiv_stats with damage distributions computed.
-    action_dps - pd DataFrame with columns "ability_name" and "amount"
+    Parameters:
+        rotation_obj (Any): Rotation object from ffxiv_stats with damage distributions computed.
+        action_dps (pd.DataFrame): DataFrame with columns "ability_name" and "amount".
+        active_dps_time (float): Elapsed time in seconds, used to convert damage dealt to DPS.
+        analysis_time (float): Total analysis time.
 
     Returns:
-    Plotly figure with action DPS distributions plotted
+        Figure: Plotly figure with action DPS distributions plotted.
     """
     t_div = active_dps_time / analysis_time
     fig = px.line(template="plotly_dark")
@@ -323,7 +351,6 @@ def make_action_pdfs_figure(rotation_obj, action_dps, active_dps_time, analysis_
         if t_div == 1:
             density = v["dps_distribution"]
             support = v["support"]
-
         else:
             support = v["support"] / active_dps_time
             density = v["dps_distribution"] / np.trapz(v["dps_distribution"], support)
@@ -381,17 +408,19 @@ def make_action_pdfs_figure(rotation_obj, action_dps, active_dps_time, analysis_
     return fig
 
 
-def make_action_table(rotation_obj, action_df):
-    """
-    Create a table listing an action name, expected DPS, actual DPS dealt, and the corresponding percentile.
+def make_action_table(
+    rotation_obj: Any, action_df: pd.DataFrame
+) -> List[dash_table.DataTable]:
+    """Create a table listing an action name, expected DPS, actual DPS dealt,.
 
-    Inputs:
-    rotation_obj - Rotation object from ffxiv_stats with damage distributions computed.
-    action_df - pd DataFrame of actions, obtained the function `create_action_df`, which depends on output from `damage_events`.
-    t - float, time used to compute DPS from damage.
+    and the corresponding percentile.
 
-    Outputs:
-    list containing a Dash table with action, expected dps, actual dps, and percentile.
+    Parameters:
+        rotation_obj (Any): Rotation object from ffxiv_stats with damage distributions computed.
+        action_df (pd.DataFrame): DataFrame of actions, obtained from the function `create_action_df`, which depends on output from `damage_events`.
+
+    Returns:
+        List[dash_table.DataTable]: A list containing a Dash table with action, expected DPS, actual DPS, and percentile.
     """
     action_summary_df = summarize_actions(
         action_df,
@@ -444,7 +473,20 @@ def make_action_table(rotation_obj, action_df):
     return action_summary_table
 
 
-def make_kill_time_graph(party_rotation_dataclass, kill_time_seconds: int):
+def make_kill_time_graph(
+    party_rotation_dataclass: Any, kill_time_seconds: int
+) -> Figure:
+    """Make a plotly figure showing the kill time graph for a party rotation.
+
+    The actual kill time and theoretical kill times are shown.
+
+    Parameters:
+        party_rotation_dataclass (Any): Party rotation data class containing shortened rotations and percentiles.
+        kill_time_seconds (int): Actual kill time in seconds.
+
+    Returns:
+        Figure: Plotly figure object displaying the kill time graph.
+    """
     x = [
         kill_time_seconds - x.seconds_shortened
         for x in party_rotation_dataclass.shortened_rotations
@@ -511,7 +553,17 @@ def make_kill_time_graph(party_rotation_dataclass, kill_time_seconds: int):
     return fig
 
 
-def make_party_rotation_pdf_figure(party_analysis_data):
+def make_party_rotation_pdf_figure(party_analysis_data: Any) -> Figure:
+    """Make a plotly figure showing the DPS distribution for a party rotation.
+
+    The actual DPS for the run and first three moments of the DPS distribution are shown.
+
+    Parameters:
+        party_analysis_data (Any): Party analysis data object containing damage distributions.
+
+    Returns:
+        Figure: Plotly figure object displaying party rotation DPS distribution.
+    """
     boss_hp = party_analysis_data.boss_hp
     party_support = party_analysis_data.party_damage_support
     party_pdf = party_analysis_data.party_damage_distribution

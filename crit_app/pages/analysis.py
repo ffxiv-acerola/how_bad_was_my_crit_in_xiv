@@ -1,11 +1,13 @@
 import datetime
 import pickle
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, Patch, State, callback, dcc, html
 from dash.exceptions import PreventUpdate
+from plotly.graph_objs import Figure
 
 from crit_app.api_queries import (
     get_encounter_job_info,
@@ -32,15 +34,16 @@ from crit_app.figures import (
     make_rotation_pdf_figure,
     make_rotation_percentile_table,
 )
-from crit_app.job_data.job_data import weapon_delays
-from crit_app.job_data.job_warnings import job_warnings
-from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
-from crit_app.job_data.valid_encounters import (
+from crit_app.job_data.encounter_data import (
     encounter_level,
     encounter_phases,
     patch_times,
+    stat_ranges,
     valid_encounters,
 )
+from crit_app.job_data.job_data import weapon_delays
+from crit_app.job_data.job_warnings import job_warnings
+from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
 from crit_app.shared_elements import (
     etro_build,
     format_kill_time_str,
@@ -53,6 +56,8 @@ from crit_app.shared_elements import (
     update_access_table,
     update_encounter_table,
     update_report_table,
+    validate_meldable_stat,
+    validate_weapon_damage,
 )
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
@@ -63,6 +68,9 @@ from fflogs_rotation.job_data.data import (
     potency_table,
 )
 from fflogs_rotation.rotation import RotationTable
+
+valid_stat_return = (True, False)
+invalid_stat_return = (False, True)
 
 
 def page_title(analysis_id=None):
@@ -88,7 +96,16 @@ def page_title(analysis_id=None):
     )
 
 
-def metas(analysis_id=None):
+def metas(analysis_id: str = None) -> list[dict[str, str]]:
+    """
+    Generate meta tags for the analysis page.
+
+    Parameters:
+    analysis_id (str, optional): The ID of the analysis. Defaults to None.
+
+    Returns:
+    list[dict[str, str]]: A list of dictionaries containing meta tag properties and content.
+    """
     if analysis_id is not None:
         encounter_info = read_encounter_table()
         report = read_report_table()
@@ -129,7 +146,7 @@ def metas(analysis_id=None):
 dash.register_page(
     __name__,
     path_template="/analysis/<analysis_id>",
-    path="/",
+    path="/analysis",
     name=page_title,
     meta_tags=metas,
 )
@@ -138,9 +155,15 @@ dash.register_page(
 ### Helper functions ###
 
 
-def rotation_percentile_text_map(rotation_percentile):
+def rotation_percentile_text_map(rotation_percentile: float) -> str:
     """
     Fun text to display depending on the percentile.
+
+    Parameters:
+    rotation_percentile (float): The percentile value to map to a text description.
+
+    Returns:
+    str: A text description corresponding to the given percentile.
     """
     if rotation_percentile <= 0.2:
         return "On second thought, let's pretend this run never happened..."
@@ -158,8 +181,9 @@ def rotation_percentile_text_map(rotation_percentile):
         return "Personally blessed by Yoshi-P himself."
 
 
-def ad_hoc_job_invalid(job: str, log_time: int):
+def ad_hoc_job_invalid(job: str, log_time: int) -> bool:
     """Collection of various conditions to make certain jobs un-analyzable.
+
     For example, 7.0 - 7.01 Monk's job gauge is not modeled, so it cannot be analyzed.
 
     These *should* be fairly rare.
@@ -179,9 +203,26 @@ def ad_hoc_job_invalid(job: str, log_time: int):
         return False
 
 
-def show_job_options(job_information, role, start_time):
+def show_job_options(
+    job_information: List[Dict[str, Any]], role: str, start_time: int
+) -> Tuple[
+    List[Dict[str, Any]],
+    List[Dict[str, Any]],
+    List[Dict[str, Any]],
+    List[Dict[str, Any]],
+    List[Dict[str, Any]],
+]:
     """
     Show which jobs are available to analyze with radio buttons.
+
+    Parameters:
+    job_information (List[Dict[str, Any]]): List of job information dictionaries.
+    role (str): Role of the job.
+    start_time (int): Start time of the log.
+
+    Returns:
+    Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+    A tuple containing lists of radio items for each job role.
     """
     tank_radio_items = []
     healer_radio_items = []
@@ -257,19 +298,23 @@ def show_job_options(job_information, role, start_time):
     )
 
 
-def get_phase_selector_options(furthest_phase_index:int, encounter_id:int):
-    """Create a dictionary of phase select options for an encounter.
-    Also create boolean indicator for whether the phase selector should be visible.
+def get_phase_selector_options(
+    furthest_phase_index: int, encounter_id: int
+) -> Tuple[List[Dict[str, int]], bool]:
+    """
+    Create a dictionary of phase select options for an encounter.
+
+    Also create a boolean indicator for whether the phase selector should be visible.
 
     For encounters without phases, the phase always defaults to 0 and hidden.
 
     Args:
-        furthest_phase_index (int): Index of the furthest-reached phase for a fight ID
-        encounter_id (int): ID of the encounter
+        furthest_phase_index (int): Index of the furthest-reached phase for a fight ID.
+        encounter_id (int): ID of the encounter.
 
     Returns:
-        List of dictionaries for dbc.Select `options` argument
-        Boolean for whether the selector should be visible or not.
+        Tuple[List[Dict[str, int]], bool]:
+        A list of dictionaries for dbc.Select `options` argument and a boolean for whether the selector should be visible or not.
     """
     phase_select_options = [{"label": "Entire Fight", "value": 0}]
     phase_select_hidden = True
@@ -670,7 +715,17 @@ def layout(analysis_id=None):
     Input("action-dropdown", "value"),
     State("action-pdf-fig", "figure"),
 )
-def select_actions(actions, action_graph):
+def select_actions(actions: List[str], action_graph: Dict[str, Any]) -> Figure:
+    """
+    Update the visibility of actions in the action graph based on the selected actions.
+
+    Parameters:
+    actions (List[str]): List of selected actions.
+    action_graph (Dict[str, Any]): The current state of the action graph.
+
+    Returns:
+    Figure: The updated action graph with the visibility of actions set.
+    """
     actions_actual_dps = [a + " (Actual DPS)" for a in actions]
     patched_action_figure = Patch()
     new_data = action_graph["data"]
@@ -690,8 +745,18 @@ def select_actions(actions, action_graph):
     State("action-dropdown", "options"),
     Input("action-reset", "n_clicks"),
 )
-def reset_action_filters(action_list, n):
-    return action_list
+def reset_action_filters(action_list: List[Dict[str, Any]], n: int) -> List[str]:
+    """
+    Reset the action filters to the full list of actions.
+
+    Parameters:
+    action_list (List[Dict[str, Any]]): List of action options.
+    n (int): Number of times the reset button has been clicked.
+
+    Returns:
+    List[str]: The full list of action values.
+    """
+    return [action["value"] for action in action_list]
 
 
 @callback(
@@ -720,7 +785,16 @@ def display_bottom_build_row(role: str) -> bool:
     Output("speed-stat", "placeholder"),
     Input("role-select", "value"),
 )
-def fill_role_stat_labels(role):
+def fill_role_stat_labels(role: str) -> Tuple[str, str, str, str]:
+    """
+    Fill the role stat labels and placeholders based on the selected role.
+
+    Parameters:
+    role (str): Selected Role.
+
+    Returns:
+    Tuple[str, str, str, str]: The main stat label, main stat placeholder, speed tooltip, and speed stat placeholder.
+    """
     if role == "Unsupported":
         raise PreventUpdate
 
@@ -751,11 +825,18 @@ def fill_role_stat_labels(role):
     State("role-select", "value"),
     prevent_initial_call=True,
 )
-def process_etro_url(n_clicks, url, default_role):
+def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, ...]:
     """
-    Get the report/fight ID from an fflogs URL, then determine the encounter ID, start time, and jobs present.
-    """
+    Get the report/fight ID from an etro.gg URL, then determine the encounter ID, start time, and jobs present.
 
+    Parameters:
+    n_clicks (int): Number of times the button has been clicked.
+    url (str): The etro.gg URL to process.
+    default_role (str): The default role to select.
+
+    Returns:
+    Tuple[Any, ...]: A tuple containing the feedback, validity, build name, role, stats, and warning message.
+    """
     if n_clicks is None:
         raise PreventUpdate
 
@@ -853,16 +934,28 @@ def process_etro_url(n_clicks, url, default_role):
     Input("WD", "valid"),
 )
 def job_build_defined(
-    main_stat,
-    tenacity,
-    determination,
-    speed,
-    crit,
-    direct_hit,
-    weapon_damage,
-):
+    main_stat: bool,
+    tenacity: bool,
+    determination: bool,
+    speed: bool,
+    crit: bool,
+    direct_hit: bool,
+    weapon_damage: bool,
+) -> bool:
     """
     Check if any job build elements are missing/invalid, hide everything else if they are.
+
+    Parameters:
+    main_stat (bool): Validity of the main stat.
+    tenacity (bool): Validity of the tenacity stat.
+    determination (bool): Validity of the determination stat.
+    speed (bool): Validity of the speed stat.
+    crit (bool): Validity of the critical hit stat.
+    direct_hit (bool): Validity of the direct hit stat.
+    weapon_damage (bool): Validity of the weapon damage stat.
+
+    Returns:
+    bool: Whether to hide the fflogs card or not.
     """
     return not all(
         [
@@ -1044,7 +1137,8 @@ def valid_tenacity(tenacity: int, role: str) -> tuple:
         return valid_stat_return
 
     if tenacity is None:
-        raise PreventUpdate
+        return invalid_stat_return
+
     if validate_meldable_stat(
         "test",
         tenacity,
@@ -1057,6 +1151,7 @@ def valid_tenacity(tenacity: int, role: str) -> tuple:
 
 
 @callback(
+    Output("fflogs-url-feedback", "children"),
     Output("encounter-name-time", "children"),
     Output("phase-select", "options"),
     Output("phase-select-div", "hidden"),
@@ -1080,14 +1175,13 @@ def valid_tenacity(tenacity: int, role: str) -> tuple:
     prevent_initial_call=True,
 )
 def process_fflogs_url(n_clicks, url, role):
-    """
-    Get the report/fight ID from an fflogs URL, then determine the encounter ID, start time, and jobs present.
-    """
+    """Get the report/fight ID from an fflogs URL, then determine the encounter ID, start time, and jobs present."""
 
     if url is None:
         raise PreventUpdate
     radio_value = None
     error_return = [
+        [],
         [],
         [],
         [],
@@ -1113,7 +1207,7 @@ def process_fflogs_url(n_clicks, url, role):
         feedback_text = """Please enter a log linked to a specific kill.\nfight=last in the URL is also currently unsupported."""
         return tuple([feedback_text] + error_return)
     if error_code == 3:
-        feedback_text = "Invalid report ID."
+        feedback_text = "Invalid report ID. The URL should look like https://www.fflogs.com/reports/{report}?fight={fight}"
         return tuple([feedback_text] + error_return)
 
     (
@@ -1142,7 +1236,17 @@ def process_fflogs_url(n_clicks, url, role):
     encounter_name_time = f"{encounter_name} ({fight_time_str})"
 
     if encounter_id not in valid_encounters:
-        feedback_text = f"Sorry, {encounter_name} is not supported."
+        feedback_text = html.Span(
+            [
+                f"Sorry, {encounter_name} is not supported. Please check the supported encounters ",
+                html.A(
+                    "here.",
+                    target="_blank",
+                    href="/compatibility",
+                    style={"color": "#e74c3a"},
+                ),
+            ]
+        )
         return tuple([feedback_text] + error_return)
 
     (
@@ -1174,6 +1278,7 @@ def process_fflogs_url(n_clicks, url, role):
         update_encounter_table(db_rows)
 
     return (
+        [],
         encounter_name_time,
         phase_select_options,
         phase_select_hidden,
@@ -1208,19 +1313,36 @@ def process_fflogs_url(n_clicks, url, role):
     Input("magical-ranged-jobs", "value"),
 )
 def display_compute_button(
-    healers,
-    tanks,
-    melees,
-    phys_ranged,
-    magic_ranged,
-    healer_value,
-    tank_value,
-    melee_value,
-    phys_ranged_value,
-    magic_ranged_value,
-):
+    healers: List[Dict[str, Any]],
+    tanks: List[Dict[str, Any]],
+    melees: List[Dict[str, Any]],
+    phys_ranged: List[Dict[str, Any]],
+    magic_ranged: List[Dict[str, Any]],
+    healer_value: Optional[str],
+    tank_value: Optional[str],
+    melee_value: Optional[str],
+    phys_ranged_value: Optional[str],
+    magic_ranged_value: Optional[str],
+) -> bool:
     """
-    Display button to compute DPS distributions once a job is selected. Otherwise, no button is shown.
+    Display button to compute DPS distributions once a job is selected.
+
+    Otherwise, no button is shown.
+
+    Parameters:
+    healers (List[Dict[str, Any]]): List of healer job options.
+    tanks (List[Dict[str, Any]]): List of tank job options.
+    melees (List[Dict[str, Any]]): List of melee job options.
+    phys_ranged (List[Dict[str, Any]]): List of physical ranged job options.
+    magic_ranged (List[Dict[str, Any]]): List of magical ranged job options.
+    healer_value (Optional[str]): Selected healer job.
+    tank_value (Optional[str]): Selected tank job.
+    melee_value (Optional[str]): Selected melee job.
+    phys_ranged_value (Optional[str]): Selected physical ranged job.
+    magic_ranged_value (Optional[str]): Selected magical ranged job.
+
+    Returns:
+    bool: Whether to hide the compute button or not.
     """
     job_list = healers + tanks + melees + phys_ranged + magic_ranged
 
@@ -1255,9 +1377,15 @@ def display_compute_button(
     Input("compute-dmg-button", "n_clicks"),
     prevent_initial_call=True,
 )
-def disable_analyze_button(n_clicks):
+def disable_analyze_button(n_clicks: int) -> Tuple[List[Any], bool]:
     """
     Return a disabled, spiny button when the log/rotation is being analyzed.
+
+    Parameters:
+    n_clicks (int): Number of times the button has been clicked.
+
+    Returns:
+    Tuple[List[Any], bool]: The button content and whether it is disabled.
     """
     if (n_clicks is None) or DEBUG:
         return ["Analyze rotation"], False
@@ -1270,9 +1398,16 @@ def disable_analyze_button(n_clicks):
     Input("clipboard", "n_clicks"),
     State("analysis-link", "value"),
 )
-def copy_analysis_link(n, selected):
+def copy_analysis_link(n: int, selected: str) -> str:
     """
-    Copy analysis link to clipboard
+    Copy analysis link to clipboard.
+
+    Parameters:
+    n (int): Number of times the clipboard button has been clicked.
+    selected (str): The analysis link to copy.
+
+    Returns:
+    str: The content to be copied to the clipboard.
     """
     if selected is None:
         return "No selections"
@@ -1305,24 +1440,49 @@ def copy_analysis_link(n, selected):
     prevent_initial_call=True,
 )
 def analyze_and_register_rotation(
-    n_clicks,
-    main_stat_pre_bonus,
-    tenacity,
-    determination,
-    speed_stat,
-    ch,
-    dh,
-    wd,
-    medication_amt,
-    fflogs_url,
-    fight_phase,
-    etro_url,
-    healer_jobs=None,
-    tank_jobs=None,
-    melee_jobs=None,
-    phys_ranged_jobs=None,
-    magical_jobs=None,
-):
+    n_clicks: int,
+    main_stat_pre_bonus: int,
+    tenacity: int,
+    determination: int,
+    speed_stat: int,
+    ch: int,
+    dh: int,
+    wd: int,
+    medication_amt: int,
+    fflogs_url: str,
+    fight_phase: Optional[int],
+    etro_url: str,
+    healer_jobs: Optional[str] = None,
+    tank_jobs: Optional[str] = None,
+    melee_jobs: Optional[str] = None,
+    phys_ranged_jobs: Optional[str] = None,
+    magical_jobs: Optional[str] = None,
+) -> Tuple[Any, ...]:
+    """
+    Analyze and register the rotation based on the provided inputs.
+
+    Parameters:
+    n_clicks (int): Number of times the button has been clicked.
+    main_stat_pre_bonus (int): Main stat value before bonus.
+    tenacity (int): Tenacity stat value.
+    determination (int): Determination stat value.
+    speed_stat (int): Speed stat value.
+    ch (int): Critical hit stat value.
+    dh (int): Direct hit stat value.
+    wd (int): Weapon damage stat value.
+    medication_amt (int): Medication amount.
+    fflogs_url (str): FFLogs URL.
+    fight_phase (Optional[int]): Selected fight phase.
+    etro_url (str): Etro URL.
+    healer_jobs (Optional[str]): Selected healer job.
+    tank_jobs (Optional[str]): Selected tank job.
+    melee_jobs (Optional[str]): Selected melee job.
+    phys_ranged_jobs (Optional[str]): Selected physical ranged job.
+    magical_jobs (Optional[str]): Selected magical ranged job.
+
+    Returns:
+    Tuple[Any, ...]: A tuple containing the updated URL, button content, button disabled state, result text, and results div hidden state.
+    """
     updated_url = dash.no_update
 
     job_player = [healer_jobs, tank_jobs, melee_jobs, phys_ranged_jobs, magical_jobs]

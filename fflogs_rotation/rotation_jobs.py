@@ -2,6 +2,7 @@
 
 import json
 from functools import reduce
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -21,15 +22,36 @@ def disjunction(*conditions):
 
 
 class BuffQuery(object):
-    def __init__(
-        self,
-    ) -> None:
-        """Helper class to perform GraphQL queries, get buff timings, and and apply buffs to an actions DataFrame."""
-        pass
+    """
+    Helper class to perform GraphQL queries and manage buff timings.
+
+    Handles querying FFLogs API for buff data, processing buff timings,
+    and applying buffs to action DataFrames.
+    """
+
+    def __init__(self) -> None:
+        """Initialize BuffQuery instance."""
+        self.request_response: Dict[str, Any] = {}
+        self.report_start: int = 0
 
     def _perform_graph_ql_query(
-        self, headers, query, variables, operation_name, report_start=True
-    ):
+        self,
+        headers: Dict[str, str],
+        query: str,
+        variables: Dict[str, Any],
+        operation_name: str,
+        report_start: bool = True,
+    ) -> None:
+        """
+        Execute GraphQL query against FFLogs API.
+
+        Args:
+            headers: Request headers including auth token
+            query: GraphQL query string
+            variables: Query variables dictionary
+            operation_name: Name of GraphQL operation
+            report_start: Whether to extract report start time
+        """
         json_payload = {
             "query": query,
             "variables": variables,
@@ -45,7 +67,17 @@ class BuffQuery(object):
             ]
         pass
 
-    def _get_buff_times(self, buff_name, absolute_time=True):
+    def _get_buff_times(self, buff_name: str, absolute_time: bool = True) -> np.ndarray:
+        """
+        Get buff application timing windows.
+
+        Args:
+            buff_name: Name of buff to get timings for
+            absolute_time: If True, add report start time to values
+
+        Returns:
+            Array of buff timing windows [[start, end], ...]
+        """
         aura = self.request_response["data"]["reportData"]["report"][buff_name]["data"][
             "auras"
         ]
@@ -56,14 +88,24 @@ class BuffQuery(object):
         else:
             return np.array([[]])
 
-    def _apply_buffs(self, actions_df, condition, buff_id):
-        """Apply a buff to an actions DataFrame.
-        Updates the buffs list column and appends the buff ID to the action_name column
+    def _apply_buffs(
+        self, actions_df: pd.DataFrame, condition: pd.Series, buff_id: str
+    ) -> pd.DataFrame:
+        """
+        Apply buff to matching actions in DataFrame.
+
+        Updates the buffs list column and appends the buff ID to action names.
 
         Args:
-            actions_df (DataFrame): Pandas DataFrame of actions
-            condition (bool): condition for which actions the buffs should be applied to.
-            buff_id (str): Buff to add to `buffs` and `action_name` columns
+            actions_df: DataFrame of actions to update
+            condition: Boolean mask for actions to apply buff to
+            buff_id: Identifier for buff being applied
+
+        Returns:
+            Updated DataFrame with buff information added
+
+        Example:
+            >>> df = query._apply_buffs(actions, mask, "chain")
         """
 
         actions_df.loc[
@@ -79,31 +121,38 @@ class BuffQuery(object):
         return actions_df
 
 
-class DarkKnightActions(object):
-    def __init__(
-        self,
-        salted_earth_id=1000749,
-    ) -> None:
-        """Apply Dark Knight-specific job mechanics to actions:
+class DarkKnightActions:
+    """
+    Handles Dark Knight specific job mechanics and buff applications.
 
-        * When Darkside was up
-        * Applying Darkside to actions, including snapshotting Salted Earth and excluding Living Shadow.
+    Manages Darkside buff tracking, Salted Earth snapshotting, and
+    Living Shadow interactions.
+
+    Example:
+        >>> drk = DarkKnightActions()
+        >>> actions = drk.apply_drk_things(df, player_id=123, pet_id=456)
+    """
+
+    def __init__(self, salted_earth_id: int = 1000749) -> None:
+        """Initialize Dark Knight actions handler.
 
         Args:
-            salted_earth_id (int, optional): Buff ID of Salted Earth. Defaults to 1000749.
+            salted_earth_id: Buff ID for Salted Earth ability
         """
         self.salted_earth_id = salted_earth_id
-        pass
+        self.no_darkside_time_intervals: np.ndarray = np.array([])
 
-    def when_was_darkside_not_up(self, actions_df, player_id):
-        """Set time intervals in seconds when Darkside is not up as `self.no_darkside_time_intervals`.
-        The variable is a 2 x n numpy array where is row the time interval where Darkside is not up,
-        the first column is the beginning time, and the second column is the end time.
+    def when_was_darkside_not_up(
+        self, actions_df: pd.DataFrame, player_id: int
+    ) -> None:
+        """Calculate intervals when Darkside buff is not active.
 
         Args:
-            actions_df (DataFrame): Action dataframe from ActionTable class
-            player_id (int): FFLogs-assigned actor ID of the player.
-                             Used to exclude Edge of Shadow from Living Shadow.
+            actions_df: DataFrame containing action events
+            player_id: FFLogs player actor ID
+
+        Sets:
+            no_darkside_time_intervals: Array of [start, end] times when buff is down
         """
         # A bit of preprocessing, filter to Darkside buff giving actions, keep ability name and time.
         # FIXME: change to ability ID
@@ -166,17 +215,19 @@ class DarkKnightActions(object):
 
         pass
 
-    def apply_darkside_buff(self, action_df, pet_id):
-        """Apply Darkside buff to all actions. There are some gotchas, which is why it needs it's own function
-            * Salted earth snapshots Darkside.
-            * Living shadow does not get Darkside.
+    def apply_darkside_buff(self, action_df: pd.DataFrame, pet_id: int) -> pd.DataFrame:
+        """Apply Darkside buff to all actions.
+
+        There are some gotchas, which is why it needs it's own function
+            - Salted earth snapshots Darkside.
+            - Living shadow does not get Darkside.
 
         Args:
-            action_df (DataFrame): Action data frame from the ActionTable class.
-            pet_id (int): FFLogs-assigned actor ID of Living Shadow.
+            action_df: DataFrame of combat actions
+            pet_id: FFLogs Living Shadow actor ID
 
         Returns:
-            DataFrame: Action data frame with Darkside properly applied.
+            DataFrame with Darkside buffs applied to valid actions
         """
 
         no_darkside_conditions = (
@@ -251,19 +302,22 @@ class DarkKnightActions(object):
         action_df.loc[action_df["darkside_buff"] == 1.1, "action_name"] + "_Darkside"
         return action_df.drop(columns=["darkside_buff"])
 
-    def apply_drk_things(self, actions_df, player_id, pet_id):
+    def apply_drk_things(
+        self, actions_df: pd.DataFrame, player_id: int, pet_id: int
+    ) -> pd.DataFrame:
         """Apply DRK-specific transformations to the actions dataframe including:
-        * Estimate damage multiplier for Salted Earth.
-        * Figure out when Darkside is up.
-        * Apply Darkside to actions affected by Darkside.
+
+        - Estimate damage multiplier for Salted Earth.
+        - Figure out when Darkside is up.
+        - Apply Darkside to actions affected by Darkside.
 
         Args:
-            actions_df (DataFrame): Actions data frame from the ActionTable class
-            player_id (int): FFLogs-assigned actor ID of the player.
-            pet_id (int): FFLogs-assigned actor ID of Living Shadow.
+            actions_df: DataFrame of combat actions
+            player_id: FFLogs player actor ID
+            pet_id: FFLogs Living Shadow actor ID
 
         Returns:
-            DataFrame: Actions data frame with DRK-specific mechanics applied.
+            DataFrame with all DRK mechanics applied
         """
 
         # Find when Darkside is not up
@@ -278,34 +332,40 @@ class DarkKnightActions(object):
     pass
 
 
-class PaladinActions(object):
+class PaladinActions:
+    """
+    Handles Paladin specific job mechanics and buff applications.
+
+    Manages Requiescat and Divine Might buff tracking and their
+    application to Holy Spirit/Circle and blade combo actions.
+
+    Example:
+        >>> pld = PaladinActions(headers, "abc123", 1, 16)
+        >>> actions = pld.apply_pld_buffs(df)
+    """
+
     def __init__(
         self,
-        headers: dict,
+        headers: Dict[str, str],
         report_id: str,
         fight_id: int,
         player_id: int,
-        requiescat_id=1001368,
-        divine_might_id=1002673,
-        holy_ids=[7384, 16458],
-        blade_ids=[16459, 25748, 25749, 25750],
+        requiescat_id: int = 1001368,
+        divine_might_id: int = 1002673,
+        holy_ids: List[int] = [7384, 16458],
+        blade_ids: List[int] = [16459, 25748, 25749, 25750],
     ) -> None:
-        """Apply Paladin-specific job mechanics to actions:
-            * See when Divine Might and Requiescat are up.
-            * Apply them in the correct order to actions whose potencies are
-              affected by these buffs.
+        """Initialize Paladin actions handler.
 
         Args:
-            headers (dict): FFLogs API header, required to make an additional buff API call.
-                            The bearer key is not saved.
-            report_id (str): FFLogs report ID
-            fight_id (int): Associated fight ID
-            player_id (int): FFLogs-assigned actor ID to the PLD
-            requiescat_id (int, optional): ID of Requiescat. Defaults to 1001368.
-            divine_might_id (int, optional): ID of Divine Might. Defaults to 1002673.
-            holy_ids (list, optional): ID of Holy Spirit and Holy Circle. Defaults to [7384, 16458].
-            blade_ids (list, optional): IDs of Confiteor, Blade of {Faith, Truth, Valor}.
-                                        Defaults to [16459, 25748, 25749, 25750]
+            headers: FFLogs API headers with auth token
+            report_id: FFLogs report identifier
+            fight_id: Fight ID within report
+            player_id: FFLogs player actor ID
+            requiescat_id: Buff ID for Requiescat
+            divine_might_id: Buff ID for Divine Might
+            holy_ids: Ability IDs for Holy Spirit/Circle
+            blade_ids: Ability IDs for blade combo
         """
         self.report_id = report_id
         self.fight_id = fight_id
@@ -318,14 +378,14 @@ class PaladinActions(object):
         self.set_pld_buff_times(headers)
         pass
 
-    def set_pld_buff_times(self, headers):
-        """Perform an API call to get buff intervals for Requiescat and Divine Might.
-        Sets values as a 2 x n Numpy array, where the first column is the start time
-        and the second column is the end time.
+    def set_pld_buff_times(self, headers: Dict[str, str]) -> None:
+        """Query and set buff timing windows.
+
+        Gets start/end times for Requiescat and Divine Might buffs
+        from FFLogs API and stores a a numpy array where each row is [start, end].
 
         Args:
-            headers (dict): FFLogs API header.
-
+            headers: FFLogs API headers with auth token
         """
         query = """
         query PaladinBuffs(
@@ -389,14 +449,17 @@ class PaladinActions(object):
 
         pass
 
-    def apply_pld_buffs(self, actions_df):
-        """Apply Divine Might and Requiescat to actions which are affected by them.
-        This information will be used to map those actions to the correct potencies.
-        This is really just to check the rotation has not gone horribly, horribly wrong,
-        or some serious cooking is happening.
+    def apply_pld_buffs(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """Apply Paladin buff effects to actions.
+
+        Applies Divine Might and Requiescat buffs to Holy Spirit/Circle
+        and blade combo actions based on buff timing windows.
 
         Args:
-            actions_df (DataFrame): Actions data frame from the ActionTable class.
+            actions_df: DataFrame of combat actions
+
+        Returns:
+            DataFrame with Paladin buffs applied
         """
         # Check if the timestamp is between any divine might window.
         divine_might_condition = list(
@@ -443,15 +506,32 @@ class PaladinActions(object):
 
 
 class SamuraiActions(BuffQuery):
+    """
+    Handles Samurai specific job mechanics and buff applications.
+
+    Manages Enhanced Enpi buff tracking and application to actions.
+    Inherits from BuffQuery for FFLogs API interactions.
+    """
+
     def __init__(
         self,
-        headers: dict,
-        report_id: int,
+        headers: Dict[str, str],
+        report_id: str,
         fight_id: int,
         player_id: int,
         enpi_id: int = 7486,
         enhanced_enpi_id: int = 1001236,
     ) -> None:
+        """Initialize Samurai actions handler.
+
+        Args:
+            headers: FFLogs API headers with auth token
+            report_id: FFLogs report identifier
+            fight_id: Fight ID within report
+            player_id: FFLogs player actor ID
+            enpi_id: Ability ID for Enpi
+            enhanced_enpi_id: Buff ID for Enhanced Enpi
+        """
         self.report_id = report_id
         self.fight_id = fight_id
         self.player_id = player_id
@@ -461,7 +541,12 @@ class SamuraiActions(BuffQuery):
         self._set_enhanced_enpi_time(headers)
         pass
 
-    def _set_enhanced_enpi_time(self, headers):
+    def _set_enhanced_enpi_time(self, headers: Dict[str, str]) -> None:
+        """Query and set Enhanced Enpi buff timing windows.
+
+        Args:
+            headers: FFLogs API headers with auth token
+        """
         query = """
         query samuraiEnpi(
             $code: String!
@@ -494,12 +579,15 @@ class SamuraiActions(BuffQuery):
         self.enhanced_enpi_times = self._get_buff_times("ehancedEnpi")
         pass
 
-    def apply_enhanced_enpi(self, actions_df):
-        """Apply enhanced enpi buff actions DataFrame. If no enhanced enpi is present, return the unaltered DataFrame
+    def apply_enhanced_enpi(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """Apply Enhanced Enpi buff to actions.
 
         Args:
-            actions_df (_type_): DataFrame of actions.
+            actions_df: DataFrame of combat actions
 
+        Returns:
+            DataFrame with Enhanced Enpi buff applied if present,
+            otherwise returns unmodified DataFrame
         """
 
         if self.enhanced_enpi_times.size == 0:

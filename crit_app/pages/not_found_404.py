@@ -1,6 +1,4 @@
-"""
-Example of creating a custom 404 page to display when the URL isn't found
-"""
+"""Example of creating a custom 404 page to display when the URL isn't found."""
 
 import dash_bootstrap_components as dbc
 from dash import html, register_page

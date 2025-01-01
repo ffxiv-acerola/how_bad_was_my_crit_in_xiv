@@ -1,13 +1,7 @@
-import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 from dash import dcc, html
-
-dash.register_page(
-    __name__,
-    path="/math",
-)
 
 one_hit_df = pd.read_parquet("crit_app/math_data/1-hit.parquet")
 
@@ -134,15 +128,13 @@ math_layout = html.Div(
     [
         dcc.Markdown(
             r"""
-## How are damage distributions computed?
+Here, the steps for exactly computing damage/DPS distributions are described in slightly more detail. Note: this section works in units of total damage dealt since that is the natural system of units to work in. Converting to DPS simply requires dividing damage by the time elapsed.
 
-This page briefly describes how damage/DPS distributions are exactly computed. This page works in units of total damage dealt since that is the natural system of units to work in. Converting to DPS simply requires dividing damage by the time elapsed.
-
-For more detailed discussion of computing damage distributions, please refer to [this repository.](https://github.com/ffxiv-acerola/damage_variability_papers/tree/main)
+For an even more detailed discussion of computing damage distributions, please refer to [this repository.](https://github.com/ffxiv-acerola/damage_variability_papers/tree/main)
 
 Damage distributions are computed using the `ffxiv_stats` [Python package](https://github.com/ffxiv-acerola/ffxiv_stats).
 
-### Sources of damage variability
+#### Sources of damage variability
 
 There are two main sources of damage variability in FFXIV, hit types and a $\pm 5\%$ damage roll centered around a base damage value, $D_2$ - this is the same $D_2$ value from "How to be a Math Wizard, Volume 3" after potency has been converted into damage but before any damage variability is introduced. There are four different possible hit types, normal ($n$), critical ($c$), direct ($d$) and critical-direct ($cd$). The damage for each of these hit types are
 
@@ -176,7 +168,7 @@ $$
 
 Here, $p_c$ and $p_d$ represent the critical hit rate and direct hit rate associated with the critical hit stat and direct hit rate stat, respectively. Because critical-direct hits are possible, the probability of those hits must be subtracted out of critical and direct hits so they are not double counted. The variables $w_c$ and $w_d$ are formally defined as the chance of landing a critical or direct hit, given a critical-direct hit does not occur.
 
-### The one-hit and $n$-hit damage distribution
+#### The one-hit and $n$-hit damage distribution
 
 The above equations allows us to exactly write down the probability distribution for an action landing a single hit as a mixture distribution
 
@@ -225,7 +217,7 @@ The figure below shows the 2-, 5-, 10-, and 15-hit damage distributions, derived
             r"""
 As the number of hits increase, the damage distribution more closely resembles a normal distribution.
 
-### Defining and counting actions
+#### Defining and counting actions
 
 From the above section, what exactly is considered an action and how they should be counted is specifically defined; an "action" is considered unique if its one-hit damage distribution is unique. Damage buffs, hit type buffs, medication, and guaranteed hit types all change the one-hit damage distribution and must counted separately.
 
@@ -241,7 +233,7 @@ For example, Glare III, Glare III with Chain Stratagem, Glare III with Arcane Ci
             r"""
     Note how the damage buff shifts the one-hit distribution further right and a critical hit rate buff increases the height of the third and fourth plateau.
 
-    ## Computing rotation damage distributions
+    #### Computing rotation damage distributions
 
     A rotation is defined a collection of actions, along with their number of hits, hit type probabilities, base damage, critical hit strength, and total buff strength. Due to the combinatorics of buff combinations, a realistic rotation often consist of many actions. The rotation damage distribution can be computed in the same way as we computed our $n$-hit damage distribution for an action: convolve all the action damage distributions together.
 
@@ -252,7 +244,3 @@ For example, Glare III, Glare III with Chain Stratagem, Glare III with Arcane Ci
         dbc.Table.from_dataframe(rotation_df, striped=True, bordered=True, hover=True),
     ],
 )
-
-
-def layout():
-    return math_layout

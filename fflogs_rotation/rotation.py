@@ -1,10 +1,11 @@
 import json
-import time
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import requests
 
+from crit_app.job_data.encounter_data import encounter_phases
 from fflogs_rotation.bard import BardActions
 from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.dragoon import DragoonActions
@@ -25,9 +26,21 @@ url = "https://www.fflogs.com/api/v2/client"
 
 
 class ActionTable(object):
+    """
+    Processes FFXIV combat log data into action tables for damage analysis.
+
+    Handles parsing FFLogs data, applying buffs and combat mechanics, and creating
+    standardized action tables for further analysis.
+
+    The transformation process follows a medallion pattern:
+    - Bronze: Raw damage event payload from FFLogs API
+    - Silver: Processed action table
+    - Gold: Aggregated rotation table
+    """
+
     def __init__(
         self,
-        headers: dict,
+        headers: Dict[str, str],
         report_id: str,
         fight_id: str,
         job: str,
@@ -38,39 +51,36 @@ class ActionTable(object):
         medication_amt: int,
         level: int,
         phase: int,
-        damage_buff_table,
-        critical_hit_rate_buff_table,
-        direct_hit_rate_buff_table,
-        guaranteed_hits_by_action_table,
-        guaranteed_hits_by_buff_table,
-        pet_ids=None,
-        debug=False,
+        damage_buff_table: pd.DataFrame,
+        critical_hit_rate_buff_table: pd.DataFrame,
+        direct_hit_rate_buff_table: pd.DataFrame,
+        guaranteed_hits_by_action_table: pd.DataFrame,
+        guaranteed_hits_by_buff_table: pd.DataFrame,
+        pet_ids: Optional[List[int]] = None,
+        debug: bool = False,
     ) -> None:
-        """Get and transform damage events from FFLogs for a specific run of a single player to analyze damage variability.
-
-        The transformation process roughly follows a medallion
-        The damage event payload table from the FFLogs API is treated as a Bronze table.
-        The processed action table is a Silver table.
-        The action table is aggregated into a rotation table, a Gold table.
+        """
+        Initialize ActionTable instance.
 
         Args:
-            headers (dict): header for request module to make an API call.
-                            This should contain the content-type and Authorization via a bearer token.
-                            Note that the bearer token is *not* saved, it is only temporarily passed
-                            to perform API calls as needed.
-                            Example: {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-            report_id (str): ID of the report to query, e.g., "gbkzXDBTFAQqjxpL".
-            fight_id (int): Fight ID of the report to query, e.g., 4.
-            job (str): Job name in Pascal case, e.g., "DarkKnight".
-            player_id (int): FFLogs-assigned actor ID of the player. Obtained via the EncounterInfo query.
-            crit_stat (int): Critical hit stat value. Used for computing hit type rates.
-            dh_stat (int): Direct hit rate stat value. Used for compute hit type rates
-            determination (int): Determination stat value. Used to compute the damage buff
-                                 granted to guaranteed direct hits affected by direct hit rate buffs.
-            medication_amt (int): number of main stat points that are increased by medication.
-            pet_ids (list, optional): List of pet IDs (int) if any are present. Obtained via the EncounterInfo query.
-                                      Defaults to None.
-            debug (bool, optional): _description_. Defaults to False.
+            headers: FFLogs API headers
+            report_id: FFLogs report ID (e.g. "gbkzXDBTFAQqjxpL")
+            fight_id: Fight ID within report (e.g. 4)
+            job: Job name in PascalCase (e.g. "DarkKnight")
+            player_id: FFLogs player ID
+            crit_stat: Critical hit stat value
+            dh_stat: Direct hit stat value
+            determination: Determination stat value
+            medication_amt: Main stat increase from medication
+            level: Player level
+            phase: Fight phase number
+            damage_buff_table: Table of damage buffs
+            critical_hit_rate_buff_table: Table of crit rate buffs
+            direct_hit_rate_buff_table: Table of DH rate buffs
+            guaranteed_hits_by_action_table: Table of guaranteed hits by action
+            guaranteed_hits_by_buff_table: Table of guaranteed hits by buff
+            pet_ids: Optional list of pet IDs
+            debug: Enable debug logging
         """
 
         self.report_id = report_id
@@ -304,27 +314,40 @@ class ActionTable(object):
             self.apply_the_echo()
         pass
 
-    def what_patch_is_it(self):
-        """Map log start timestamp to its associated patch. Patches are used to to apply the correct potencies and job gauge mechanics."""
+    def what_patch_is_it(self) -> float:
+        """Map log start timestamp to its associated patch.
+
+        Patches are used to to apply the correct potencies and job gauge mechanics.
+        """
         for k, v in patch_times.items():
             if (self.fight_start_time >= v["start"]) & (
                 self.fight_start_time <= v["end"]
             ):
                 return k
 
-    def fight_information(self, headers):
-        """Query a report to get report/fight information:
+    def fight_information(self, headers: Dict[str, str]) -> None:
+        """
+        Query FFLogs API to get fight information and initialize fight-related attributes.
+
+        Makes a GraphQL query to get:
         - Report start time
-        - Fight/phase timings
-            - Start time
-            - End time
-            - Fight time, active time used for DPS, (end - start - downtime)
-            - Phase information, if present.
-        - Ability name mapping
-        - Echo present
+        - Fight/phase timings (start time, end time, fight duration)
+        - Phase transition information if present
+        - Ability name mappings
+        - Echo buff status
+
+        Sets the following instance attributes:
+        - fight_name: Name of the fight/encounter
+        - ability_name_mapping: Dict mapping ability IDs to human readable names
+        - has_echo: Boolean indicating if Echo buff is present
+        - report_start_time: Base timestamp for the report
+        - phase_information: List of phase transition details
+        - fight_start_time: Absolute start time of the fight/phase
+        - fight_end_time: Absolute end time of the fight/phase
+        - fight_time: Duration in seconds (excluding downtime)
 
         Args:
-            headers (dict): _description_
+            headers (Dict[str, str]): FFLogs API request headers containing authorization
         """
 
         query = """
@@ -393,14 +416,25 @@ class ActionTable(object):
         # If there is, this affects the start/end time and any downtime, if present
         # A follow-up query is required to correctly that information.
         if self.phase > 0:
+            # Start of phase
             phase_start_time = [
                 p["startTime"] for p in self.phase_information if p["id"] == self.phase
             ][0]
-            phase_end_time = [
-                p["startTime"]
-                for p in self.phase_information
-                if p["id"] == self.phase + 1
-            ][0]
+
+            # End of phase
+            encounter_id = r["data"]["reportData"]["report"]["fights"][0]["encounterID"]
+            # End time is beginning of next phase
+            if self.phase < max(encounter_phases[encounter_id].keys()):
+                phase_end_time = [
+                    p["startTime"]
+                    for p in self.phase_information
+                    if p["id"] == self.phase + 1
+                ][0]
+            # Unless the final phase is selected, use end time
+            else:
+                phase_end_time = r["data"]["reportData"]["report"]["fights"][0][
+                    "endTime"
+                ]
             phase_response = self.phase_fight_times(
                 headers, phase_start_time, phase_end_time
             )
@@ -428,13 +462,22 @@ class ActionTable(object):
         pass
 
     def get_downtime(self, response: dict) -> int:
-        """Get the downtime of a fight, if present.
+        """
+        Extract fight downtime from FFLogs API response.
+
+        Downtime represents periods where combat is paused during a fight,
+        such as phase transitions or cutscenes. This time is excluded from
+        DPS calculations.
 
         Args:
-            response (dict): FFLogs fights graph response.
+            response (dict): FFLogs API response containing:
+                data.reportData.report.table.data.downtime
 
         Returns:
-            int: Downtime in ms.
+            int: Total downtime in milliseconds, 0 if no downtime present
+
+        Raises:
+            KeyError: If response missing expected data structure
         """
         if (
             "downtime"
@@ -444,9 +487,31 @@ class ActionTable(object):
         else:
             return 0
 
-    def phase_fight_times(self, headers: dict, phase_start: int, phase_end: int):
+    def phase_fight_times(
+        self, headers: Dict[str, str], phase_start: int, phase_end: int
+    ) -> Dict[str, Any]:
         """
-        Follow-up query to get the start time, end time, and downtime of a phase.
+        Query FFLogs API for timing details of a specific fight phase.
+
+        Makes a GraphQL query to get damage table data for a phase-specific time window.
+        Used to calculate phase durations and downtime periods.
+
+        Args:
+            headers: FFLogs API headers with authorization token
+            phase_start: Phase start time in milliseconds (relative to report start)
+            phase_end: Phase end time in milliseconds (relative to report start)
+
+        Returns:
+            Dict containing FFLogs API response with structure:
+                data.reportData.report.table
+                    - startTime: Phase start timestamp
+                    - endTime: Phase end timestamp
+                    - data.downtime: Phase downtime in ms
+
+        Raises:
+            requests.RequestException: If API request fails
+            KeyError: If response missing required data
+            ValueError: If phase_end <= phase_start
         """
         phased_query = """
         query PhaseTime($code: String!, $id: [Int]!, $start: Float!, $end: Float!) {
@@ -479,21 +544,32 @@ class ActionTable(object):
         r = json.loads(r.text)
         return r
 
-    def damage_events(self, headers):
+    def damage_events(self, headers: Dict[str, str]) -> None:
         """
-        Query the FFLogs API for damage events and other relevant information:
+        Query FFLogs API for damage events from a specific fight.
 
-        * Unix timestamp of the report start time.
-        * The active fight time used to compute DPS (excludes downtime).
-        * The fight name.
-        * List of damage events.
+        Makes a GraphQL query to fetch damage events with:
+        - Source filtering by job/player
+        - Pagination support (10000 events per page)
+        - Combat-only events
+
+        The query returns raw damage events containing:
+        - Timestamp of action
+        - Action ID and name
+        - Source and target IDs
+        - Damage amount and type
+        - Active buffs
+        - Hit type (crit/direct hit)
 
         Args:
-            headers (dict): header for request module to make an API call.
-                            This should contain the content-type and Authorization via a bearer token.
-                            Note that the bearer token is *not* saved, it is only temporarily passed
-                            to perform API calls as needed.
-                            Example: {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+            headers (Dict[str, str]): FFLogs API headers containing:
+                - Content-Type: application/json
+                - Authorization: Bearer token
+
+        Sets:
+            self.actions (List[Dict]): List of raw damage events from the API
+                Each event is a dict with fields like timestamp, type,
+                sourceID, targetID, amount, etc.
         """
         self.actions = []
 
@@ -543,18 +619,32 @@ class ActionTable(object):
         pass
 
     def ast_card_buff(self, card_id):
-        """Get the buff strength of a card given the job and card tuple.
-        This is necessary because the buff IDs cannot distinguish a 3% and 6% buff, only the card type.
-        Since all cards either confer a 3% or 6% buff, two new IDs are created: card3 and card6.
+        """
+        Calculate buff strength and standardized ID for AST card buffs.
+
+        AST cards provide either 3% or 6% damage buffs based on job role matching:
+        - Ranged jobs get 6% from ranged cards, 3% from melee cards
+        - Melee jobs get 6% from melee cards, 3% from ranged cards
+
+        To standardize buff tracking, cards are mapped to:
+        - card3: 3% damage buff (1.03 multiplier)
+        - card6: 6% damage buff (1.06 multiplier)
         This allows more actions to be grouped together. For example, Midare with The Spear
         and Midare with the Arrow both sample the same distribution.
 
         Args:
-            card_id (str): ability ID of the card, "10003242"
+            card_id: FFLogs ability ID for the card buff
+                    e.g. "10003242" for The Balance
 
         Returns:
-            new_card_id: New ID of a card, now indicating its buff strength as card3 (3%) or card6 (6%)
-            card_multiplier: multiplier of the card, 1.03 or 1.06
+            Tuple containing:
+            - str: Standardized card ID ("card3" or "card6")
+            - float: Damage multiplier (1.03 or 1.06)
+
+        Example:
+            >>> card_id, mult = ast_card_buff("10003242")  # The Balance on SAM
+            >>> print(card_id, mult)
+            card6 1.06
         """
         ranged_jobs = [
             "WhiteMage",
@@ -589,43 +679,72 @@ class ActionTable(object):
         return f"card{card_strength}", 1 + card_strength / 100
 
     def estimate_radiant_finale_strength(self, elapsed_time):
-        """Very hacky way of estimating Radiant Finale strength.
-        Radiant Finale has the same ID regardless of how many codas are present.
-        Values under 100s assume it's the first usage and there's only a 2% buff.
-        Values over 100s assume 3 songs have been played and it's the full 6% buff.
-        New buff IDs are created depending on the number of Codas collected for Radiant Finale:
-            * RadiantFinale1 - 1 coda / 2% buff
-            * RadiantFinale3 - 3 cods / 6% buff
+        """
+        Estimate Radiant Finale buff strength based on fight duration.
+
+        Radiant Finale's buff strength depends on number of Codas collected,
+        but this isn't directly available in FFLogs. We estimate it based on
+        elapsed fight time:
+        - Before 100s: Assume 1 Coda (2% buff)
+        - After 100s: Assume 3 Codas (6% buff)
 
         Args:
-            elapsed_time (int): Fight duration that has elapsed in seconds.
+            elapsed_time: Fight duration in seconds
+                        Must be >= 0
 
         Returns:
-            raidant_finale_buff_id: ID indicating how many codas the R
+            str: Standardized buff ID:
+                - "RadiantFinale1": 2% buff from 1 Coda
+                - "RadiantFinale3": 6% buff from 3 Codas
+
+        Raises:
+            ValueError: If elapsed_time < 0
+
+        Example:
+            >>> # Early in fight with 1 Coda
+            >>> estimate_radiant_finale_strength(50)
+            'RadiantFinale1'
+            >>> # Later with 3 Codas
+            >>> estimate_radiant_finale_strength(150)
+            'RadiantFinale3'
         """
+        if elapsed_time < 0:
+            raise ValueError("elapsed_time must be non-negative")
+
         if elapsed_time < 100:
             return "RadiantFinale1"
         else:
             return "RadiantFinale3"
 
-    def estimate_ground_effect_multiplier(self, ground_effect_id):
-        """Estimate the multiplier for ground effects like Salted Earth (DRK) or Slipstream (SMN),
-        as FFLogs does not seem to supply this.
+    def estimate_ground_effect_multiplier(self, ground_effect_id: str) -> pd.DataFrame:
+        """
+        Estimate damage multipliers for ground effect abilities.
 
-        Multipliers are estimated in two ways:
+        Ground effects (like DRK's Salted Earth or SMN's Slipstream) need their
+        multipliers estimated since FFLogs doesn't provide them directly.
 
-        1. Match the set of buffs to non-ground effect action multipliers.
-           This method will capture fight-specific multipliers like Damage Down or Everlasting Flight.
-        2. All remainders are estimated using the `damage_buff_table` data frame.
-           This will not capture fight-specific multipliers
-
-        This currently does not account for multipliers which are fight-specific (de)buffs, like Damage Down.
+        The estimation process:
+        1. Match sets of buffs to known multipliers from other abilities
+        2. For unmatched cases, calculate from damage_buff_table values
 
         Args:
-            ground_effect_id (string): ID of the ground effect
+            ground_effect_id: FFLogs ability ID for the ground effect
+                            Must be a valid ID that exists in the log
 
         Returns:
-            actions_df: new actions_df data frame where the damage multiplier is estimated for ground effects
+            pd.DataFrame: Updated actions_df with estimated multipliers for the ground effect
+                        Preserves original row order and indexes
+
+        Raises:
+            ValueError: If ground_effect_id not found in actions
+            KeyError: If required columns missing from DataFrame
+
+        Example:
+            ```python
+            # Estimate Salted Earth multipliers
+            actions_df = estimate_ground_effect_multiplier("1000815")
+            print(actions_df.loc[actions_df["abilityGameID"] == "1000815", "multiplier"])
+            ```
         """
         # Check if the multiplier already exists for other actions
         # Unhashable string column of buffs, which allow duplicates to be dropped
@@ -699,27 +818,41 @@ class ActionTable(object):
 
     def guaranteed_hit_type_damage_buff(
         self,
-        ability_id,
-        buff_ids,
-        multiplier,
-        ch_rate_buff=0,
-        dh_rate_buff=0,
-    ):
-        """Check if an action is guaranteed critical and/or direct damage.
-        If so, and hit-type buffs are present, then compute its damage buff.
+        ability_id: str,
+        buff_ids: List[str],
+        multiplier: float,
+        ch_rate_buff: float = 0.0,
+        dh_rate_buff: float = 0.0,
+    ) -> Tuple[float, int]:
+        """
+        Calculate damage multiplier and hit type for abilities with guaranteed critical/direct hits.
+
+        Hit types:
+        0 = Normal
+        1 = Critical
+        2 = Direct Hit
+        3 = Critical Direct Hit
 
         Args:
-            ability_id (str): ID of the damage-dealing action
-            buff_ids (str): ID of all buffs present
-            multiplier (int): Original damage multiplier.
-            guaranteed_hit_via_buff (DataFrame): Table of actions which have guaranteed hit types when certain buffs are present
-            guaranteed_hit_via_action (DataFrame): Table of actions which have guaranteed hit types
-            ch_buff (int, optional): The total rate [0, 1] by which critical hits have increased by critical hit rate type buffs. Defaults to 0.
-            dh_buff (int, optional): The total rate [0, 1] by which direct hits have been increased by direct hit rate buffs. Defaults to 0.
+            ability_id: FFLogs ability ID
+            buff_ids: List of active buff IDs
+            multiplier: Base damage multiplier before hit type effects
+            ch_rate_buff: Critical hit rate increase from buffs [0.0-1.0]
+            dh_rate_buff: Direct hit rate increase from buffs [0.0-1.0]
 
         Returns:
-            float: new damage multiplier accounting for hit type rate buffs acting on guaranteed hit types.
-            int: hit type: 0 = normal; 1 = guaranteed critical; 2 = guaranteed direct; 3 = guaranteed critical-direct
+            tuple: (final_multiplier: float, hit_type: int)
+                - final_multiplier: Damage multiplier after hit type effects
+                - hit_type: Hit type code (0-3)
+
+        Example:
+            ```python
+            # Check Bootshine under Brotherhood
+            mult, hit = guaranteed_hit_type_damage_buff(
+                "53", ["110"], 1.0, ch_rate_buff=0.1
+            )
+            print(f"Hit Type: {hit}, Multiplier: {mult}")
+            ```
         """
         hit_type = 0
         r = Rate(self.critical_hit_stat, self.direct_hit_stat, level=self.level)
@@ -754,25 +887,52 @@ class ActionTable(object):
 
         return multiplier, hit_type
 
-    def apply_the_echo(self):
-        """Apply the damage bonus from The Echo.
-        The echo is a multiplicative buff whose stregnth is based on current patch.
-        This is
+    def apply_the_echo(self) -> None:
         """
-        six_point_5_7 = 1707818400000
-        six_point_5_8 = 1710849600000
+        Apply The Echo damage bonus based on fight timestamp.
+
+        The Echo is a multiplicative buff automatically applied to duties after they are no
+        longer current content. The strength increases with newer patches:
+        - 6.57: 10% damage increase (1.10x)
+        - 6.58+: 15% damage increase (1.15x)
+
+        This method:
+        1. Determines Echo strength based on fight timestamp
+        2. Multiplies all action damage by Echo multiplier
+        3. Adds Echo buff to action names and buff lists
+
+        Example:
+            ```python
+            # Fight with 10% Echo from patch 6.57
+            action_table.apply_the_echo()
+            print(action_table.actions_df["multiplier"].head())
+            ```
+
+        Raises:
+            ValueError: If fight_start_time is not set
+        """
+        # Patch timestamp constants (Unix ms)
+        PATCH_657_START = 1707818400000  # Feb 13, 2024
+        PATCH_658_START = 1710849600000  # Mar 19, 2024
+
+        # Echo buff constants
+        ECHO_10_MULT = 1.10
+        ECHO_15_MULT = 1.15
+        ECHO_10_NAME = "echo10"
+        ECHO_15_NAME = "echo15"
+
+        if not hasattr(self, "fight_start_time"):
+            raise ValueError("Fight start time must be set before applying Echo")
 
         # 6.57: 10% echo
-        if (self.fight_start_time >= six_point_5_7) & (
-            self.fight_start_time <= six_point_5_8
-        ):
-            echo_strength = 1.10
-            echo_buff = "echo10"
+        if PATCH_657_START <= self.fight_start_time <= PATCH_658_START:
+            echo_strength = ECHO_10_MULT
+            echo_buff = ECHO_10_NAME
 
-        # 6.58: 15% echo
-        elif self.fight_start_time >= six_point_5_8:
-            echo_strength = 1.15
-            echo_buff = "echo15"
+        # 6.58+: 15% echo
+        elif self.fight_start_time >= PATCH_658_START:
+            echo_strength = ECHO_15_MULT
+            echo_buff = ECHO_15_NAME
 
         self.actions_df["multiplier"] = round(
             self.actions_df["multiplier"] * echo_strength, 6
@@ -780,25 +940,49 @@ class ActionTable(object):
         self.actions_df["action_name"] += f"_{echo_buff}"
         self.actions_df["buffs"].apply(lambda x: x.append(echo_buff))
 
-        pass
-
     def create_action_df(
         self,
-        medication_id="1000049",
-        medication_multiplier=1.05,
-        radiant_finale_id="1002964",
-    ):
-        """Transform damage events from FFLogs API into a dataframe of actions.
-        Some additional transformations must be performed to
-            * Hit type probabilities must be computed, with hit type buffs accounted for.
-            * The correct multiplier for variable damage buffs (AST cards, Radiant Finale)
-              must be estimated.
-            * The damage buff granted to guaranteed hit types under hit type buffs must be computed.
+        medication_id: str = "1000049",
+        medication_multiplier: float = 1.05,
+        radiant_finale_id: str = "1002964",
+    ) -> pd.DataFrame:
+        """
+        Transform FFLogs damage events into a structured DataFrame for analysis.
 
-        Note: job-specific transformations to actions are performed later by the RotationTable class.
-        This serves as the precursor to the rotation dataframe, which is grouped by unique action and counted.
+        Creates a standardized action table with:
+        - Base action information (name, ID, timestamp)
+        - Calculated hit type probabilities
+        - Applied buffs and multipliers
+        - Pet actions and DoT effects
 
+        Args:
+            medication_id: FFLogs ability ID for medication buff (default: "1000049")
+            medication_multiplier: FFLogs approximates medication as a flat 5% multiplier.
+            This is removed since ffxiv-stats more accurately models it as a main stat
+            increase. (default: 1.05)
+            radiant_finale_id: FFLogs ability ID for Radiant Finale (default: "1002964")
 
+        Returns:
+            pd.DataFrame with columns:
+                - timestamp: Unix timestamp of action
+                - elapsed_time: Seconds from start of fight
+                - ability_name: Human readable action name
+                - multiplier: Total damage multiplier
+                - p_n/p_c/p_d/p_cd: Hit type probabilities
+                - main_stat_add: Main stat increases
+                - buffs: List of active buff IDs
+
+        Example:
+            ```python
+            actions_df = action_table.create_action_df()
+            print(f"Found {len(actions_df)} actions")
+            print(actions_df[["ability_name", "multiplier"]].head())
+            ```
+
+        Notes:
+            - Job-specific mechanics are handled later by RotationTable
+            - Ground effects/pets are included if present
+            - Unpaired actions are filtered out
         """
 
         # These columns are almost always here, there can be some additional columns
@@ -878,8 +1062,6 @@ class ActionTable(object):
         self.fight_start_time = actions_df["timestamp"].iloc[0]
         # Filter/rename columns
         actions_df = actions_df[action_df_columns]
-        # # TODO: remove? I don't think buff names are needed anymore
-        # actions_df.loc[:, "buff_names"] = actions_df["buffs"]
 
         # Add (tick) to a dot tick so the base ability name for
         # application and ticks are distinct - e.g., Dia and Dia (tick)
@@ -982,9 +1164,25 @@ class ActionTable(object):
 
 
 class RotationTable(ActionTable):
+    """
+    Creates gold-level rotation tables for damage distribution analysis.
+
+    Aggregates raw action data into rotation statistics by:
+    - Grouping actions by name and counting occurrences
+    - Mapping actions to correct potencies
+    - Handling job mechanics (combos, positionals, buffs)
+    - Categorizing damage types (direct, DoT, pet)
+
+    Inherits from ActionTable which handles raw combat log processing.
+
+    Attributes:
+        rotation_df (pd.DataFrame): Aggregated rotation statistics
+        potency_table (pd.DataFrame): Action potency mappings
+    """
+
     def __init__(
         self,
-        headers: str,
+        headers: Dict[str, str],
         report_id: str,
         fight_id: int,
         job: str,
@@ -995,40 +1193,63 @@ class RotationTable(ActionTable):
         medication_amt: int,
         level: int,
         phase: int,
-        damage_buff_table,
-        critical_hit_rate_buff_table,
-        direct_hit_rate_buff_table,
-        guaranteed_hits_by_action_table,
-        guaranteed_hits_by_buff_table,
-        potency_table,
-        pet_ids: list = None,
+        damage_buff_table: pd.DataFrame,
+        critical_hit_rate_buff_table: pd.DataFrame,
+        direct_hit_rate_buff_table: pd.DataFrame,
+        guaranteed_hits_by_action_table: pd.DataFrame,
+        guaranteed_hits_by_buff_table: pd.DataFrame,
+        potency_table: pd.DataFrame,
+        pet_ids: Optional[List[int]] = None,
         debug: bool = False,
     ) -> None:
-        """Aggregate the Action table to a Gold-level Rotation Table,
-        which is ready to compute damage distribution with `ffxiv_stats`.
-        Actions are grouped by their action name and counted, and are also mapped to:
-            * Potency, properly accounting for combo, positionals, and buffs which alter potency.
-            * Base action name
-            * Damage type: direct, DoT, pet
+        """
+        Initialize RotationTable for damage distribution analysis.
 
         Args:
-            headers (dict): header for request module to make an API call.
-                            This should contain the content-type and Authorization via a bearer token.
-                            Note that the bearer token is *not* saved, it is only temporarily passed
-                            to perform API calls as needed.
-                            Example: {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-            report_id (str): ID of the report to query, e.g., "gbkzXDBTFAQqjxpL".
-            fight_id (int): Fight ID of the report to query, e.g., 4.
-            job (str): Job name in Pascal case, e.g., "DarkKnight".
-            player_id (int): FFLogs-assigned actor ID of the player. Obtained via the EncounterInfo query.
-            crit_stat (int): Critical hit stat value. Used for computing hit type rates.
-            dh_stat (int): Direct hit rate stat value. Used for compute hit type rates
-            determination (int): Determination stat value. Used to compute the damage buff
-                                 granted to guaranteed direct hits affected by direct hit rate buffs.
-            medication_amt (int): number of main stat points that are increased by medication.
-            pet_ids (list, optional): List of pet IDs (int) if any are present. Obtained via the EncounterInfo query.
-                                      Defaults to None.
-            debug (bool, optional): _description_. Defaults to False.
+            headers: FFLogs API headers with authorization token
+            report_id: FFLogs report ID (e.g. "gbkzXDBTFAQqjxpL")
+            fight_id: Fight ID within report
+            job: Job name in PascalCase (e.g. "DarkKnight")
+            player_id: FFLogs player ID
+            crit_stat: Critical hit stat value
+            dh_stat: Direct hit stat value
+            determination: Determination stat value
+            medication_amt: Main stat increase from medication
+            level: Player level (90 max)
+            phase: Fight phase number (0 for full fight)
+            damage_buff_table: DataFrame of damage buff timings/values
+            critical_hit_rate_buff_table: DataFrame of crit rate buff timings
+            direct_hit_rate_buff_table: DataFrame of DH rate buff timings
+            guaranteed_hits_by_action_table: DataFrame mapping actions to hit types
+            guaranteed_hits_by_buff_table: DataFrame mapping buffs to hit types
+            potency_table: DataFrame mapping actions to potencies
+            pet_ids: Optional list of pet actor IDs
+            debug: Enable debug logging
+
+        Example:
+            ```python
+            # Initialize rotation table for analysis
+            rotation = RotationTable(
+                headers=api_headers,
+                report_id="abc123",
+                fight_id=1,
+                job="Samurai",
+                player_id=1,
+                crit_stat=2800,
+                dh_stat=1600,
+                determination=2000,
+                medication_amt=165,
+                level=90,
+                phase=0,
+                damage_buff_table=buff_df,
+                critical_hit_rate_buff_table=crit_df,
+                direct_hit_rate_buff_table=dh_df,
+                guaranteed_hits_by_action_table=action_hits_df,
+                guaranteed_hits_by_buff_table=buff_hits_df,
+                potency_table=potency_df
+            )
+            print(rotation.rotation_df.head())
+            ```
         """
         super().__init__(
             headers,
@@ -1068,75 +1289,163 @@ class RotationTable(ActionTable):
 
         pass
 
-    def normalize_hit_types(self, actions_df):
-        """Undo damage bonuses from hit types, treating all hits as normal hits.
+    def normalize_hit_types(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Remove hit type damage bonuses to get base damage values.
+
+        Reverses damage multipliers from critical hits and direct hits:
+        - Critical hits: Divides by crit damage multiplier (l_c/1000)
+        - Direct hits: Divides by 1.25 (25% bonus)
 
         Args:
-            actions_df (_type_): _description_
+            actions_df: DataFrame containing columns:
+                - amount: Raw damage amount
+                - hitType: Hit type code (2 = crit)
+                - directHit: Boolean for direct hit
+                - l_c: Critical hit damage multiplier
 
         Returns:
-            _type_: _description_
+            DataFrame with additional column:
+                - base_damage: Damage normalized to remove hit type bonuses
+
+        Example:
+            ```python
+            # Normalize 5000 damage crit direct hit to ~3571 base damage
+            df = normalize_hit_types(actions_df)
+            print(df["base_damage"].iloc[0])  # 3571.4
+            ```
         """
+        # Constants
+        CRIT_HIT_TYPE = 2
+        DIRECT_HIT_MULT = 1.25
+
         actions_df["base_damage"] = actions_df["amount"].astype(float)
-        actions_df.loc[actions_df["hitType"] == 2, "base_damage"] /= (
-            actions_df.loc[actions_df["hitType"] == 2, "l_c"] / 1000
+
+        # Remove crit damage bonus
+        actions_df.loc[actions_df["hitType"] == CRIT_HIT_TYPE, "base_damage"] /= (
+            actions_df.loc[actions_df["hitType"] == CRIT_HIT_TYPE, "l_c"] / 1000
         )
-        actions_df.loc[actions_df["directHit"] == True, "base_damage"] /= 1.25
+
+        # Remove direct hit bonus
+        actions_df.loc[actions_df["directHit"] == True, "base_damage"] /= (
+            DIRECT_HIT_MULT
+        )
+
         return actions_df
 
-    def group_multi_target_hits(self, actions_df):
-        """Actions which hit multiple enemies share the same `packetID`.
-        This allows us to group by packetID and compute damage falloffs.
+    def group_multi_target_hits(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Group multi-target hits by packet ID and find highest base damage.
 
-        Exceptions are DoT ticks and ground effects, but AoE versions of these
-        have no damage falloff.
+        Actions hitting multiple targets share the same packet ID in FFLogs.
+        Finding max base damage per packet ID identifies the primary target
+        for calculating damage falloff on secondary targets.
 
         Args:
-            actions_df (_type_): _description_
+            actions_df: DataFrame containing:
+                - packetID: FFLogs packet identifier
+                - base_damage: Normalized damage amount
+
+        Returns:
+            DataFrame with columns:
+                - packetID: Original packet ID
+                - max_base: Highest base damage for that packet ID
+
+        Notes:
+            - DoT ticks and ground effects are excluded since their AoE versions
+            have no damage falloff
+            - Copy is returned to avoid modifying original DataFrame
+
+        Example:
+            ```python
+            # Group Fat Edge of Darkness hits on multiple targets
+            hits_df = group_multi_target_hits(actions_df)
+            print(hits_df.head())
+            ```
         """
+        # Filter out ticks because application damage + tick have same packet ID
+        # Only an issue for Dia, where application pot = tick pot.
+        # Caused fractional potency falloff condition to fail later.
         return (
-            actions_df.groupby("packetID")
+            actions_df[actions_df["tick"] != True]
+            .groupby("packetID")
             .max("base_damage")
             .reset_index()
             .rename(columns={"base_damage": "max_base"})[["packetID", "max_base"]]
         ).copy()
 
-    def potency_falloff_fraction(self, actions_df, max_multi_hit):
-        """Compute the fractional potency of actions which hit multiple targets.
-        Used later to match with
+    def potency_falloff_fraction(
+        self, actions_df: pd.DataFrame, max_multi_hit: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Calculate potency falloff fractions for multi-target abilities.
+
+        Compares each hit's base damage to the highest damage for that packet ID
+        to determine falloff ratios. DoTs and ground effects are set to 1.0 since
+        their AoE versions have no falloff.
 
         Args:
-            actions_df (_type_): _description_
-            max_multi_hit (_type_): _description_
+            actions_df: DataFrame containing:
+                - packetID: FFLogs packet identifier
+                - base_damage: Normalized damage amount
+                - tick: Boolean for DoT/ground effect ticks
+            max_multi_hit: DataFrame containing:
+                - packetID: FFLogs packet identifier
+                - max_base: Maximum base damage for that packet
 
         Returns:
-            _type_: _description_
+            DataFrame with additional column:
+                - fractional_potency: Ratio of hit damage to max damage [0.0-1.0]
+
+        Example:
+            ```python
+            # Calculate falloff for Fat Edge of Darkness hits
+            df = potency_falloff_fraction(actions_df, max_hits_df)
+            print(df["fractional_potency"])  # [1.0, 0.75, 0.5, ...]
+            ```
         """
 
         actions_df = actions_df.merge(max_multi_hit, how="left", on="packetID")
+
+        # Calculate falloff fractions
         actions_df["fractional_potency"] = (
             actions_df["base_damage"] / actions_df["max_base"]
         )
 
-        # Set DoT ticks and ground effects to a fractional potency of 1.
-        # They either don't have a packet ID, is the same for multiple ticks,
-        # and/or is not easy to factor out hit type damage from DoTs.
-        # Either way, AoE dots and ground effects have no potency falloff.
+        # DoTs and ground effects have no falloff
         actions_df.loc[
             (actions_df["tick"] == True) | (actions_df["packetID"].isna()),
             "fractional_potency",
         ] = 1
         return actions_df
 
-    def match_potency_falloff(self, actions_df):
-        """Match actual potency falloff to values in the potency table.
-        Because of the +/- 5% damage roll, actual falloff values must be
-        within 0.1. I don't think there's any potency falloff values within 10%
-        of each other where this would overlap.
+    def match_potency_falloff(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Match actual potency falloff values to expected values from potency table.
+
+        Due to FFXIV's ±5% damage variance, matches falloff values within 0.1
+        of expected values from potency table. No abilities have falloff values
+        within 10% of each other, preventing overlap.
 
         Args:
-            actions_df (_type_): _description_
-            potencies (_type_): _description_
+            actions_df: DataFrame containing:
+                - abilityGameID: FFLogs ability identifier
+                - fractional_potency: Calculated damage falloff ratio
+                - elapsed_time: Time from fight start
+                - packetID: FFLogs packet identifier
+                - amount: Raw damage amount
+
+        Returns:
+            DataFrame with additional columns:
+                - matched_falloff: Matched potency falloff value
+                - ability_id: Mapped ability ID
+
+        Example:
+            ```python
+            # Match Fat Edge of Darkness falloff values
+            df = match_potency_falloff(actions_df)
+            print(df["matched_falloff"])  # [1.0, 0.75, 0.5]
+            ```
         """
         exploded_potencies = self.potency_table.explode("potency_falloff")[
             ["ability_id", "potency_falloff"]
@@ -1167,12 +1476,57 @@ class RotationTable(ActionTable):
 
     def make_rotation_df(
         self,
-        actions_df,
-        t_end_clip=None,
-        t_start_clip=None,
-        return_clipped=False,
-        clipped_portion="end",
-    ):
+        actions_df: pd.DataFrame,
+        t_end_clip: Optional[float] = None,
+        t_start_clip: Optional[float] = None,
+        return_clipped: bool = False,
+        clipped_portion: str = "end",
+    ) -> Optional[pd.DataFrame]:
+        """
+        Create rotation DataFrame by aggregating actions within a time window.
+
+        Processes raw combat actions into standardized rotation format by:
+        1. Filtering to specified time window
+        2. Processing multi-target hits:
+        - Normalizing damage values to identify primary hits
+        - Calculating potency falloff for secondary hits
+        3. Applying potency rules (combos, positionals)
+        4. Grouping and counting actions
+        5. Building final rotation table
+
+        Args:
+            actions_df: DataFrame of raw combat actions
+            t_end_clip: Seconds to clip from fight end (None = no clip)
+            t_start_clip: Seconds to clip from fight start (None = no clip)
+            return_clipped: Return clipped portion instead of main window
+            clipped_portion: Which portion to return if return_clipped=True:
+                - "start": Return clipped start portion
+                - "middle": Return middle window
+                - "end": Return clipped end portion
+
+        Returns:
+            DataFrame with columns:
+                - action_name: Full action name with modifiers
+                - base_action: Original action name
+                - n: Number of occurrences
+                - p_n/p_c/p_d/p_cd: Hit type probabilities
+                - buffs: Active damage buffs
+                - l_c: Crit damage multiplier
+                - main_stat_add: Added main stat
+                - potency: Final potency value
+                - damage_type: Action damage category
+            Returns None if filtered window contains no actions
+
+        Example:
+            ```python
+            # Get rotation excluding last 30s
+            df = make_rotation_df(actions_df, t_end_clip=30)
+
+            # Get just the last 30s
+            df = make_rotation_df(actions_df, t_end_clip=30,
+                                return_clipped=True)
+            ```
+        """
         if t_end_clip is None:
             t_end = self.fight_end_time
         else:
@@ -1323,6 +1677,7 @@ class RotationTable(ActionTable):
         # Take the highest potency priority value by unique action
         sort_list = [
             "base_action",
+            "abilityGameID",
             "n",
             "buff_str",
             "p_n",
@@ -1367,94 +1722,14 @@ class RotationTable(ActionTable):
 
 if __name__ == "__main__":
     from crit_app.config import FFLOGS_TOKEN
-    from fflogs_rotation.job_data.data import (
-        critical_hit_rate_table,
-        damage_buff_table,
-        direct_hit_rate_table,
-        guaranteed_hits_by_action_table,
-        guaranteed_hits_by_buff_table,
-        potency_table,
-    )
+    # from fflogs_rotation.job_data.data import (
+    #     critical_hit_rate_table,
+    #     damage_buff_table,
+    #     direct_hit_rate_table,
+    #     guaranteed_hits_by_action_table,
+    #     guaranteed_hits_by_buff_table,
+    #     potency_table,
+    # )
 
     api_key = FFLOGS_TOKEN  # or copy/paste your key here
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-    job = "DarkKnight"
-    # TODO: turn these into tests
-    # RotationTable(
-    #     headers,
-    #     "2yDY81rxKFqPTdZC",
-    #     10,
-    #     "DarkKnight",
-    #     4,
-    #     2576,
-    #     940,
-    #     2182,
-    #     254,
-    #     damage_buff_table,
-    #     critical_hit_rate_table,
-    #     direct_hit_rate_table,
-    #     guaranteed_hits_by_action_table,
-    #     guaranteed_hits_by_buff_table,
-    #     potency_table,
-    #     pet_ids=[15],
-    # )
-
-    # RotationTable(
-    #     headers,
-    #     "bLcB1DYCKxq8tdf6",
-    #     6,
-    #     "Machinist",
-    #     7,
-    #     2002,
-    #     2220,
-    #     2607,
-    #     351,
-    #     100,
-    #     damage_buff_table,
-    #     critical_hit_rate_table,
-    #     direct_hit_rate_table,
-    #     guaranteed_hits_by_action_table,
-    #     guaranteed_hits_by_buff_table,
-    #     potency_table,
-    #     pet_ids=[13],
-    # )
-
-    # RotationTable(
-    #     headers,
-    #     "TxzfCRDj9WrkGp6H",
-    #     14,
-    #     "BlackMage",
-    #     4,
-    #     4341,
-    #     2032,
-    #     2064,
-    #     351,
-    #     90,
-    #     damage_buff_table,
-    #     critical_hit_rate_table,
-    #     direct_hit_rate_table,
-    #     guaranteed_hits_by_action_table,
-    #     guaranteed_hits_by_buff_table,
-    #     potency_table,
-    #     pet_ids=None,
-    # )
-
-    RotationTable(
-        headers,
-        "ZTHC2AVM3wcxXhKz",
-        2,
-        "Viper",
-        7,
-        4341,
-        2032,
-        2064,
-        351,
-        100,
-        damage_buff_table,
-        critical_hit_rate_table,
-        direct_hit_rate_table,
-        guaranteed_hits_by_action_table,
-        guaranteed_hits_by_buff_table,
-        potency_table,
-        pet_ids=None,
-    )
