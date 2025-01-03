@@ -1,12 +1,9 @@
-import sqlite3
-from ast import literal_eval
 from typing import Optional, Tuple, Union
 
 import coreapi
 import numpy as np
 import pandas as pd
 
-from crit_app.config import DB_URI
 from crit_app.job_data.encounter_data import encounter_phases
 from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
 from crit_app.job_data.roles import role_stat_dict
@@ -290,11 +287,11 @@ def set_secondary_stats(
     if role in ("Melee", "Physical Ranged"):
         secondary_stat_pre_bonus = None
     elif role in ("Magical Ranged", "Healer"):
-        secondary_stat_pre_bonus = caster_healer_strength[job]
+        secondary_stat_pre_bonus = int(caster_healer_strength[job])
     elif tenacity is None:
         raise ValueError("Internal tenacity error.")
     else:
-        secondary_stat_pre_bonus = tenacity
+        secondary_stat_pre_bonus = int(tenacity)
 
     secondary_stat_type = (
         None
@@ -309,191 +306,6 @@ def set_secondary_stats(
         secondary_stat = secondary_stat_pre_bonus
 
     return secondary_stat_type, secondary_stat_pre_bonus, secondary_stat
-
-
-def read_report_table():
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-
-    report_df = pd.read_sql_query("select * from report", con)
-
-    cur.close()
-    con.close()
-    report_df["secondary_stat"] = (
-        report_df["secondary_stat"]
-        .replace("None", np.nan)
-        .infer_objects(copy=False)
-        .astype(float)
-        .astype("Int64")
-    )
-    report_df["secondary_stat_pre_bonus"] = (
-        report_df["secondary_stat_pre_bonus"]
-        .replace("None", np.nan)
-        .infer_objects(copy=False)
-        .astype(float)
-        .astype("Int64")
-    )
-
-    return report_df
-
-
-def read_party_report_table():
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-
-    report_df = pd.read_sql_query("select * from party_report", con)
-
-    cur.close()
-    con.close()
-    return report_df
-
-
-def read_encounter_table():
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-
-    player_df = pd.read_sql_query("select * from encounter", con).drop_duplicates()
-
-    cur.close()
-    con.close()
-    player_df["pet_ids"] = player_df["pet_ids"].apply(
-        lambda x: literal_eval(x) if x is not None else x
-    )
-    return player_df
-
-
-def update_report_table(db_row):
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-    cur.execute(
-        """
-    insert or replace into report 
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """,
-        db_row,
-    )
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
-
-def update_party_report_table(db_row):
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-    cur.execute(
-        """
-        insert
-        or replace into party_report
-        values
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        db_row,
-    )
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
-
-def unflag_report_recompute(analysis_id: str) -> None:
-    """
-    Set the recompute flag to 0 for a given analysis ID.
-
-    Parameters:
-    analysis_id (str): The ID of the analysis to update.
-    """
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-
-    cur.execute(f"""
-    update report set redo_dps_pdf_flag = 0 where analysis_id = "{analysis_id}"
-    """)
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
-
-def unflag_redo_rotation(analysis_id: str) -> None:
-    """
-    Set the redo rotation flag to 0 for a given analysis ID.
-
-    Parameters:
-        analysis_id (str): The ID of the analysis to update.
-    """
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-
-    cur.execute(f"""
-    update report set redo_rotation_flag = 0 where analysis_id = "{analysis_id}"
-    """)
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
-
-def unflag_party_report_recompute(analysis_id: str) -> None:
-    """
-    Set the recompute flag to 0 for a party analysis ID.
-
-    Used after the report has been recomputed.
-
-    Parameters:
-        analysis_id (str): The ID of the party analysis to update.
-    """
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-
-    cur.execute(f"""
-    update report set redo_party_report_flag = 0 where analysis_id = "{analysis_id}"
-    """)
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
-
-def update_encounter_table(db_rows):
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-    cur.executemany(
-        """
-        insert
-        or replace into encounter
-        values
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        db_rows,
-    )
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
-
-def update_access_table(db_row):
-    """
-    Update access table, keeping track of when and how much an analysis ID is accessed.
-
-    Inputs:
-        db_row - tuple, of row to insert. Contains (`analysis_id`, `access_datetime`).
-    """
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-    cur.execute(
-        """
-    insert into access 
-    values (?, ?)
-    """,
-        db_row,
-    )
-    con.commit()
-    cur.close()
-    con.close()
-    pass
-
 
 def format_kill_time_str(kill_time: float) -> str:
     """
@@ -556,95 +368,95 @@ def get_phase_selector_options(
     return phase_select_options, phase_select_hidden
 
 
-def check_prior_job_analyses(
-    # Query parameters
-    report_id: str,
-    fight_id: int,
-    player_id: int,
-    player_name: str,
-    # Build parameters
-    main_stat_pre_bonus: int,
-    secondary_stat_pre_bonus: Optional[int],
-    determination: int,
-    speed: int,
-    critical_hit: int,
-    direct_hit: int,
-    weapon_damage: int,
-    delay: float,
-    medication_amount: int,
-) -> Optional[str]:
-    """
-    Check for existing analysis matching report and build parameters.
+# def check_prior_job_analyses(
+#     # Query parameters
+#     report_id: str,
+#     fight_id: int,
+#     player_id: int,
+#     player_name: str,
+#     # Build parameters
+#     main_stat_pre_bonus: int,
+#     secondary_stat_pre_bonus: Optional[int],
+#     determination: int,
+#     speed: int,
+#     critical_hit: int,
+#     direct_hit: int,
+#     weapon_damage: int,
+#     delay: float,
+#     medication_amount: int,
+# ) -> Optional[str]:
+#     """
+#     Check for existing analysis matching report and build parameters.
 
-    Args:
-        report_id: FFLogs report identifier
-        fight_id: Fight ID within report
-        player_id: Player actor ID
-        player_name: Player character name
-        main_stat_pre_bonus: Pre-bonus main stat value
-        secondary_stat_pre_bonus: Pre-bonus secondary stat value
-        determination: Determination stat value
-        speed: Speed stat value
-        critical_hit: Critical hit stat value
-        direct_hit: Direct hit stat value
-        weapon_damage: Weapon damage value
-        delay: Weapon delay value
-        medication_amount: Amount of medication bonus
+#     Args:
+#         report_id: FFLogs report identifier
+#         fight_id: Fight ID within report
+#         player_id: Player actor ID
+#         player_name: Player character name
+#         main_stat_pre_bonus: Pre-bonus main stat value
+#         secondary_stat_pre_bonus: Pre-bonus secondary stat value
+#         determination: Determination stat value
+#         speed: Speed stat value
+#         critical_hit: Critical hit stat value
+#         direct_hit: Direct hit stat value
+#         weapon_damage: Weapon damage value
+#         delay: Weapon delay value
+#         medication_amount: Amount of medication bonus
 
-    Returns:
-        Analysis ID if matching record found, None otherwise
+#     Returns:
+#         Analysis ID if matching record found, None otherwise
 
-    Example:
-        >>> aid = check_prior_job_analyses(
-        ...     "abc123", 1, 16, "Player1",
-        ...     3000, None, 1500, 2000, 2500, 1400,
-        ...     120, 3.0, 0
-        ... )
-        >>> print(aid)
-        'analysis_123'
-    """
-    report_df = read_report_table()
-    encounter_df = read_encounter_table()
-    report_df = report_df.merge(
-        encounter_df[["report_id", "fight_id", "player_name", "player_id"]],
-        on=["report_id", "fight_id", "player_name"],
-        how="inner",
-    )
+#     Example:
+#         >>> aid = check_prior_job_analyses(
+#         ...     "abc123", 1, 16, "Player1",
+#         ...     3000, None, 1500, 2000, 2500, 1400,
+#         ...     120, 3.0, 0
+#         ... )
+#         >>> print(aid)
+#         'analysis_123'
+#     """
+#     report_df = read_report_table()
+#     encounter_df = read_encounter_table()
+#     report_df = report_df.merge(
+#         encounter_df[["report_id", "fight_id", "player_name", "player_id"]],
+#         on=["report_id", "fight_id", "player_name"],
+#         how="inner",
+#     )
 
-    # FIXME: update with party analysis phasing
-    same_fight = report_df[
-        (report_df["report_id"] == report_id)
-        & (report_df["fight_id"] == fight_id)
-        & (report_df["player_id"] == player_id)
-        & (report_df["phase_id"] == 0)
-    ]
+#     # FIXME: update with party analysis phasing
+#     same_fight = report_df[
+#         (report_df["report_id"] == report_id)
+#         & (report_df["fight_id"] == fight_id)
+#         & (report_df["player_id"] == player_id)
+#         & (report_df["phase_id"] == 0)
+#     ]
 
-    if len(same_fight) == 0:
-        return None
+#     if len(same_fight) == 0:
+#         return None
 
-    build_comparison = (
-        (same_fight["main_stat_pre_bonus"] == main_stat_pre_bonus)
-        & (
-            (same_fight["secondary_stat_pre_bonus"] == secondary_stat_pre_bonus)
-            | same_fight["secondary_stat_pre_bonus"].isna()
-        )
-        & (same_fight["determination"] == determination)
-        & (same_fight["speed"] == speed)
-        & (same_fight["critical_hit"] == critical_hit)
-        & (same_fight["direct_hit"] == direct_hit)
-        & (same_fight["weapon_damage"] == weapon_damage)
-        & (same_fight["delay"] == delay)
-        & (same_fight["medication_amount"] == medication_amount)
-        & (same_fight["redo_dps_pdf_flag"] == 0)
-        & (same_fight["redo_rotation_flag"] == 0)
-    )
+#     build_comparison = (
+#         (same_fight["main_stat_pre_bonus"] == main_stat_pre_bonus)
+#         & (
+#             (same_fight["secondary_stat_pre_bonus"] == secondary_stat_pre_bonus)
+#             | same_fight["secondary_stat_pre_bonus"].isna()
+#         )
+#         & (same_fight["determination"] == determination)
+#         & (same_fight["speed"] == speed)
+#         & (same_fight["critical_hit"] == critical_hit)
+#         & (same_fight["direct_hit"] == direct_hit)
+#         & (same_fight["weapon_damage"] == weapon_damage)
+#         & (same_fight["delay"] == delay)
+#         & (same_fight["medication_amount"] == medication_amount)
+#         & (same_fight["redo_dps_pdf_flag"] == 0)
+#         & (same_fight["redo_rotation_flag"] == 0)
+#     )
 
-    matched_record = same_fight[build_comparison]
+#     matched_record = same_fight[build_comparison]
 
-    if len(matched_record) == 0:
-        return None
+#     if len(matched_record) == 0:
+#         return None
 
-    return matched_record["analysis_id"].iloc[0]
+#     return matched_record["analysis_id"].iloc[0]
 
 
 def check_prior_party_analysis(
@@ -659,6 +471,8 @@ def check_prior_party_analysis(
     if len(set(job_analysis_id_list)) != party_size:
         return None, 1
 
+    def read_party_report_table():
+        pass
     party_analysis_ids = read_party_report_table()
 
     party_analysis_ids = party_analysis_ids[
