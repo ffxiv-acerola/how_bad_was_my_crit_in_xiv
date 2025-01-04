@@ -125,6 +125,7 @@ create table
         party_bonus REAL NOT NULL,
         error_message TEXT NOT NULL,
         traceback TEXT NOT NULL,
+        error_ts TEXT NOT NULL,
         primary key (report_id, fight_id, player_id)
     ) strict
 """
