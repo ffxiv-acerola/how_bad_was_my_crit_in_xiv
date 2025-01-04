@@ -24,6 +24,7 @@ from crit_app.cards import (
     initialize_results,
     initialize_rotation_card,
 )
+from crit_app.util.dash_elements import error_alert
 from crit_app.config import BLOB_URI, DEBUG, DRY_RUN
 from crit_app.dmg_distribution import (
     get_dps_dmg_percentile,
@@ -405,24 +406,12 @@ def layout(analysis_id=None):
 
         redo_rotation = analysis_details["redo_rotation_flag"]
         recompute_pdf_flag = analysis_details["redo_dps_pdf_flag"]
-        # recompute_flag = 1
 
         # Player stat info
         main_stat = int(analysis_details["main_stat"])
         main_stat_pre_bonus = analysis_details["main_stat_pre_bonus"]
         secondary_stat_pre_bonus = analysis_details["secondary_stat_pre_bonus"]
         secondary_stat = analysis_details["secondary_stat"]
-        # if analysis_details["secondary_stat_pre_bonus"] != "":
-        #     secondary_stat_pre_bonus = int(
-        #         float(analysis_details["secondary_stat_pre_bonus"])
-        #     )
-        # else:
-        #     secondary_stat_pre_bonus = ""
-
-        # if analysis_details["secondary_stat"] != "":
-        #     secondary_stat = int(float(analysis_details["secondary_stat"]))
-        # else:
-        #     secondary_stat = ""
         determination = analysis_details["determination"]
         speed_stat = analysis_details["speed"]
         crit = analysis_details["critical_hit"]
@@ -438,34 +427,66 @@ def layout(analysis_id=None):
 
         # Get actions and create a rotation again, used if the RotationTable class updates.
         if redo_rotation:
-            rotation_object = RotationTable(
-                headers,
-                analysis_details["report_id"],
-                int(analysis_details["fight_id"]),
-                player_job_no_space,
-                player_id,
-                crit,
-                direct_hit,
-                determination,
-                medication_amt,
-                level,
-                fight_phase,
-                damage_buff_table,
-                critical_hit_rate_table,
-                direct_hit_rate_table,
-                guaranteed_hits_by_action_table,
-                guaranteed_hits_by_buff_table,
-                potency_table,
-                pet_ids,
-            )
+            try:
+                rotation_object = RotationTable(
+                    headers,
+                    analysis_details["report_id"],
+                    int(analysis_details["fight_id"]),
+                    player_job_no_space,
+                    player_id,
+                    crit,
+                    direct_hit,
+                    determination,
+                    medication_amt,
+                    level,
+                    fight_phase,
+                    damage_buff_table,
+                    critical_hit_rate_table,
+                    direct_hit_rate_table,
+                    guaranteed_hits_by_action_table,
+                    guaranteed_hits_by_buff_table,
+                    potency_table,
+                    pet_ids,
+                )
 
-            action_df = rotation_object.actions_df
-            rotation_df = rotation_object.rotation_df
+                action_df = rotation_object.actions_df
+                rotation_df = rotation_object.rotation_df
 
-            with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
-                pickle.dump(rotation_object, f)
+                with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
+                    pickle.dump(rotation_object, f)
+                unflag_redo_rotation(analysis_id)
 
-            unflag_redo_rotation(analysis_id)
+            # Catch any errors and notify user
+            except Exception as e:
+                error_info = (
+                    report_id,
+                    fight_id,
+                    player_id,
+                    encounter_id,
+                    "Unavailable",
+                    fight_phase,
+                    player_job_no_space,
+                    "N/A",
+                    int(main_stat_pre_bonus),
+                    int(main_stat),
+                    "Main",
+                    secondary_stat_pre_bonus,
+                    secondary_stat,
+                    None,
+                    int(determination),
+                    int(speed_stat),
+                    int(crit),
+                    int(direct_hit),
+                    int(weapon_damage),
+                    delay,
+                    medication_amt,
+                    party_bonus,
+                    str(e),
+                    traceback.format_exc(),
+                )
+                insert_error_analysis(*error_info)
+                error_children.append(error_alert(str(e)))
+                return error_children
         else:
             try:
                 with open(
@@ -484,31 +505,62 @@ def layout(analysis_id=None):
         # Recompute DPS distributions if flagged to do so.
         # Happens if `ffxiv_stats` updates with some sort of correction.
         if recompute_pdf_flag:
-            job_analysis_object = rotation_analysis(
-                role,
-                player_job_no_space,
-                rotation_df,
-                rotation_object.fight_time,
-                main_stat,
-                secondary_stat,
-                determination,
-                speed_stat,
-                crit,
-                direct_hit,
-                weapon_damage,
-                delay,
-                main_stat_pre_bonus,
-                level=level,
-            )
+            try:
+                job_analysis_object = rotation_analysis(
+                    role,
+                    player_job_no_space,
+                    rotation_df,
+                    rotation_object.fight_time,
+                    main_stat,
+                    secondary_stat,
+                    determination,
+                    speed_stat,
+                    crit,
+                    direct_hit,
+                    weapon_damage,
+                    delay,
+                    main_stat_pre_bonus,
+                    level=level,
+                )
 
-            job_analysis_data = job_analysis_to_data_class(
-                job_analysis_object, job_analysis_object.t
-            )
+                job_analysis_data = job_analysis_to_data_class(
+                    job_analysis_object, job_analysis_object.t
+                )
 
-            with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
-                pickle.dump(job_analysis_data, f)
-            unflag_report_recompute(analysis_id)
-
+                with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
+                    pickle.dump(job_analysis_data, f)
+                unflag_report_recompute(analysis_id)
+            # Catch any errors and notify user
+            except Exception as e:
+                error_info = (
+                    report_id,
+                    fight_id,
+                    player_id,
+                    encounter_id,
+                    "Unavailable",
+                    fight_phase,
+                    player_job_no_space,
+                    "N/A",
+                    int(main_stat_pre_bonus),
+                    int(main_stat),
+                    "Main",
+                    secondary_stat_pre_bonus,
+                    secondary_stat,
+                    None,
+                    int(determination),
+                    int(speed_stat),
+                    int(crit),
+                    int(direct_hit),
+                    int(weapon_damage),
+                    delay,
+                    medication_amt,
+                    party_bonus,
+                    str(e),
+                    traceback.format_exc(),
+                )
+                insert_error_analysis(*error_info)
+                error_children.append(error_alert(str(e)))
+                return error_children
         else:
             try:
                 with open(
@@ -1671,20 +1723,7 @@ def analyze_and_register_rotation(
             updated_url,
             ["Analyze rotation"],
             False,
-            [
-                dbc.Alert(
-                    [
-                        html.P(
-                            "Oops, the following error was encountered while creating and analyzing your rotation:"
-                        ),
-                        str(e),
-                        html.P(
-                            "This error has been logged and will be fixed when possible. No further action is required."
-                        ),
-                    ],
-                    color="danger",
-                )
-            ],
+            [error_alert(str(e))],
             False,
         )
     updated_url = f"/analysis/{analysis_id}"

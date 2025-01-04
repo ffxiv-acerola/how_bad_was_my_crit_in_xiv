@@ -1,3 +1,4 @@
+import datetime
 import sqlite3
 from ast import literal_eval
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -64,7 +65,7 @@ def insert_error_analysis(
     """
     sql_query = """
     INSERT OR REPLACE INTO error_player_analysis VALUES (
-        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
     )
     """
 
@@ -93,6 +94,7 @@ def insert_error_analysis(
         party_bonus,
         error_message,
         traceback,
+        datetime.datetime.now()
     )
 
     con = sqlite3.connect(DB_URI)
@@ -539,7 +541,7 @@ def unflag_redo_rotation(analysis_id: str) -> None:
     where
         analysis_id = ?
     """,
-        (analysis_id),
+        (analysis_id,),
     )
     con.commit()
     cur.close()
