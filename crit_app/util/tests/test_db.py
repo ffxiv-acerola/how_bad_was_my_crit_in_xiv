@@ -15,7 +15,7 @@ from crit_app.util.db import (
 
 @pytest.fixture
 def mock_db():
-    """Create mock database with schema and test data"""
+    """Create mock database with schema and test data."""
     con = sqlite3.connect(":memory:")
     cur = con.cursor()
 
@@ -65,16 +65,16 @@ def mock_db():
 
 @pytest.fixture
 def mock_sqlite_connect(mock_db):
-    """Mock sqlite3.connect to return test database"""
+    """Mock sqlite3.connect to return test database."""
     with patch("sqlite3.connect") as mock_connect:
         mock_connect.return_value = mock_db
         yield mock_connect
 
 
 def test_read_player_analysis_info(mock_sqlite_connect):
-    """Test successful player info retrieval"""
-    player_name, pet_ids, job, role, encounter_id = read_player_analysis_info(
-        "ZfnF8AqRaBbzxW3w", 5, 27
+    """Test successful player info retrieval."""
+    player_name, pet_ids, job, role, encounter_id, encounter_name = (
+        read_player_analysis_info("ZfnF8AqRaBbzxW3w", 5, 27)
     )
 
     assert player_name == "Althea Winter"
@@ -82,18 +82,19 @@ def test_read_player_analysis_info(mock_sqlite_connect):
     assert job == "Astrologian"
     assert role == "Healer"
     assert encounter_id == 1079
+    assert encounter_name == "Futures Rewritten"
 
 
 def test_search_prior_player_analyses(mock_sqlite_connect):
-    """Test search for prior analyses"""
+    """Test search for prior analyses."""
     n_analyses, analysis_id = search_prior_player_analyses(
         report_id="ZfnF8AqRaBbzxW3w",
         fight_id=5,
         fight_phase=0,
         job="Astrologian",
         player_name="Althea Winter",
-        main_stat=5129,
-        secondary_stat=229,
+        main_stat_pre_bonus=4885,
+        secondary_stat_pre_bonus=None,
         determination=2831,
         speed=420,
         critical_hit=3041,
@@ -108,15 +109,15 @@ def test_search_prior_player_analyses(mock_sqlite_connect):
 
 
 def test_search_prior_analyses_no_match(mock_sqlite_connect):
-    """Test search with no matching analyses"""
+    """Test search with no matching analyses."""
     n_analyses, analysis_id = search_prior_player_analyses(
         report_id="nonexistent",
         fight_id=999,
         fight_phase=0,
         job="Summoner",
         player_name="Missing Player",
-        main_stat=1,
-        secondary_stat=1,
+        main_stat_pre_bonus=1,
+        secondary_stat_pre_bonus=1,
         determination=1,
         speed=1,
         critical_hit=1,
@@ -131,7 +132,7 @@ def test_search_prior_analyses_no_match(mock_sqlite_connect):
 
 
 def test_compute_party_bonus_1_05(mock_sqlite_connect):
-    """Test party bonus calculation, 1.05 with LB"""
+    """Test party bonus calculation, 1.05 with LB."""
     bonus = compute_party_bonus("ZfnF8AqRaBbzxW3w", 5)
 
     # One unique role in test data

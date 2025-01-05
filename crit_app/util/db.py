@@ -1,3 +1,23 @@
+"""Database utility functions for FFXIV Critical Hit Analysis.
+
+This module provides database interaction functions for storing and retrieving
+FFXIV combat analysis data. It handles:
+- Player analysis records
+- Error logging
+- Fight encounter data
+- Party composition information
+
+The module uses SQLite for data storage and requires the following tables:
+- encounter: Stores fight encounter metadata
+- report: Stores detailed analysis results
+- error_player_analysis: Stores error information
+
+Dependencies:
+    sqlite3: Database interaction
+    ast.literal_eval: For parsing stored pet_ids
+    typing: Type hints
+"""
+
 import datetime
 import sqlite3
 from ast import literal_eval
@@ -94,7 +114,7 @@ def insert_error_analysis(
         party_bonus,
         error_message,
         traceback,
-        datetime.datetime.now()
+        datetime.datetime.now(),
     )
 
     con = sqlite3.connect(DB_URI)
@@ -102,6 +122,46 @@ def insert_error_analysis(
     cur.execute(sql_query, params)
     con.commit()
     con.close()
+
+
+def update_encounter_table(db_rows):
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.executemany(
+        """
+        insert
+        or replace into encounter
+        values
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        db_rows,
+    )
+    con.commit()
+    cur.close()
+    con.close()
+    pass
+
+
+def update_access_table(db_row):
+    """
+    Update access table, keeping track of when and how much an analysis ID is accessed.
+
+    Inputs:
+        db_row - tuple, of row to insert. Contains (`analysis_id`, `access_datetime`).
+    """
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.execute(
+        """
+    insert into access
+    values (?, ?)
+    """,
+        db_row,
+    )
+    con.commit()
+    cur.close()
+    con.close()
+    pass
 
 
 def read_player_analysis_info(
@@ -150,101 +210,6 @@ def read_player_analysis_info(
     return player_name, pet_ids, job, role, encounter_id, encounter_name
 
 
-def search_prior_player_analyses(
-    report_id: str,
-    fight_id: int,
-    fight_phase: int,
-    job: str,
-    player_name: str,
-    main_stat: int,
-    secondary_stat: int,
-    determination: int,
-    speed: int,
-    critical_hit: int,
-    direct_hit: int,
-    weapon_damage: int,
-    delay: float,
-    medication_amount: int,
-) -> Tuple[int, Union[str, None]]:
-    """Search for matching prior player analyses in database.
-
-    Args:
-        report_id (str): FFLogs report identifier
-        fight_id (int): Fight ID within report
-        fight_phase (int): Phase ID within fight
-        job (str): Player job/class
-        player_name (str): Player name
-        main_stat (int): Main stat value, with bonus applied
-        secondary_stat (int): Secondary stat value, with bonus applied
-        determination (int): Determination stat
-        speed (int): Speed/SkS/SpS stat
-        critical_hit (int): Critical hit stat
-        direct_hit (int): Direct hit stat
-        weapon_damage (int): Weapon damage
-        delay (float): Weapon delay
-        medication_amount (int): Medicine/food bonus amount
-
-    Returns:
-        pd.DataFrame: Matching analysis records with all columns from report table
-    """
-    sql_query = """
-    SELECT
-        *
-    FROM
-        report
-    WHERE
-        report_id = ?
-        AND fight_id = ?
-        AND phase_id = ?
-        AND job = ?
-        AND player_name = ?
-        AND main_stat = ?
-        AND secondary_stat = ?
-        AND determination = ?
-        AND speed = ?
-        AND critical_hit = ?
-        AND direct_hit = ?
-        AND weapon_damage = ?
-        AND delay = ?
-        AND medication_amount = ?
-    """
-
-    params = (
-        report_id,
-        fight_id,
-        fight_phase,
-        job,
-        player_name,
-        main_stat,
-        secondary_stat,
-        determination,
-        speed,
-        critical_hit,
-        direct_hit,
-        weapon_damage,
-        delay,
-        medication_amount,
-    )
-
-    con = sqlite3.connect(DB_URI)
-    cur = con.cursor()
-    cur.execute(sql_query, params)
-    prior_analyses = cur.fetchall()
-    cur.close()
-    con.close()
-
-    if len(prior_analyses) == 0:
-        existing_analysis_id = None
-
-    elif len(prior_analyses) == 1:
-        existing_analysis_id = prior_analyses[0][0]
-
-    else:
-        raise RuntimeError("Internal error, duplicate analyses detected.")
-
-    return len(prior_analyses), existing_analysis_id
-
-
 def compute_party_bonus(report_id: str, fight_id: int) -> str:
     """Calculate party composition bonus based on unique roles.
 
@@ -284,6 +249,111 @@ def compute_party_bonus(report_id: str, fight_id: int) -> str:
     return percent_bonus
 
 
+#################################
+##### Player analysis ############
+#################################
+
+
+def search_prior_player_analyses(
+    report_id: str,
+    fight_id: int,
+    fight_phase: int,
+    job: str,
+    player_name: str,
+    main_stat_pre_bonus: int,
+    secondary_stat_pre_bonus: int,
+    determination: int,
+    speed: int,
+    critical_hit: int,
+    direct_hit: int,
+    weapon_damage: int,
+    delay: float,
+    medication_amount: int,
+) -> Tuple[int, Union[str, None]]:
+    """Search for matching prior player analyses in database.
+
+    Args:
+        report_id (str): FFLogs report identifier
+        fight_id (int): Fight ID within report
+        fight_phase (int): Phase ID within fight
+        job (str): Player job/class
+        player_name (str): Player name
+        main_stat_pre_bonus (int): Main stat value, without bonus applied
+        secondary_stat_pre_bonus (int): Secondary stat value, without bonus applied
+        determination (int): Determination stat
+        speed (int): Speed/SkS/SpS stat
+        critical_hit (int): Critical hit stat
+        direct_hit (int): Direct hit stat
+        weapon_damage (int): Weapon damage
+        delay (float): Weapon delay
+        medication_amount (int): Medicine addition to main stat
+
+    Returns:
+        pd.DataFrame: Matching analysis records with all columns from report table
+    """
+    sql_query = """
+    SELECT
+        *
+    FROM
+        report
+    WHERE
+        report_id = ?
+        AND fight_id = ?
+        AND phase_id = ?
+        AND job = ?
+        AND player_name = ?
+        AND main_stat_pre_bonus = ?
+        AND (
+            secondary_stat_pre_bonus = ?
+            or job not in ("Gunbreaker", "Warrior", "DarkKnight", "Paladin")
+        )
+        AND determination = ?
+        AND speed = ?
+        AND critical_hit = ?
+        AND direct_hit = ?
+        AND weapon_damage = ?
+        AND delay = ?
+        AND medication_amount = ?
+    """
+
+    params = (
+        report_id,
+        fight_id,
+        fight_phase,
+        job,
+        player_name,
+        main_stat_pre_bonus,
+        secondary_stat_pre_bonus,
+        determination,
+        speed,
+        critical_hit,
+        direct_hit,
+        weapon_damage,
+        delay,
+        medication_amount,
+    )
+
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.execute(sql_query, params)
+    prior_analyses = cur.fetchall()
+    cur.close()
+    con.close()
+
+    if len(prior_analyses) == 0:
+        existing_analysis_id = None
+        redo_flags = False
+
+    elif len(prior_analyses) == 1:
+        existing_analysis_id = prior_analyses[0][0]
+        redo_flags = (prior_analyses[0][-1] == 1) or (prior_analyses[0][-2] == 1)
+
+    else:
+        raise RuntimeError("Internal error, duplicate analyses detected.")
+
+    return existing_analysis_id, redo_flags
+
+
 def check_valid_player_analysis_id(analysis_id: str) -> bool:
     """Check if a player analysis ID exists in the database.
 
@@ -317,6 +387,7 @@ def check_valid_player_analysis_id(analysis_id: str) -> bool:
     return valid_analysis_id
 
 
+# FIXME: check this is right
 def retrieve_player_analysis_information(analysis_id: str) -> Dict[str, Any]:
     """Retrieve player analysis information from database.
 
@@ -461,9 +532,7 @@ def player_analysis_meta_info(analysis_id: str) -> Optional[Dict[str, Any]]:
 
 
 def update_report_table(db_row):
-    """
-    Add a new record to the report table after a player analysis is completed.
-    """
+    """Add a new record to the report table after a player analysis is completed."""
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
     cur.execute(
@@ -477,24 +546,6 @@ def update_report_table(db_row):
     cur.close()
     con.close()
     pass
-
-
-# def update_party_report_table(db_row):
-#     con = sqlite3.connect(DB_URI)
-#     cur = con.cursor()
-#     cur.execute(
-#         """
-#         insert
-#         or replace into party_report
-#         values
-#             (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-#         """,
-#         db_row,
-#     )
-#     con.commit()
-#     cur.close()
-#     con.close()
-#     pass
 
 
 def unflag_report_recompute(analysis_id: str) -> None:
@@ -549,6 +600,29 @@ def unflag_redo_rotation(analysis_id: str) -> None:
     pass
 
 
+#################################
+##### Party analysis ############
+#################################
+
+
+def update_party_report_table(db_row):
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.execute(
+        """
+        insert
+        or replace into party_report
+        values
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        db_row,
+    )
+    con.commit()
+    cur.close()
+    con.close()
+    pass
+
+
 def unflag_party_report_recompute(analysis_id: str) -> None:
     """
     Set the recompute flag to 0 for a party analysis ID.
@@ -577,44 +651,227 @@ def unflag_party_report_recompute(analysis_id: str) -> None:
     pass
 
 
-def update_encounter_table(db_rows):
+def get_party_analysis_encounter_info(
+    party_analysis_id: str,
+) -> Tuple[str, int, int, int, str, float]:
+    """Retrieve encounter information for a given party analysis ID.
+
+    Args:
+        party_analysis_id (str): Unique identifier for the party analysis
+
+    Returns:
+        Tuple[str, int, int, int, str, float]: Encounter information including:
+            - report_id (str): FFLogs report identifier
+            - fight_id (int): Fight ID within the report
+            - phase_id (int): Phase ID within the fight
+            - encounter_id (int): Encounter ID
+            - encounter_name (str): Name of the encounter
+            - kill_time (float): Time taken to complete the encounter
+    """
+    sql_query = """
+    select DISTINCT
+        report_id,
+        fight_id,
+        phase_id,
+        last_phase_index,
+        encounter_id,
+        encounter_name,
+        kill_time
+    from
+        party_report pr
+        inner join encounter e using (report_id, fight_id)
+    where
+        party_analysis_id = ?
+    """
+    params = (party_analysis_id,)
+
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
-    cur.executemany(
-        """
-        insert
-        or replace into encounter
-        values
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        db_rows,
-    )
-    con.commit()
+    cur.execute(sql_query, params)
+
+    (
+        report_id,
+        fight_id,
+        phase_id,
+        last_phase_index,
+        encounter_id,
+        encounter_name,
+        kill_time,
+    ) = cur.fetchone()
+
     cur.close()
     con.close()
-    pass
+
+    return (
+        report_id,
+        fight_id,
+        phase_id,
+        last_phase_index,
+        encounter_id,
+        encounter_name,
+        kill_time,
+    )
 
 
-def update_access_table(db_row):
+def get_party_analysis_player_constituents(
+    party_analysis_id: str,
+) -> Tuple[List[Dict[str, Any]], List[List[Any]], int]:
+    """Retrieve player constituents for a given party analysis ID.
+
+    Args:
+        party_analysis_id (str): Unique identifier for the party analysis
+
+    Returns:
+        Tuple[List[Dict[str, Any]], List[List[Any]], int]: Player constituents including:
+            - List of dictionaries with player analysis details
+            - List of lists with job, player name, and analysis ID
+            - Medication amount for the first player in the list
     """
-    Update access table, keeping track of when and how much an analysis ID is accessed.
-
-    Inputs:
-        db_row - tuple, of row to insert. Contains (`analysis_id`, `access_datetime`).
+    sql_query = """
+    SELECT distinct
+        r.analysis_id,
+        e.role,
+        r.job,
+        r.player_name,
+        e.player_id,
+        r.main_stat_pre_bonus,
+        r.secondary_stat_pre_bonus,
+        r.determination,
+        r.speed,
+        r.critical_hit,
+        r.direct_hit,
+        r.weapon_damage,
+        r.delay,
+        r.medication_amount,
+        r.etro_id
+    FROM
+        report r
+        inner join encounter e using (report_id, fight_id, player_name, job)
+    WHERE r.analysis_id IN (
+        SELECT analysis_id_1 FROM party_report WHERE party_analysis_id = ?
+        UNION ALL
+        SELECT analysis_id_2 FROM party_report WHERE party_analysis_id = ?
+        UNION ALL 
+        SELECT analysis_id_3 FROM party_report WHERE party_analysis_id = ?
+        UNION ALL
+        SELECT analysis_id_4 FROM party_report WHERE party_analysis_id = ?
+        UNION ALL
+        SELECT analysis_id_5 FROM party_report WHERE party_analysis_id = ?
+        UNION ALL
+        SELECT analysis_id_6 FROM party_report WHERE party_analysis_id = ?
+        UNION ALL
+        SELECT analysis_id_7 FROM party_report WHERE party_analysis_id = ?
+        UNION ALL
+        SELECT analysis_id_8 FROM party_report WHERE party_analysis_id = ?
+    )
+    order by job, player_name, player_id
     """
+    params = tuple([party_analysis_id] * 8)
+
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
-    cur.execute(
-        """
-    insert into access
-    values (?, ?)
-    """,
-        db_row,
-    )
-    con.commit()
+    cur.execute(sql_query, params)
+
+    # Query
+    columns = [col[0] for col in cur.description]
+    rows = cur.fetchall()
+
+    # transform into outputs used by site
+    etro_job_build_information = [dict(zip(columns, r)) for r in rows]
+    player_analysis_selector_options = [[r[2], r[3], r[0]] for r in rows]
+    medication_amount = rows[0][13]
     cur.close()
     con.close()
-    pass
+
+    return (
+        etro_job_build_information,
+        player_analysis_selector_options,
+        medication_amount,
+    )
+
+
+def get_party_analysis_player_info(
+    report_id: str, fight_id: int
+) -> Tuple[int, Optional[int], Dict[int, Optional[Any]]]:
+    """Retrieve player information for a given party analysis.
+
+    Args:
+        report_id (str): FFLogs report identifier
+        fight_id (int): Fight ID within the report
+
+    Returns:
+        Tuple[int, Optional[int], Dict[int, Optional[Any]]]: Player information including:
+            - encounter_id (int): Encounter ID
+            - lb_player_id (Optional[int]): Player ID for Limit Break, None if not present
+            - pet_id_map (Dict[int, Optional[Any]]): Mapping of player IDs to pet IDs
+    """
+    sql_query = """
+    select
+        encounter_id,
+        job,
+        player_id,
+        pet_ids
+    from
+        encounter
+    where
+        report_id = ?
+        and fight_id = ?
+    """
+
+    params = (report_id, fight_id)
+
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.execute(sql_query, params)
+
+    # Query
+    rows = cur.fetchall()
+
+    cur.close()
+    con.close()
+    encounter_id = rows[0][0]
+    lb_player_id = [r[2] for r in rows if r[1] == "LimitBreak"]
+    if len(lb_player_id) == 0:
+        lb_player_id = None
+    else:
+        lb_player_id = lb_player_id[0]
+
+    pet_id_map = {r[2]: literal_eval(r[3]) if r[3] is not None else r[3] for r in rows}
+
+    return encounter_id, lb_player_id, pet_id_map
+
+
+def check_prior_party_analysis(player_analysis_ids):
+    placeholders = ",".join("?" for _ in player_analysis_ids)
+    sql_query = f"""
+    SELECT
+    party_analysis_id
+    FROM
+    party_report
+    WHERE
+    analysis_id_1 IN ({placeholders})
+    AND analysis_id_2 IN ({placeholders})
+    AND analysis_id_3 IN ({placeholders})
+    AND analysis_id_4 IN ({placeholders})
+    AND analysis_id_5 IN ({placeholders})
+    AND analysis_id_6 IN ({placeholders})
+    AND analysis_id_7 IN ({placeholders})
+    AND analysis_id_8 IN ({placeholders})
+    """
+
+    params = player_analysis_ids * 8
+
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.execute(sql_query, params)
+    prior_party_analysis_id = cur.fetchone()
+
+    cur.close()
+    con.close()
+
+    if prior_party_analysis_id is not None:
+        prior_party_analysis_id = prior_party_analysis_id[0]
+    return prior_party_analysis_id
 
 
 if __name__ == "__main__":
@@ -634,5 +891,19 @@ if __name__ == "__main__":
     #     delay=3.12,
     #     medication_amount=392
     # )
-    get_player_analysis_job_records("ZfnF8AqRaBbzxW3w", 5)
+    # get_party_analysis_player_constituents("ccafe2ba-2433-43d2-92d7-361887ca3620")
+    # get_party_analysis_encounter_info("ccafe2ba-2433-43d2-92d7-361887ca3620")
+
+    get_party_analysis_player_info("ZfnF8AqRaBbzxW3w", 5)
+    analysis_ids = (
+        "dd099fb5-208a-4113-b88a-b3ab827cf25f",
+        "b5902ddb-9b19-49ca-969d-5340a9b8fc23",
+        "27415a96-4231-4749-8a87-26826aa67264",
+        "1c7dce7e-bc96-4519-a837-9f759aca416b",
+        "15fed881-743f-4c18-a1c0-cab626a3fdde",
+        "a10b2f59-8baf-47e1-a290-fd8e26ae6bc0",
+        "05b19324-e677-4b16-a70f-ed4b945f683e",
+        "1f4be7d0-2748-4bfc-9089-bd1e49684f40",
+    )
+    check_prior_party_analysis(analysis_ids)
     # retrieve_player_analysis_information("84e76865-db0a-4e4b-980a-db87e45ec0f4")
