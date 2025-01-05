@@ -80,6 +80,7 @@ from crit_app.util.db import (
     update_party_report_table,
     update_report_table,
 )
+from crit_app.util.party_dps_distribution import lb_damage_after_clipping
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
     damage_buff_table,
@@ -833,7 +834,7 @@ def analyze_party_rotation(
     if (party_analysis_id is not None) and (not any_redo_flags):
         return f"/party_analysis/{party_analysis_id}"
 
-    # Compute job-level analyses
+    # Compute player-level analyses
     for a in range(len(job)):
         full_job = reverse_abbreviated_role_map[job[a]]
         role = role_mapping[full_job]
@@ -1008,22 +1009,14 @@ def analyze_party_rotation(
         # Subtract out the party rotation clipping
         # More efficient than recomputing the entire rotation,
         # which only very slightly changes.
-
-        # FIXME: Check if any LB damage is lost when a rotation is truncated.
         party_rotation_clipping_mean = sum(
             [j.rotation_mean for j in job_rotation_clipping_analyses[t]]
         )
 
         # Filter LB damage events that happen within truncated rotation
-        clipped_lb_damage = lb_damage_events_df[
-            lb_damage_events_df["timestamp"] <= (fight_end_timestamp - 1000 * t)
-        ]
-
-        # Set to 0 if none exist, otherwise sum amounts.
-        if len(lb_damage) == 0:
-            clipped_lb_damage = 0
-        else:
-            clipped_lb_damage = clipped_lb_damage["amount"].sum()
+        clipped_lb_damage = lb_damage_after_clipping(
+            lb_damage_events_df, fight_end_timestamp - 1000 * t
+        )
 
         (
             truncated_party_distribution[t]["pdf"],
