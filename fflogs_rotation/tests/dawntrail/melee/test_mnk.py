@@ -106,7 +106,9 @@ class TestMonkActions:
             .reset_index(drop=True)
         )
 
-    def test_mnk_7_05_action_counts(self, expected_mnk_7_05_action_counts: pd.DataFrame):
+    def test_mnk_7_05_action_counts(
+        self, expected_mnk_7_05_action_counts: pd.DataFrame
+    ):
         """Test that action counts match expected values for Black Cat log."""
         # Arrange
         actual_counts = (

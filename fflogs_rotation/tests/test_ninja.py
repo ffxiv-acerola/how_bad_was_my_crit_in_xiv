@@ -1,9 +1,9 @@
-import pandas as pd
-from pandas.testing import assert_frame_equal
+# import pandas as pd
+# from pandas.testing import assert_frame_equal
 
-from fflogs_rotation.ninja import (
-    NinjaActions,
-)
+# from fflogs_rotation.ninja import (
+#     NinjaActions,
+# )
 
 
 def test_ew_meisui_buffs():
@@ -59,21 +59,21 @@ def test_ew_meisui_buffs():
 #     # `check_like=True`` ignores column order.
 #     assert_frame_equal(test_output, expected_df, check_like=True)
 
-    # RotationTable(
-    #     headers,
-    #     "F4Z8zaCxKMWpJRd1",
-    #     2,
-    #     "Ninja",
-    #     3,
-    #     2557,
-    #     1432,
-    #     1844,
-    #     254,
-    #     damage_buff_table,
-    #     critical_hit_rate_table,
-    #     direct_hit_rate_table,
-    #     guaranteed_hits_by_action_table,
-    #     guaranteed_hits_by_buff_table,
-    #     potency_table,
-    #     pet_ids=None,
-    # )
+# RotationTable(
+#     headers,
+#     "F4Z8zaCxKMWpJRd1",
+#     2,
+#     "Ninja",
+#     3,
+#     2557,
+#     1432,
+#     1844,
+#     254,
+#     damage_buff_table,
+#     critical_hit_rate_table,
+#     direct_hit_rate_table,
+#     guaranteed_hits_by_action_table,
+#     guaranteed_hits_by_buff_table,
+#     potency_table,
+#     pet_ids=None,
+# )
