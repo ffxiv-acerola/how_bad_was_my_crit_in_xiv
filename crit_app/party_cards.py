@@ -4,10 +4,38 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 from dash import (
     dash_table,
+    dcc,
     html,
 )
 
 from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
+
+QUICK_BUILD_TABLE_STYLES = {
+    "header": {
+        "backgroundColor": "rgb(30, 30, 30)",
+        "color": "white",
+        "font-family": "sans-serif",
+        "font-size": "1.0em",
+    },
+    "data": {"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
+}
+
+QUICK_BUILD_COLUMN_STYLES = [
+    {
+        "if": {"column_id": "job"},
+        "width": "50px",
+        "textAlign": "center",
+        "padding-bottom": "4px",
+        "font-family": "job-icons",
+        "font-size": "1.3em",
+    },
+    {
+        "if": {"column_id": "player_name"},
+        "width": "200px",
+        "textAlign": "left",
+        "padding-left": "10px",
+    },
+]
 
 party_analysis_assumptions_modal = dbc.Modal(
     [
@@ -40,7 +68,17 @@ party_analysis_assumptions_modal = dbc.Modal(
 
 
 def create_fflogs_card(
-    fflogs_url: Optional[str] = None, encounter_info_children: Optional[List] = None
+    fflogs_url: Optional[str] = None,
+    encounter_name=[],
+    kill_time_str: str = "",
+    phase_selector_value="0",
+    phase_selector_options: list = [],
+    phase_select_hidden: bool = False,
+    medication_amount: int = 392,
+    quick_build_table_data: list = [],
+    party_accordion_items: list = [],
+    hide_fflogs_div: bool = True,
+    wrap_collapse: bool = False,
 ) -> dbc.Card:
     """
     Create card component for FFLogs URL input and encounter info.
@@ -82,7 +120,147 @@ def create_fflogs_card(
     )
 
     # Encounter info row
-    encounter_info = dbc.Row(encounter_info_children, id="encounter-info")
+    encounter_info = html.H3(
+        [
+            html.Span(encounter_name, id="party-encounter-name"),
+            " (",
+            html.Span(kill_time_str, id="party-kill-time"),
+            ")",
+        ]
+    )
+
+    # Display fight
+
+    # Phase selection
+    phase_select = html.Div(
+        dbc.Row(
+            children=[
+                dbc.Label("Phase:", width=12, md=2, id="party-phase-label"),
+                dbc.Col(
+                    dbc.Select(
+                        options=phase_selector_options,
+                        value=phase_selector_value,
+                        id="party-phase-select",
+                    ),
+                    width=1,
+                    md=5,
+                ),
+            ],
+        ),
+        id="party-phase-select-div",
+        style={"padding-bottom": "15px"},
+        hidden=phase_select_hidden,
+    )
+
+    # Job build
+    job_build_text = [
+        html.H3("Enter job builds"),
+        html.P(
+            "Job builds for all players must be entered. "
+            "Either enter the Etro link or input each job's stats. "
+            "Do not include any party composition bonuses to the main stat, "
+            "this is automatically calculated."
+        ),
+    ]
+
+    # Medication
+    medication_selector = create_tincture_input(medication_amount)
+
+    # Quick build input
+    # quick_build_div = create_quick_build_div(
+    #     create_quick_build_table(etro_job_build_information)
+    # )
+    quick_build_table = dash_table.DataTable(
+        data=quick_build_table_data,
+        columns=[
+            {"id": "job", "name": "Job", "editable": False, "selectable": False},
+            {
+                "id": "player_name",
+                "name": "Player",
+                "editable": False,
+                "selectable": False,
+            },
+            {
+                "id": "etro_link",
+                "name": "Etro link",
+                "editable": True,
+                "selectable": True,
+            },
+        ],
+        style_header=QUICK_BUILD_TABLE_STYLES["header"],
+        style_data=QUICK_BUILD_TABLE_STYLES["data"],
+        style_cell_conditional=QUICK_BUILD_COLUMN_STYLES,
+        editable=True,
+        id="quick-build-table",
+    )
+
+    quick_build_div = html.Div(
+        [
+            html.H4("Quick build input"),
+            html.P(
+                'Quickly input all Etro links by pasting them into the "Etro link" '
+                "column below like you would a spreadsheet and then clicking the "
+                '"Fill in Etro links" button. Otherwise, enter the build information '
+                "one-by-one and then click the validate builds button."
+            ),
+            quick_build_table,
+            html.Br(),
+            dbc.Button("Fill in Etro links", id="quick-build-fill-button"),
+        ],
+        style={"padding-top": "15px", "padding-bottom": "15px"},
+    )
+
+    # Party accordion
+    party_accordion = dbc.ListGroup(
+        children=party_accordion_items, id="party-accordion"
+    )
+
+    # Validate
+    buttons = html.Div(
+        [
+            dbc.Button(
+                "Validate builds (click to show analyze button)",
+                id="etro-validate",
+                class_name="me-1 w-100",
+            ),
+            html.Div(
+                [
+                    dbc.Button(
+                        "Analyze party rotation", id="party-compute", class_name="w-100"
+                    )
+                ],
+                id="party-compute-div",
+                hidden=True,
+                className="w-100",
+                style={"padding-top": "15px", "padding-bottom": "15px"},
+            ),
+        ],
+        style={"padding-top": "15px"},
+    )
+
+    # Progress bar
+    party_analysis_progress = [
+        html.H4(id="party-progress-header"),
+        dbc.Progress(
+            value=0, style={"height": "25px"}, color="#009670", id="party-progress"
+        ),
+        html.P(id="party-progress-job"),
+    ]
+
+    fflogs_hidden_div = html.Div(
+        [
+            encounter_info,
+            phase_select,
+            *job_build_text,
+            medication_selector,
+            quick_build_div,
+            party_accordion,
+            buttons,
+            *party_analysis_progress,
+        ],
+        id="party-fflogs-hidden-div",
+        hidden=hide_fflogs_div,
+    )
 
     return dbc.Card(
         dbc.CardBody(
@@ -100,13 +278,168 @@ def create_fflogs_card(
                 html.Hr(className="my-2"),
                 html.H3("Enter log to analyze"),
                 url_input,
-                encounter_info,
+                fflogs_hidden_div,
             ]
         )
     )
 
 
-def create_quick_build_table(
+def create_results_card(
+    analysis_url: str = "",
+    party_dps_pdf_figure=None,
+    kill_time_figure=None,
+    player_analysis_selector_options=[],
+    player_analysis_default=None,
+):
+    party_analysis_summary = html.Div(
+        [
+            dbc.Row(
+                [
+                    html.P(
+                        [
+                            "Scroll down to see a detailed analysis showing the DPS distribution of the party's rotation, how likely faster kill times are, and individual player DPS distributions. Click ",
+                            html.A("here", href="#", id="party-analysis-open"),
+                            " to learn more about the limitations and assumptions of the results.",
+                            party_analysis_assumptions_modal,
+                        ]
+                    ),
+                ]
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        dbc.Label("Copy analysis link"),
+                        align="center",
+                        width=2,
+                    ),
+                    dbc.Col(
+                        dbc.Input(
+                            value=analysis_url,
+                            disabled=True,
+                            id="party-analysis-link",
+                        ),
+                        width=9,
+                        align="center",
+                    ),
+                    dbc.Col(
+                        dcc.Clipboard(
+                            id="party-clipboard",
+                            style={"display": "inline-block"},
+                        ),
+                        align="center",
+                        width=1,
+                    ),
+                ]
+            ),
+        ]
+    )
+
+    # Party rotation DPS distribution
+    party_dps_pdf = dbc.Card(
+        dbc.CardBody(
+            [
+                html.H3("Party DPS distribution"),
+                html.P(
+                    "The graph below shows the DPS distribution for the whole party. Mouse over curves/points to view corresponding percentiles."
+                ),
+                dcc.Graph(figure=party_dps_pdf_figure),
+            ]
+        )
+    )
+
+    # Kill time analysis
+    kill_time_card = html.Div(
+        dbc.Card(
+            dbc.CardBody(
+                html.Div(
+                    [
+                        html.H3("Kill time analysis"),
+                        html.P(
+                            "The graph below estimates how likely the actual kill time was and how likely faster kill times are. The y-axis represents all kills that are equal to or faster than the kill time reported on the x-axis. Faster kill times are estimated by simply truncating the rotation of the party by the respective time amount. Note the y-axis is on a log scale."
+                        ),
+                        html.P(
+                            "Low percent chances indicate that faster kill times with the given rotation are unlikely. Faster kill times may be achieved through means like further refining the party's rotation, performing a planned rotation more consistently, or generating more Limit Break usages."
+                        ),
+                        dcc.Graph(figure=kill_time_figure),
+                    ]
+                )
+            )
+        )
+    )
+
+    job_dps_selection = html.Div(
+        [
+            dbc.RadioItems(
+                options=[
+                    {"label": "Rotation DPS distribution", "value": "rotation"},
+                    {"label": "Action DPS distributions", "value": "actions"},
+                ],
+                value="rotation",
+                id="job-graph-type",
+                inline=True,
+            ),
+            html.Br(),
+            dcc.Dropdown(
+                player_analysis_selector_options,
+                value=player_analysis_default,
+                id="job-selector",
+                style={
+                    "height": "45px",
+                },
+            ),
+            html.Br(),
+        ],
+    )
+
+    job_view_card = html.Div(
+        dbc.Card(
+            dbc.CardBody(
+                html.Div(
+                    [
+                        html.H3("Job damage distributions"),
+                        html.P(
+                            "Click the drop-down to view the DPS distribution of a specific job. The radio buttons toggle between the overall rotation DPS distribution and the DPS distribution of each action. Mouse over curves/points to view corresponding percentiles."
+                        ),
+                        html.A(
+                            [
+                                "Open job-level analysis page  ",
+                                html.I(
+                                    className="fas fa-external-link-alt",
+                                    style={"font-size": "0.8em"},
+                                ),
+                            ],
+                            target="_blank",
+                            id="job-level-analysis",
+                        ),
+                        html.Br(),
+                        html.Br(),
+                        job_dps_selection,
+                        html.Br(),
+                        dcc.Graph(id="job-rotation-pdf"),
+                    ],
+                    className="me-1",
+                )
+            )
+        )
+    )
+
+    return dbc.Card(
+        dbc.CardBody(
+            [
+                html.H2("Party analysis results"),
+                party_analysis_summary,
+                html.Br(),
+                party_dps_pdf,
+                html.Br(),
+                kill_time_card,
+                html.Br(),
+                job_view_card,
+            ]
+        )
+    )
+
+
+def create_quick_build_table_data(
     job_information: List[Dict[str, Any]],
 ) -> dash_table.DataTable:
     """
@@ -128,33 +461,6 @@ def create_quick_build_table(
     #     "Magical Ranged": 5
     # }
 
-    TABLE_STYLES = {
-        "header": {
-            "backgroundColor": "rgb(30, 30, 30)",
-            "color": "white",
-            "font-family": "sans-serif",
-            "font-size": "1.0em",
-        },
-        "data": {"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
-    }
-
-    COLUMN_STYLES = [
-        {
-            "if": {"column_id": "job"},
-            "width": "50px",
-            "textAlign": "center",
-            "padding-bottom": "4px",
-            "font-family": "job-icons",
-            "font-size": "1.3em",
-        },
-        {
-            "if": {"column_id": "player_name"},
-            "width": "200px",
-            "textAlign": "left",
-            "padding-left": "10px",
-        },
-    ]
-
     # Create and sort dataframe
     quick_build = pd.DataFrame(job_information)
     # TODO: Verify this is correct
@@ -171,30 +477,7 @@ def create_quick_build_table(
         ["role_order", "job", "player_name", "player_id"]
     )[["job", "player_name", "etro_link"]]
 
-    # Create table
-    return dash_table.DataTable(
-        data=quick_build.to_dict("records"),
-        columns=[
-            {"id": "job", "name": "Job", "editable": False, "selectable": False},
-            {
-                "id": "player_name",
-                "name": "Player",
-                "editable": False,
-                "selectable": False,
-            },
-            {
-                "id": "etro_link",
-                "name": "Etro link",
-                "editable": True,
-                "selectable": True,
-            },
-        ],
-        style_header=TABLE_STYLES["header"],
-        style_data=TABLE_STYLES["data"],
-        style_cell_conditional=COLUMN_STYLES,
-        editable=True,
-        id="quick-build-table",
-    )
+    return quick_build.to_dict("records")
 
 
 def create_quick_build_div(quick_build_table: Any) -> html.Div:
@@ -563,10 +846,10 @@ def create_accordion_items(
     )
 
 
-def create_party_accordion(
+def create_party_accordion_children(
     job_information: List[Dict[str, Union[str, int, float, None]]],
     job_build_present: bool = False,
-) -> dbc.ListGroup:
+) -> list:
     """
     Create accordion UI component grouping party members by role.
 
@@ -728,53 +1011,50 @@ def create_party_accordion(
                 )
             )
 
-    return dbc.ListGroup(
-        [
-            dbc.ListGroupItem(
-                [
-                    html.H4("Tank"),
-                    dbc.Accordion(
-                        tanks,
-                        start_collapsed=True,
-                    ),
-                ],
-            ),
-            dbc.ListGroupItem(
-                [
-                    html.H4("Healer"),
-                    dbc.Accordion(
-                        healers,
-                        start_collapsed=True,
-                    ),
-                ]
-            ),
-            dbc.ListGroupItem(
-                [
-                    html.H4("Melee"),
-                    dbc.Accordion(
-                        melee,
-                        start_collapsed=True,
-                    ),
-                ]
-            ),
-            dbc.ListGroupItem(
-                [
-                    html.H4("Physical Ranged"),
-                    dbc.Accordion(
-                        physical_ranged,
-                        start_collapsed=True,
-                    ),
-                ]
-            ),
-            dbc.ListGroupItem(
-                [
-                    html.H4("Magical Ranged"),
-                    dbc.Accordion(
-                        casters,
-                        start_collapsed=True,
-                    ),
-                ]
-            ),
-        ],
-        id="party-accordion",
-    )
+    return [
+        dbc.ListGroupItem(
+            [
+                html.H4("Tank"),
+                dbc.Accordion(
+                    tanks,
+                    start_collapsed=True,
+                ),
+            ],
+        ),
+        dbc.ListGroupItem(
+            [
+                html.H4("Healer"),
+                dbc.Accordion(
+                    healers,
+                    start_collapsed=True,
+                ),
+            ]
+        ),
+        dbc.ListGroupItem(
+            [
+                html.H4("Melee"),
+                dbc.Accordion(
+                    melee,
+                    start_collapsed=True,
+                ),
+            ]
+        ),
+        dbc.ListGroupItem(
+            [
+                html.H4("Physical Ranged"),
+                dbc.Accordion(
+                    physical_ranged,
+                    start_collapsed=True,
+                ),
+            ]
+        ),
+        dbc.ListGroupItem(
+            [
+                html.H4("Magical Ranged"),
+                dbc.Accordion(
+                    casters,
+                    start_collapsed=True,
+                ),
+            ]
+        ),
+    ]

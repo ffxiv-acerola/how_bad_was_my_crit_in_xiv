@@ -307,6 +307,7 @@ def set_secondary_stats(
 
     return secondary_stat_type, secondary_stat_pre_bonus, secondary_stat
 
+
 def format_kill_time_str(kill_time: float) -> str:
     """
     Format kill time as MM:SS.mmm string.
@@ -473,6 +474,7 @@ def check_prior_party_analysis(
 
     def read_party_report_table():
         pass
+
     party_analysis_ids = read_party_report_table()
 
     party_analysis_ids = party_analysis_ids[

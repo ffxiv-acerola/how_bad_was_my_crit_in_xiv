@@ -24,7 +24,6 @@ from crit_app.cards import (
     initialize_results,
     initialize_rotation_card,
 )
-from crit_app.util.dash_elements import error_alert
 from crit_app.config import BLOB_URI, DEBUG, DRY_RUN
 from crit_app.dmg_distribution import (
     get_dps_dmg_percentile,
@@ -38,7 +37,6 @@ from crit_app.figures import (
 )
 from crit_app.job_data.encounter_data import (
     encounter_level,
-    encounter_phases,
     patch_times,
     stat_ranges,
     valid_encounters,
@@ -49,11 +47,13 @@ from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
 from crit_app.shared_elements import (
     etro_build,
     format_kill_time_str,
+    get_phase_selector_options,
     rotation_analysis,
     set_secondary_stats,
     validate_meldable_stat,
     validate_weapon_damage,
 )
+from crit_app.util.dash_elements import error_alert
 from crit_app.util.db import (
     check_valid_player_analysis_id,
     compute_party_bonus,
@@ -292,36 +292,6 @@ def show_job_options(
         physical_ranged_radio_items,
         magical_ranged_radio_items,
     )
-
-
-def get_phase_selector_options(
-    furthest_phase_index: int, encounter_id: int
-) -> Tuple[List[Dict[str, int]], bool]:
-    """
-    Create a dictionary of phase select options for an encounter.
-
-    Also create a boolean indicator for whether the phase selector should be visible.
-
-    For encounters without phases, the phase always defaults to 0 and hidden.
-
-    Args:
-        furthest_phase_index (int): Index of the furthest-reached phase for a fight ID.
-        encounter_id (int): ID of the encounter.
-
-    Returns:
-        Tuple[List[Dict[str, int]], bool]:
-        A list of dictionaries for dbc.Select `options` argument and a boolean for whether the selector should be visible or not.
-    """
-    phase_select_options = [{"label": "Entire Fight", "value": 0}]
-    phase_select_hidden = True
-    if encounter_id in encounter_phases.keys():
-        phase_select_options.extend(
-            {"label": encounter_phases[encounter_id][a], "value": a}
-            for a in range(1, furthest_phase_index + 1)
-        )
-        phase_select_hidden = False
-
-    return phase_select_options, phase_select_hidden
 
 
 def layout(analysis_id=None):

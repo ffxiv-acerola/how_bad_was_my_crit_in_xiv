@@ -115,3 +115,27 @@ abbreviated_job_map = {
     "RedMage": "rdm",
     "Pictomancer": "pct",
 }
+
+unabbreviated_job_map = {
+    "whm": "WhiteMage",
+    "sch": "Scholar",
+    "ast": "Astrologian",
+    "sge": "Sage",
+    "pld": "Paladin",
+    "war": "Warrior",
+    "drk": "DarkKnight",
+    "gnb": "Gunbreaker",
+    "brd": "Bard",
+    "dnc": "Dancer",
+    "mch": "Machinist",
+    "drg": "Dragoon",
+    "mnk": "Monk",
+    "nin": "Ninja",
+    "vpr": "Viper",
+    "sam": "Samurai",
+    "rpr": "Reaper",
+    "blm": "BlackMage",
+    "smn": "Summoner",
+    "rdm": "RedMage",
+    "pct": "Pictomancer",
+}
