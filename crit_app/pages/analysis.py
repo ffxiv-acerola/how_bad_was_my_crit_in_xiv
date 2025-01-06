@@ -27,7 +27,7 @@ from crit_app.cards import (
 from crit_app.config import BLOB_URI, DEBUG, DRY_RUN
 from crit_app.dmg_distribution import (
     get_dps_dmg_percentile,
-    job_analysis_to_data_class,
+    # job_analysis_to_data_class,
 )
 from crit_app.figures import (
     make_action_box_and_whisker_figure,
@@ -58,7 +58,7 @@ from crit_app.util.db import (
     check_valid_player_analysis_id,
     compute_party_bonus,
     get_player_analysis_job_records,
-    insert_error_analysis,
+    insert_error_player_analysis,
     player_analysis_meta_info,
     read_player_analysis_info,
     retrieve_player_analysis_information,
@@ -69,6 +69,7 @@ from crit_app.util.db import (
     update_encounter_table,
     update_report_table,
 )
+from crit_app.util.player_dps_distribution import job_analysis_to_data_class
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
     damage_buff_table,
@@ -454,7 +455,7 @@ def layout(analysis_id=None):
                     str(e),
                     traceback.format_exc(),
                 )
-                insert_error_analysis(*error_info)
+                insert_error_player_analysis(*error_info)
                 error_children.append(error_alert(str(e)))
                 return error_children
         else:
@@ -528,7 +529,7 @@ def layout(analysis_id=None):
                     str(e),
                     traceback.format_exc(),
                 )
-                insert_error_analysis(*error_info)
+                insert_error_player_analysis(*error_info)
                 error_children.append(error_alert(str(e)))
                 return error_children
         else:
@@ -1687,7 +1688,7 @@ def analyze_and_register_rotation(
             traceback.format_exc(),
         )
 
-        insert_error_analysis(*error_info)
+        insert_error_player_analysis(*error_info)
 
         return (
             updated_url,

@@ -1,6 +1,7 @@
 import pickle
 import time
-from typing import Optional, Tuple
+import traceback
+from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 
 import dash
@@ -24,16 +25,10 @@ from crit_app.api_queries import (
     parse_etro_url,
     parse_fflogs_url,
 )
+from crit_app.util.dash_elements import error_alert
 
 # from app import app
 from crit_app.config import BLOB_URI, DRY_RUN
-from crit_app.dmg_distribution import (
-    PartyRotation,
-    SplitPartyRotation,
-    job_analysis_to_data_class,
-    rotation_dps_pdf,
-    unconvovle_clipped_pdf,
-)
 from crit_app.figures import (
     make_action_box_and_whisker_figure,
     make_kill_time_graph,
@@ -72,6 +67,8 @@ from crit_app.util.db import (
     get_party_analysis_encounter_info,
     get_party_analysis_player_constituents,
     get_party_analysis_player_info,
+    insert_error_party_analysis,
+    insert_error_player_analysis,
     search_prior_player_analyses,
     # unflag_party_report_recompute,
     unflag_redo_rotation,
@@ -80,7 +77,13 @@ from crit_app.util.db import (
     update_party_report_table,
     update_report_table,
 )
-from crit_app.util.party_dps_distribution import lb_damage_after_clipping
+from crit_app.util.party_dps_distribution import (
+    PartyRotation,
+    SplitPartyRotation,
+    kill_time_analysis,
+    rotation_dps_pdf,
+)
+from crit_app.util.player_dps_distribution import job_analysis_to_data_class
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
     damage_buff_table,
@@ -101,6 +104,19 @@ dash.register_page(
     path_template="/party_analysis/<party_analysis_id>",
     path="/party_analysis",
 )
+
+LEVEL_STEP_MAP = {
+    90: {
+        "rotation_dmg_step": 20,
+        "action_delta": 2,
+        "rotation_delta": 10,
+    },
+    100: {
+        "rotation_dmg_step": 20,
+        "action_delta": 5,
+        "rotation_delta": 15,
+    },
+}
 
 
 def layout(party_analysis_id=None):
@@ -681,6 +697,7 @@ def job_progress(job_list, active_job):
 
 @app.long_callback(
     Output("url", "href", allow_duplicate=True),
+    Output("party-analysis-error", "children"),
     Input("party-compute", "n_clicks"),
     State("party-phase-select", "value"),
     State({"type": "job-name", "index": ALL}, "children"),
@@ -743,6 +760,7 @@ def analyze_party_rotation(
     party_{} -
     {}_truncat
     """
+    updated_url = dash.no_update
     if n_clicks is None:
         raise PreventUpdate
 
@@ -758,18 +776,7 @@ def analyze_party_rotation(
         report_id, fight_id
     )
     level = encounter_level[encounter_id]
-    level_step_map = {
-        90: {
-            "rotation_dmg_step": 20,
-            "action_delta": 2,
-            "rotation_delta": 10,
-        },
-        100: {
-            "rotation_dmg_step": 20,
-            "action_delta": 5,
-            "rotation_delta": 15,
-        },
-    }
+
     # Get Limit Break instances
     # Check if LB was used, get its ID if it was
     if lb_player_id is not None:
@@ -784,25 +791,18 @@ def analyze_party_rotation(
     # Party bonus to main stat
     main_stat_multiplier = 1 + len(set(main_stat_label)) / 100
 
+    # FIXME: this needs to be found for fights like FRU
+    # Fixed time between phases, need to find killing damage event
     t_clips = [2.5, 5, 7.5, 10]
     # Damage step size for
-    rotation_dmg_step = level_step_map[level]["rotation_dmg_step"]
-    action_delta = level_step_map[level]["action_delta"]
-    rotation_delta = level_step_map[level]["rotation_delta"]
+    rotation_dmg_step = LEVEL_STEP_MAP[level]["rotation_dmg_step"]
+    action_delta = LEVEL_STEP_MAP[level]["action_delta"]
+    rotation_delta = LEVEL_STEP_MAP[level]["rotation_delta"]
     n_data_points = 5000
 
     ######
-    # Job-level analyses
+    # Player-level analyses
     ######
-
-    # Whole job rotations
-    job_rotation_analyses_list = []
-    job_rotation_pdf_list = []
-    job_db_rows = []
-
-    # Job rotation clippings to unconvolve out later
-    job_rotation_clipping_pdf_list = {t: [] for t in t_clips}
-    job_rotation_clipping_analyses = {t: [] for t in t_clips}
 
     prior_analysis_info = [
         search_prior_player_analyses(
@@ -832,215 +832,141 @@ def analyze_party_rotation(
         party_analysis_id = None
 
     if (party_analysis_id is not None) and (not any_redo_flags):
-        return f"/party_analysis/{party_analysis_id}"
+        return f"/party_analysis/{party_analysis_id}", []
 
     # Compute player-level analyses
-    for a in range(len(job)):
-        full_job = reverse_abbreviated_role_map[job[a]]
-        role = role_mapping[full_job]
-        delay = weapon_delays[job[a].upper()]
+    success, results = player_analysis_loop(
+        report_id,
+        fight_id,
+        encounter_name,
+        encounter_id,
+        player_name,
+        player_id,
+        fight_phase,
+        pet_id_map,
+        job,
+        set_progress,
+        main_stat_no_buff,
+        main_stat_multiplier,
+        secondary_stat_no_buff,
+        speed,
+        determination,
+        crit,
+        dh,
+        weapon_damage,
+        medication_amt,
+        level,
+        etro_url,
+        player_analysis_ids,
+        t_clips,
+    )
 
-        # Progress bar
-        current_job = job_progress(job, job[a])
-        set_progress((a, len(job), current_job))
+    if success:
+        (
+            job_rotation_analyses_list,
+            job_rotation_pdf_list,
+            job_db_rows,
+            job_rotation_clipping_pdf_list,
+            job_rotation_clipping_analyses,
+        ) = results
 
-        main_stat_buff = int(main_stat_no_buff[a] * main_stat_multiplier)
-        secondary_stat_buff = (
-            int(caster_healer_strength[job[a].upper()] * main_stat_multiplier)
-            if role in ("Healer", "Magical Ranged")
-            else secondary_stat_no_buff[a]
-        )
-        secondary_stat_buff = (
-            None if secondary_stat_buff == "None" else secondary_stat_buff
-        )
-        gearset_id = etro_url[a]
-
-        job_rotation_analyses_list.append(
-            RotationTable(
-                headers,
-                report_id,
-                fight_id,
-                full_job,
-                player_id[a],
-                crit[a],
-                dh[a],
-                determination[a],
-                medication_amt,
-                level,
-                fight_phase,
-                damage_buff_table,
-                critical_hit_rate_table,
-                direct_hit_rate_table,
-                guaranteed_hits_by_action_table,
-                guaranteed_hits_by_buff_table,
-                potency_table,
-                pet_id_map[player_id[a]],
-            )
-        )
-
-        job_rotation_pdf_list.append(
-            rotation_analysis(
-                role,
-                full_job,
-                job_rotation_analyses_list[a].rotation_df,
-                1,
-                main_stat_buff,
-                secondary_stat_buff,
-                determination[a],
-                speed[a],
-                crit[a],
-                dh[a],
-                weapon_damage[a],
-                delay,
-                main_stat_no_buff[a],
-                rotation_step=rotation_dmg_step,
-                rotation_delta=rotation_delta,
-                action_delta=action_delta,
-                compute_mgf=False,
-                level=level,
-            )
-        )
-
-        # Assign analysis ID
-        # only append if analysis ID is None so the ID isn't overwritten
-        if player_analysis_ids[a] is None:
-            player_analysis_ids[a] = str(uuid4())
-        main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"]
-        secondary_stat_type = role_stat_dict[role]["secondary_stat"]["placeholder"]
-        gearset_id, _ = parse_etro_url(gearset_id)
-
-        # Collect DB rows to insert at the end
-        job_db_rows.append(
-            (
-                player_analysis_ids[a],
-                report_id,
-                fight_id,
-                fight_phase,
-                encounter_name,
-                job_rotation_analyses_list[a].fight_time,
-                full_job,
-                player_name[a],
-                int(main_stat_no_buff[a]),
-                int(main_stat_buff),
-                main_stat_type,
-                None
-                if secondary_stat_no_buff[a] == "None"
-                else secondary_stat_no_buff[a],
-                secondary_stat_buff,
-                secondary_stat_type,
-                int(determination[a]),
-                int(speed[a]),
-                int(crit[a]),
-                int(dh[a]),
-                int(weapon_damage[a]),
-                delay,
-                medication_amt,
-                main_stat_multiplier,
-                gearset_id,
-                0,
-                0,
-            )
-        )
-
-        actions_df = job_rotation_analyses_list[a].actions_df
-        if role in ("Healer", "Magical Ranged"):
-            actions_df = actions_df[actions_df["ability_name"] != "attack"]
-
-        # We have to get a little cute here because it's possible for to return an empty rotation
-        # If that's the case, we just want to skip over it and not append it, so individual lists
-        # of each dataclass are created and appended to if a rotation is returned.
-        t_out = []
-        clipped_rotations = []
-        for idx, t in enumerate(t_clips):
-            print(t)
-            clipped_rotations.append(
-                job_rotation_analyses_list[a].make_rotation_df(
-                    actions_df, t_end_clip=t, return_clipped=True
-                )
-            )
-            if clipped_rotations[idx] is not None:
-                # Compute mean via MGFs because it is cheap to compute
-                # and will be exact. We need the mean later when we unconvolve
-                # to create a truncated rotation.
-                job_rotation_clipping_analyses[t].append(
-                    rotation_analysis(
-                        role,
-                        full_job,
-                        clipped_rotations[idx],
-                        1,
-                        main_stat_buff,
-                        secondary_stat_buff,
-                        determination[a],
-                        speed[a],
-                        crit[a],
-                        dh[a],
-                        weapon_damage[a],
-                        delay,
-                        main_stat_no_buff[a],
-                        rotation_step=rotation_dmg_step,
-                        rotation_delta=rotation_delta,
-                        action_delta=action_delta,
-                        compute_mgf=True,
-                    )
-                )
-                job_rotation_clipping_pdf_list[t].append(
-                    job_rotation_clipping_analyses[t][-1]
-                )
-                t_out.append(t)
-
+    else:
+        error_message = results[-2]
+        insert_error_player_analysis(*results)
+        return updated_url, [error_alert(error_message)]
     ########################
     # Party-level analysis
     ########################
-    rotation_pdf, rotation_supp = rotation_dps_pdf(job_rotation_pdf_list, lb_damage)
+    try:
+        rotation_pdf, rotation_supp = rotation_dps_pdf(job_rotation_pdf_list, lb_damage)
 
-    party_distribution_clipping = {t: {} for t in t_clips}
-    truncated_party_distribution = {t: {} for t in t_clips}
-
-    # Create truncated damage distributions for kill time analysis
-    rotation_mean = sum([j.rotation_mean for j in job_rotation_pdf_list])
-    fight_end_timestamp = job_rotation_analyses_list[0].fight_end_time
-    for t in t_clips:
-        # Convolve rotation clippings together
-        (
-            party_distribution_clipping[t]["pdf"],
-            party_distribution_clipping[t]["support"],
-        ) = rotation_dps_pdf(job_rotation_clipping_pdf_list[t])
-
-        # Subtract out the party rotation clipping
-        # More efficient than recomputing the entire rotation,
-        # which only very slightly changes.
-        party_rotation_clipping_mean = sum(
-            [j.rotation_mean for j in job_rotation_clipping_analyses[t]]
-        )
-
-        # Filter LB damage events that happen within truncated rotation
-        clipped_lb_damage = lb_damage_after_clipping(
-            lb_damage_events_df, fight_end_timestamp - 1000 * t
-        )
-
-        (
-            truncated_party_distribution[t]["pdf"],
-            truncated_party_distribution[t]["support"],
-        ) = unconvovle_clipped_pdf(
+        truncated_party_distribution, party_distribution_clipping = kill_time_analysis(
+            job_rotation_analyses_list,
+            job_rotation_pdf_list,
+            lb_damage_events_df,
+            job_rotation_clipping_analyses,
+            job_rotation_clipping_pdf_list,
             rotation_pdf,
-            party_distribution_clipping[t]["pdf"],
             rotation_supp,
-            party_distribution_clipping[t]["support"],
-            party_rotation_clipping_mean,
-            rotation_mean,
-            limit_break_damage=clipped_lb_damage,
-            dmg_step=rotation_dmg_step,
+            t_clips,
+            rotation_dmg_step,
         )
 
+        #
+        boss_total_hp = (
+            sum([a.actions_df["amount"].sum() for a in job_rotation_analyses_list])
+            + lb_damage
+        )
+        # Party analysis
+        # Create an ID if it's not a recompute
+        if party_analysis_id is None:
+            party_analysis_id = str(uuid4())
+
+        party_mean = sum([a.rotation_mean for a in job_rotation_pdf_list])
+        party_std = sum([a.rotation_variance for a in job_rotation_pdf_list]) ** (0.5)
+        party_skewness = sum(
+            [
+                a.rotation_skewness * a.rotation_variance ** (3 / 2)
+                for a in job_rotation_pdf_list
+            ]
+        ) / sum([a.rotation_variance ** (3 / 2) for a in job_rotation_pdf_list])
+
+        party_rotation = PartyRotation(
+            party_analysis_id,
+            boss_total_hp,
+            job_rotation_analyses_list[0].fight_time,
+            lb_damage_events_df,
+            party_mean,
+            party_std,
+            party_skewness,
+            rotation_pdf,
+            rotation_supp,
+            [
+                SplitPartyRotation(
+                    t,
+                    boss_total_hp,
+                    truncated_party_distribution[t]["pdf"],
+                    truncated_party_distribution[t]["support"],
+                    party_distribution_clipping[t]["pdf"],
+                    party_distribution_clipping[t]["support"],
+                )
+                for t in t_clips
+            ],
+        )
+
+        party_rotation.interpolate_distributions(
+            rotation_n=n_data_points, split_n=n_data_points
+        )
+
+    except Exception as e:
+        party_error_info = (
+            report_id,
+            fight_id,
+            fight_phase,
+            encounter_id,
+            job,
+            player_name,
+            player_id,
+            main_stat_no_buff,
+            secondary_stat_no_buff,
+            determination,
+            speed,
+            crit,
+            dh,
+            weapon_damage,
+            main_stat_multiplier,
+            medication_amt,
+            etro_url,
+            str(e),
+            traceback.format_exc(),
+        )
+        insert_error_party_analysis(*party_error_info)
+
+        return updated_url, [error_alert(str(e))]
     ##########################################
     # Export all the data we've generated
     ##########################################
 
-    #
-    boss_total_hp = (
-        sum([a.actions_df["amount"].sum() for a in job_rotation_analyses_list])
-        + lb_damage
-    )
     # Job analyses
     for a in range(len(job_rotation_pdf_list)):
         # Write RotationTable
@@ -1070,47 +996,6 @@ def analyze_party_rotation(
         update_report_table(job_db_rows[a])
         pass
 
-    # Party analysis
-    # Create an ID if it's not a recompute
-    if party_analysis_id is None:
-        party_analysis_id = str(uuid4())
-
-    party_mean = sum([a.rotation_mean for a in job_rotation_pdf_list])
-    party_std = sum([a.rotation_variance for a in job_rotation_pdf_list]) ** (0.5)
-    party_skewness = sum(
-        [
-            a.rotation_skewness * a.rotation_variance ** (3 / 2)
-            for a in job_rotation_pdf_list
-        ]
-    ) / sum([a.rotation_variance ** (3 / 2) for a in job_rotation_pdf_list])
-
-    party_rotation = PartyRotation(
-        party_analysis_id,
-        boss_total_hp,
-        job_rotation_analyses_list[0].fight_time,
-        lb_damage_events_df,
-        party_mean,
-        party_std,
-        party_skewness,
-        rotation_pdf,
-        rotation_supp,
-        [
-            SplitPartyRotation(
-                t,
-                boss_total_hp,
-                truncated_party_distribution[t]["pdf"],
-                truncated_party_distribution[t]["support"],
-                party_distribution_clipping[t]["pdf"],
-                party_distribution_clipping[t]["support"],
-            )
-            for t in t_clips
-        ],
-    )
-
-    party_rotation.interpolate_distributions(
-        rotation_n=n_data_points, split_n=n_data_points
-    )
-
     # Write party analysis to disk
     with open(
         BLOB_URI / "party-analyses" / f"party-analysis-{party_analysis_id}.pkl", "wb"
@@ -1130,13 +1015,295 @@ def analyze_party_rotation(
         + individual_analysis_ids
         + [0]
     )
-    # FIXME:
-    # if redo_party_analysis == 1:
     update_party_report_table(db_row)
-    # else:
-    #     unflag_party_report_recompute(party_analysis_id)
 
     current_job = "Analysis progress: Done!"
     set_progress((a + 1, len(job), current_job, "Analysis progress:"))
     updated_url = f"/party_analysis/{party_analysis_id}"
-    return updated_url
+    return updated_url, []
+
+
+def player_analysis_loop(
+    report_id: str,
+    fight_id: int,
+    encounter_name: str,
+    encounter_id: int,
+    player_name: List[str],
+    player_id: List[int],
+    fight_phase: int,
+    pet_id_map: Dict[int, Any],
+    job: List[str],
+    set_progress: Any,
+    main_stat_no_buff: List[float],
+    main_stat_multiplier: float,
+    secondary_stat_no_buff: List[Union[float, str]],
+    speed: List[int],
+    determination: List[int],
+    crit: List[int],
+    dh: List[int],
+    weapon_damage: List[int],
+    medication_amt: int,
+    level: int,
+    etro_url: List[str],
+    player_analysis_ids: List[Optional[str]],
+    t_clips: List[float],
+) -> Tuple[bool, Union[Tuple[List[Any], List[Any], List[Any], Dict[float, List[Any]], Dict[float, List[Any]]], Tuple[Any, ...]]]:
+    """
+    Analyzes each player's combat performance by building rotation analyses and PDFs.
+
+    This function:
+      1. Retrieves or creates a unique analysis ID for each player.
+      2. Builds a rotation analysis DataFrame and PDF for each job in the fight.
+      3. Saves the rotation data and associated PDFs into lists and dictionaries
+         for future reference.
+      4. Catches exceptions to gather and return error information if the analysis fails.
+
+    Args:
+        report_id (str): FFLogs report identifier.
+        fight_id (int): Numeric identifier for the fight.
+        encounter_name (str): Name of the encounter.
+        encounter_id (int): Numeric ID of the encounter.
+        player_name (List[str]): List of player names.
+        player_id (List[int]): List of player IDs.
+        fight_phase (int): Current phase in the fight.
+        pet_id_map (Dict[int, Any]): Maps player IDs to pet data.
+        job (List[str]): List of job abbreviations (e.g. ["DRG", "WHM"]).
+        set_progress (Any): Callback to update or display progress.
+        main_stat_no_buff (List[float]): Main stat values before buffs for each player.
+        main_stat_multiplier (float): Multiplier applied to main stat.
+        secondary_stat_no_buff (List[Union[float, str]]): Secondary stat values before buffs.
+        speed (List[int]): Speed values for each player's job.
+        determination (List[int]): Determination values for each player's job.
+        crit (List[int]): Critical hit rate values for each player's job.
+        dh (List[int]): Direct hit rate values for each player's job.
+        weapon_damage (List[int]): Weapon damage values for each player's job.
+        medication_amt (int): Amount of medicine/food buffs applied.
+        level (int): Character level used in calculations.
+        etro_url (List[str]): Gearset URLs for each player.
+        player_analysis_ids (List[Optional[str]]): List of existing or None player analysis IDs.
+        t_clips (List[float]): List of time clipping points for truncated analyses.
+
+    Returns:
+        Tuple[bool, Union[
+            Tuple[
+                List[Any],  # job_rotation_analyses_list
+                List[Any],  # job_rotation_pdf_list
+                List[Any],  # job_db_rows
+                Dict[float, List[Any]],  # job_rotation_clipping_pdf_list
+                Dict[float, List[Any]]   # job_rotation_clipping_analyses
+            ],
+            Tuple[Any, ...]  # player_error_info if an exception occurs
+        ]]:
+        A two-element tuple indicating success (True/False) and either:
+         - On success (True), a tuple of lists/dicts containing rotation analyses and PDFs.
+         - On failure (False), a tuple of error information.
+    """
+    rotation_dmg_step = LEVEL_STEP_MAP[level]["rotation_dmg_step"]
+    action_delta = LEVEL_STEP_MAP[level]["action_delta"]
+    rotation_delta = LEVEL_STEP_MAP[level]["rotation_delta"]
+
+    # Whole job rotations
+    job_rotation_analyses_list = []
+    job_rotation_pdf_list = []
+    job_db_rows = []
+
+    # Job rotation clippings to unconvolve out later
+    job_rotation_clipping_pdf_list = {t: [] for t in t_clips}
+    job_rotation_clipping_analyses = {t: [] for t in t_clips}
+
+    try:
+        a = 0
+        for a in range(len(job)):
+            full_job = reverse_abbreviated_role_map[job[a]]
+            role = role_mapping[full_job]
+            delay = weapon_delays[job[a].upper()]
+
+            # Progress bar
+            current_job = job_progress(job, job[a])
+            set_progress((a, len(job), current_job))
+
+            main_stat_buff = int(main_stat_no_buff[a] * main_stat_multiplier)
+            # Assign analysis ID
+            # only append if analysis ID is None so the ID isn't overwritten
+            if player_analysis_ids[a] is None:
+                player_analysis_ids[a] = str(uuid4())
+            main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"]
+
+            secondary_stat_type = role_stat_dict[role]["secondary_stat"]["placeholder"]
+            secondary_stat_buff = (
+                int(caster_healer_strength[job[a].upper()] * main_stat_multiplier)
+                if role in ("Healer", "Magical Ranged")
+                else secondary_stat_no_buff[a]
+            )
+            secondary_stat_buff = (
+                None if secondary_stat_buff == "None" else secondary_stat_buff
+            )
+
+            gearset_id = etro_url[a]
+            gearset_id, _ = parse_etro_url(gearset_id)
+
+            job_rotation_analyses_list.append(
+                RotationTable(
+                    headers,
+                    report_id,
+                    fight_id,
+                    full_job,
+                    player_id[a],
+                    crit[a],
+                    dh[a],
+                    determination[a],
+                    medication_amt,
+                    level,
+                    fight_phase,
+                    damage_buff_table,
+                    critical_hit_rate_table,
+                    direct_hit_rate_table,
+                    guaranteed_hits_by_action_table,
+                    guaranteed_hits_by_buff_table,
+                    potency_table,
+                    pet_id_map[player_id[a]],
+                )
+            )
+
+            job_rotation_pdf_list.append(
+                rotation_analysis(
+                    role,
+                    full_job,
+                    job_rotation_analyses_list[a].rotation_df,
+                    1,
+                    main_stat_buff,
+                    secondary_stat_buff,
+                    determination[a],
+                    speed[a],
+                    crit[a],
+                    dh[a],
+                    weapon_damage[a],
+                    delay,
+                    main_stat_no_buff[a],
+                    rotation_step=rotation_dmg_step,
+                    rotation_delta=rotation_delta,
+                    action_delta=action_delta,
+                    compute_mgf=False,
+                    level=level,
+                )
+            )
+
+            # Collect DB rows to insert at the end
+            job_db_rows.append(
+                (
+                    player_analysis_ids[a],
+                    report_id,
+                    fight_id,
+                    fight_phase,
+                    encounter_name,
+                    job_rotation_analyses_list[a].fight_time,
+                    full_job,
+                    player_name[a],
+                    int(main_stat_no_buff[a]),
+                    int(main_stat_buff),
+                    main_stat_type,
+                    None
+                    if secondary_stat_no_buff[a] == "None"
+                    else secondary_stat_no_buff[a],
+                    secondary_stat_buff,
+                    secondary_stat_type,
+                    int(determination[a]),
+                    int(speed[a]),
+                    int(crit[a]),
+                    int(dh[a]),
+                    int(weapon_damage[a]),
+                    delay,
+                    medication_amt,
+                    main_stat_multiplier,
+                    gearset_id,
+                    0,
+                    0,
+                )
+            )
+
+            actions_df = job_rotation_analyses_list[a].actions_df
+            if role in ("Healer", "Magical Ranged"):
+                actions_df = actions_df[actions_df["ability_name"] != "attack"]
+
+            # We have to get a little cute here because it's possible for to return an empty rotation
+            # If that's the case, we just want to skip over it and not append it, so individual lists
+            # of each dataclass are created and appended to if a rotation is returned.
+            t_out = []
+            clipped_rotations = []
+            for idx, t in enumerate(t_clips):
+                print(t)
+                clipped_rotations.append(
+                    job_rotation_analyses_list[a].make_rotation_df(
+                        actions_df, t_end_clip=t, return_clipped=True
+                    )
+                )
+                if clipped_rotations[idx] is not None:
+                    # Compute mean via MGFs because it is cheap to compute
+                    # and will be exact. We need the mean later when we unconvolve
+                    # to create a truncated rotation.
+                    job_rotation_clipping_analyses[t].append(
+                        rotation_analysis(
+                            role,
+                            full_job,
+                            clipped_rotations[idx],
+                            1,
+                            main_stat_buff,
+                            secondary_stat_buff,
+                            determination[a],
+                            speed[a],
+                            crit[a],
+                            dh[a],
+                            weapon_damage[a],
+                            delay,
+                            main_stat_no_buff[a],
+                            rotation_step=rotation_dmg_step,
+                            rotation_delta=rotation_delta,
+                            action_delta=action_delta,
+                            compute_mgf=True,
+                        )
+                    )
+                    job_rotation_clipping_pdf_list[t].append(
+                        job_rotation_clipping_analyses[t][-1]
+                    )
+                    t_out.append(t)
+        success = True
+        return (
+            success,
+            (
+                job_rotation_analyses_list,
+                job_rotation_pdf_list,
+                job_db_rows,
+                job_rotation_clipping_pdf_list,
+                job_rotation_clipping_analyses,
+            ),
+        )
+
+    except Exception as e:
+        success = False
+        player_error_info = (
+            report_id,
+            fight_id,
+            player_id[a],
+            encounter_id,
+            encounter_name,
+            fight_phase,
+            full_job,
+            player_name[a],
+            int(main_stat_no_buff[a]),
+            int(main_stat_buff),
+            main_stat_type,
+            None if secondary_stat_no_buff[a] == "None" else secondary_stat_no_buff[a],
+            secondary_stat_buff,
+            secondary_stat_type,
+            int(determination[a]),
+            int(speed[a]),
+            int(crit[a]),
+            int(dh[a]),
+            int(weapon_damage[a]),
+            delay,
+            medication_amt,
+            main_stat_multiplier,
+            str(e),
+            traceback.format_exc(),
+        )
+        return success, (player_error_info)

@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from crit_app.config import DB_URI
 
 
-def insert_error_analysis(
+def insert_error_player_analysis(
     report_id: str,
     fight_id: int,
     player_id: int,
@@ -122,6 +122,92 @@ def insert_error_analysis(
     cur.execute(sql_query, params)
     con.commit()
     con.close()
+
+
+def insert_error_party_analysis(
+    report_id: str,
+    fight_id: int,
+    fight_phase: int,
+    encounter_id: int,
+    job: List[str],
+    player_name: List[str],
+    player_id: List[int],
+    main_stat_no_buff: List[int],
+    secondary_stat_no_buff: List[int],
+    determination: List[int],
+    speed: List[int],
+    crit: List[int],
+    dh: List[int],
+    weapon_damage: List[int],
+    main_stat_multiplier: List[float],
+    medication_amt: int,
+    etro_url: str,
+    error_message: str,
+    error_traceback: str,
+) -> None:
+    """Insert error analysis information for party into database.
+
+    Args:
+        report_id (str): FFLogs report identifier
+        fight_id (int): Fight ID within report
+        fight_phase (int): Phase ID within fight
+        encounter_id (int): Encounter ID
+        job (List[str]): List of player jobs/classes
+        player_name (List[str]): List of player names
+        player_id (List[int]): List of player IDs
+        main_stat_no_buff (List[int]): List of main stat values without buffs
+        secondary_stat_no_buff (List[int]): List of secondary stat values without buffs
+        secondary_stat_type (List[str]): List of secondary stat types
+        determination (List[int]): List of determination stat values
+        speed (List[int]): List of speed stat values
+        crit (List[int]): List of critical hit stat values
+        dh (List[int]): List of direct hit stat values
+        weapon_damage (List[int]): List of weapon damage values
+        main_stat_multiplier (List[float]): List of main stat multipliers
+        medication_amt (int): Medicine/food bonus
+        error_message (str): Error message
+        error_traceback (str): Error traceback
+    """
+    sql_query = """
+    INSERT OR REPLACE INTO error_party_analysis VALUES (
+        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+    )
+    """
+
+    # format into 8 rows
+    rows_to_insert = []
+    error_ts = datetime.datetime.now()
+
+    for a in range(len(player_name)):
+        rows_to_insert.append(
+            (
+                report_id,
+                fight_id,
+                fight_phase,
+                encounter_id,
+                job[a].upper(),
+                player_name[a],
+                player_id[a],
+                main_stat_no_buff[a],
+                None if secondary_stat_no_buff[a] == "None" else secondary_stat_no_buff[a],
+                determination[a],
+                speed[a],
+                crit[a],
+                dh[a],
+                weapon_damage[a],
+                main_stat_multiplier,
+                medication_amt,
+                None if etro_url[a] == "" else etro_url[a],
+                error_message,
+                error_traceback,
+                error_ts
+            )
+        )
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.executemany(sql_query, rows_to_insert)
+    con.commit()
+    con.close()        
 
 
 def update_encounter_table(db_rows):
