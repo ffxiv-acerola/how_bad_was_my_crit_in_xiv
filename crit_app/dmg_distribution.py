@@ -8,10 +8,8 @@ import pandas as pd
 from numpy.typing import ArrayLike
 from scipy.signal import fftconvolve
 
-from ffxiv_stats.moments import _coarsened_boundaries
 
 ### Data classes for job-level analyses
-
 
 @dataclass
 class JobStats:
@@ -292,98 +290,4 @@ def summarize_actions(actions_df, unique_actions, active_dps_time, analysis_time
     ].rename(columns={"amount": "actual_dps_dealt"})
 
 
-### Party rotation analysis ###
-def rotation_dps_pdf(rotation_pdf_list, lb_dps=0, dmg_step=20):
-    """Combine job-level damage distributions into a party-level damage distribution.
 
-    Args:
-        rotation_pdf_list (array): list of job analysis objects for the party.
-        lb_dps (int, optional): Total damage dealt by Limit Break, if used. Defaults to 0.
-        dmg_step (int, optional): Amount to discretize the party's damage distribution by, in damage. Defaults to 20.
-
-    Returns:
-        tuple: tuple of the party's damage distribution and damage support.
-    """
-    party_dps_distribution = fftconvolve(
-        rotation_pdf_list[0].rotation_dps_distribution,
-        rotation_pdf_list[1].rotation_dps_distribution,
-    )
-
-    for a in range(2, len(rotation_pdf_list)):
-        party_dps_distribution = fftconvolve(
-            party_dps_distribution, rotation_pdf_list[a].rotation_dps_distribution
-        )
-
-    support_min = sum([a.rotation_dps_support[0] for a in rotation_pdf_list])
-    support_max = sum([a.rotation_dps_support[-1] for a in rotation_pdf_list])
-
-    support_min, support_max = _coarsened_boundaries(support_min, support_max, dmg_step)
-
-    supp = np.arange(support_min, support_max + dmg_step, step=dmg_step) + lb_dps
-
-    party_dps_distribution /= np.trapz(party_dps_distribution, supp)
-    return party_dps_distribution, supp
-
-
-def unconvovle_clipped_pdf(
-    rotation_pdf,
-    clipped_pdf,
-    rotation_support,
-    clipped_support,
-    clipped_mean,
-    rotation_mean,
-    limit_break_damage=0,
-    dmg_step=20,
-    new_step=250,
-):
-    """Yield a truncated damage pdf by unconvolving a rotation clipping from the full rotation.
-
-    Args:
-        rotation_pdf (NumPy array): Numpy array of the full rotation
-        clipped_pdf (array): Numpy array of the rotation clipping.
-        rotation_support (array): Numpy array of the full rotation support.
-        clipped_support (array): Numpy array of the rotation clipping support
-        clipped_mean (float): Mean of the clipped rotation.
-        rotation_mean (float): Mean of the full, untruncated rotation.
-        limit_break_damage(int): Amount of limit break damage to add to the rotation_mean. Defaults to 0
-        dmg_step (int, optional): Discretization step size of the support. Defaults to 20.
-
-    Returns:
-        [array]: Tuple of numpy arrays, the truncated damage PDF and truncated damage support.
-    """
-    # Subtracting pdfs, smallest support value is sum of
-    # smallest positive support and largest negative support values
-    lower = rotation_support[0] - clipped_support[-1]
-    upper = rotation_support[-1] - clipped_support[0]
-    lower, upper = _coarsened_boundaries(lower, upper, dmg_step)
-    support = np.arange(lower, upper + dmg_step, dmg_step)
-
-    pdf = fftconvolve(rotation_pdf, clipped_pdf)
-    pdf = pdf / np.trapz(pdf, support)
-
-    # Getting hacky here:
-
-    # After much testing, the new support of the truncated rotation
-    # isn't coming out correct, as the unconvolved pdf doesn't
-    # seem to overlap the exact damage distribution obtained when the
-    # rotation is truncated and the entire damage distribution is recomputed.
-    # i.e., with step sizes of 1 and MGFs computed
-    # My best guess is it has to do with some accumulation of discretization error.
-
-    # However, statistical identities for means of independent variables can help us here.
-    # The mean of the full rotation and clipped rotation are both known to high accuracy,
-    # So the mean of the unconvolved truncated damage distribution can be known to high accuracy.
-    # Let the approximate truncated mean be the mean by integrating over the unconvolved
-    # damage PDF.
-    # Let the exact truncated mean be the difference in means from the full rotation
-    # and clipped means.
-    # The difference in these means gives us how much damage the unconvolved damage PDF
-    # support is off by and lets us correct the support.
-    # I don't like it, but I also don't know how else to fix it.
-    approximate_truncated_mean = np.trapz(pdf * support, support)
-    exact_truncated_mean = rotation_mean + limit_break_damage - clipped_mean
-    mean_correction = int(exact_truncated_mean - approximate_truncated_mean)
-
-    support += mean_correction
-
-    return pdf / np.trapz(pdf, support), support
