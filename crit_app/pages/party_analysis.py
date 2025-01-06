@@ -122,7 +122,7 @@ LEVEL_STEP_MAP = {
 def layout(party_analysis_id=None):
     if party_analysis_id is None:
         fflogs_card = create_fflogs_card()
-        return dash.html.Div([fflogs_card, html.Br(), create_results_card()])
+        return dash.html.Div([fflogs_card])
 
     else:
         # Read in everything:
@@ -177,14 +177,6 @@ def layout(party_analysis_id=None):
             etro_job_build_information, True
         )
 
-        # FIXME: add to party_card as option
-        # collapse_button = dbc.Button(
-        #     children="Show party build",
-        #     n_clicks=0,
-        #     id="party-collapse-button",
-        #     class_name="mb-3",
-        # )
-
         fflogs_url = f"https://www.fflogs.com/reports/{report_id}#fight={fight_id}"
 
         # Check if analysis needs to be redone
@@ -199,8 +191,11 @@ def layout(party_analysis_id=None):
                 medication_amount,
                 quick_build_data,
                 party_accordion_children,
-                False,
-                "Click here to refresh data.",
+                hide_fflogs_div=False,
+                analysis_progress_children=[],
+                analysis_progress_value=0,
+                analyze_button_text="Update required. Click here to re-analyze.",
+                wrap_collapse=False,
             )
             return html.Div([fflogs_card])
 
@@ -215,7 +210,8 @@ def layout(party_analysis_id=None):
             medication_amount,
             quick_build_data,
             party_accordion_children,
-            False,
+            wrap_collapse=True,
+            hide_fflogs_div=False,
         )
 
         #############################

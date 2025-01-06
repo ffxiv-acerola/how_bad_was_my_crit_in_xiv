@@ -77,6 +77,8 @@ def create_fflogs_card(
     medication_amount: int = 392,
     quick_build_table_data: list = [],
     party_accordion_items: list = [],
+    analysis_progress_children = "Analysis progress: Done!",
+    analysis_progress_value: int = 100,
     hide_fflogs_div: bool = True,
     analyze_button_text: str = "Analyze party rotation",
     wrap_collapse: bool = False,
@@ -241,22 +243,65 @@ def create_fflogs_card(
 
     # Progress bar
     party_analysis_progress = [
-        html.H4(id="party-progress-header"),
+        html.H4(analysis_progress_children, id="party-progress-header"),
         dbc.Progress(
-            value=0, style={"height": "25px"}, color="#009670", id="party-progress"
+            value=analysis_progress_value, style={"height": "25px"}, color="#009670", id="party-progress"
         ),
         html.P(id="party-progress-job"),
     ]
 
-    fflogs_hidden_div = html.Div(
-        [
-            encounter_info,
-            phase_select,
+    # Check whether to wrap things in a collapse to
+    # hide the lengthy form
+    if wrap_collapse:
+        job_build_items = [
+            dbc.Button(
+                children="Show party build",
+                n_clicks=0,
+                id="party-collapse-button",
+                class_name="w-100",
+            ),
+            dbc.Collapse(
+                [
+                    *job_build_text,
+                    medication_selector,
+                    quick_build_div,
+                    party_accordion,
+                    buttons,
+                ],
+                id="party-list-collapse",
+                is_open=False,
+                class_name="me-1",
+            ),
+        ]
+
+    else:
+        job_build_items = [
+            html.Div(
+                [
+                    dbc.Button(
+                        children="Show party build",
+                        n_clicks=0,
+                        id="party-collapse-button",
+                        class_name="mb-3",
+                    ),
+                    dbc.Collapse(
+                        id="party-list-collapse",
+                    ),
+                ],
+                hidden=True,
+            ),
             *job_build_text,
             medication_selector,
             quick_build_div,
             party_accordion,
             buttons,
+        ]
+
+    fflogs_hidden_div = html.Div(
+        [
+            encounter_info,
+            phase_select,
+            *job_build_items,
             *party_analysis_progress,
             html.Div(id="party-analysis-error"),
         ],
