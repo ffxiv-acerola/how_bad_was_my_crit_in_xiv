@@ -78,6 +78,7 @@ def create_fflogs_card(
     quick_build_table_data: list = [],
     party_accordion_items: list = [],
     hide_fflogs_div: bool = True,
+    analyze_button_text: str = "Analyze party rotation",
     wrap_collapse: bool = False,
 ) -> dbc.Card:
     """
@@ -226,7 +227,7 @@ def create_fflogs_card(
             html.Div(
                 [
                     dbc.Button(
-                        "Analyze party rotation", id="party-compute", class_name="w-100"
+                        analyze_button_text, id="party-compute", class_name="w-100"
                     )
                 ],
                 id="party-compute-div",

@@ -81,7 +81,8 @@ header = html.Div(
 # Putting it all together
 app.layout = dbc.Container(
     [
-        dcc.Location(id="url", refresh="callback-nav"),
+        # dcc.Location(id="url", refresh="callback-nav"),
+        dcc.Location(id="url", refresh=True),
         header,
         dash.page_container,
     ],

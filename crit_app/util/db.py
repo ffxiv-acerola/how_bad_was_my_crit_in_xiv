@@ -764,7 +764,8 @@ def get_party_analysis_encounter_info(
         last_phase_index,
         encounter_id,
         encounter_name,
-        kill_time
+        kill_time,
+        redo_analysis_flag
     from
         party_report pr
         inner join encounter e using (report_id, fight_id)
@@ -785,6 +786,7 @@ def get_party_analysis_encounter_info(
         encounter_id,
         encounter_name,
         kill_time,
+        redo_analysis_flag,
     ) = cur.fetchone()
 
     cur.close()
@@ -798,6 +800,7 @@ def get_party_analysis_encounter_info(
         encounter_id,
         encounter_name,
         kill_time,
+        redo_analysis_flag,
     )
 
 
@@ -933,18 +936,19 @@ def check_prior_party_analysis(player_analysis_ids):
     placeholders = ",".join("?" for _ in player_analysis_ids)
     sql_query = f"""
     SELECT
-    party_analysis_id
+        party_analysis_id,
+        redo_analysis_flag
     FROM
-    party_report
+        party_report
     WHERE
-    analysis_id_1 IN ({placeholders})
-    AND analysis_id_2 IN ({placeholders})
-    AND analysis_id_3 IN ({placeholders})
-    AND analysis_id_4 IN ({placeholders})
-    AND analysis_id_5 IN ({placeholders})
-    AND analysis_id_6 IN ({placeholders})
-    AND analysis_id_7 IN ({placeholders})
-    AND analysis_id_8 IN ({placeholders})
+        analysis_id_1 IN ({placeholders})
+        AND analysis_id_2 IN ({placeholders})
+        AND analysis_id_3 IN ({placeholders})
+        AND analysis_id_4 IN ({placeholders})
+        AND analysis_id_5 IN ({placeholders})
+        AND analysis_id_6 IN ({placeholders})
+        AND analysis_id_7 IN ({placeholders})
+        AND analysis_id_8 IN ({placeholders})
     """
 
     params = player_analysis_ids * 8
@@ -958,8 +962,9 @@ def check_prior_party_analysis(player_analysis_ids):
     con.close()
 
     if prior_party_analysis_id is not None:
-        prior_party_analysis_id = prior_party_analysis_id[0]
-    return prior_party_analysis_id
+        return prior_party_analysis_id
+    else:
+        return None, 0
 
 
 if __name__ == "__main__":

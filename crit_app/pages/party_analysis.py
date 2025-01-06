@@ -155,6 +155,7 @@ def layout(party_analysis_id=None):
             encounter_id,
             encounter_name,
             kill_time,
+            redo_analysis_flag,
         ) = get_party_analysis_encounter_info(party_analysis_id)
 
         etro_job_build_information, player_analysis_selector, medication_amount = (
@@ -185,6 +186,25 @@ def layout(party_analysis_id=None):
         # )
 
         fflogs_url = f"https://www.fflogs.com/reports/{report_id}#fight={fight_id}"
+
+        # Check if analysis needs to be redone
+        if redo_analysis_flag == 1:
+            fflogs_card = create_fflogs_card(
+                fflogs_url,
+                encounter_name,
+                kill_time_str,
+                str(phase_id),
+                phase_selector_options,
+                phase_select_hidden,
+                medication_amount,
+                quick_build_data,
+                party_accordion_children,
+                False,
+                "Click here to refresh data.",
+            )
+            return html.Div([fflogs_card])
+
+        # Otherwise continue
         fflogs_card = create_fflogs_card(
             fflogs_url,
             encounter_name,
@@ -824,11 +844,18 @@ def analyze_party_rotation(
     any_redo_flags = any([p[1] for p in prior_analysis_info])
 
     if len(set(player_analysis_ids)) == 8:
-        party_analysis_id = check_prior_party_analysis(player_analysis_ids)
+        party_analysis_id, redo_party_analysis_flag = check_prior_party_analysis(
+            player_analysis_ids
+        )
     else:
         party_analysis_id = None
+        redo_party_analysis_flag = 0
 
-    if (party_analysis_id is not None) and (not any_redo_flags):
+    if (
+        (party_analysis_id is not None)
+        and (not any_redo_flags)
+        and (redo_party_analysis_flag == 0)
+    ):
         return f"/party_analysis/{party_analysis_id}", []
 
     # Compute player-level analyses
@@ -917,6 +944,11 @@ def analyze_party_rotation(
     ##########################################
     # Export all the data we've generated
     ##########################################
+
+    # Party analysis
+    # Create an ID if it's not a recompute
+    if party_analysis_id is None:
+        party_analysis_id = str(uuid4())
 
     # Job analyses
     for a in range(len(job_rotation_pdf_list)):
@@ -1326,10 +1358,6 @@ def party_analysis_portion(
         sum([a.actions_df["amount"].sum() for a in job_rotation_analyses_list])
         + lb_damage
     )
-    # Party analysis
-    # Create an ID if it's not a recompute
-    if party_analysis_id is None:
-        party_analysis_id = str(uuid4())
 
     party_mean = sum([a.rotation_mean for a in job_rotation_pdf_list])
     party_std = sum([a.rotation_variance for a in job_rotation_pdf_list]) ** (0.5)
