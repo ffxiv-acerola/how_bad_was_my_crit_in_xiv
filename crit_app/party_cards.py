@@ -257,7 +257,7 @@ def create_fflogs_card(
             party_accordion,
             buttons,
             *party_analysis_progress,
-            html.Div(id="party-analysis-error")
+            html.Div(id="party-analysis-error"),
         ],
         id="party-fflogs-hidden-div",
         hidden=hide_fflogs_div,

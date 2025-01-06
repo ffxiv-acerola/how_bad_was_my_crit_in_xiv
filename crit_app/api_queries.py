@@ -317,6 +317,4 @@ def limit_break_damage_events(
 
 
 if __name__ == "__main__":
-    limit_break_damage_events(
-            "ZfnF8AqRaBbzxW3w", 5, 56, 5
-        )
+    limit_break_damage_events("ZfnF8AqRaBbzxW3w", 5, 56, 5)

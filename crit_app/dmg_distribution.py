@@ -8,8 +8,8 @@ import pandas as pd
 from numpy.typing import ArrayLike
 from scipy.signal import fftconvolve
 
-
 ### Data classes for job-level analyses
+
 
 @dataclass
 class JobStats:
@@ -288,6 +288,3 @@ def summarize_actions(actions_df, unique_actions, active_dps_time, analysis_time
     return action_dps[
         ["ability_name", "dps_50th_percentile", "amount", "percentile"]
     ].rename(columns={"amount": "actual_dps_dealt"})
-
-
-

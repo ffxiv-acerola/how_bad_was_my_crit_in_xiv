@@ -4,6 +4,7 @@ from typing import Dict
 import numpy as np
 from numpy.typing import ArrayLike
 
+
 @dataclass
 class JobAnalysis:
     active_dps_t: float
@@ -43,6 +44,7 @@ class JobAnalysis:
             self.unique_actions_distribution[k]["dps_distribution"] = new_pdf
 
         pass
+
 
 def job_analysis_to_data_class(job_analysis_object, active_dps_time):
     return JobAnalysis(

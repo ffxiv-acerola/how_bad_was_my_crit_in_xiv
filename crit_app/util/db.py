@@ -189,7 +189,9 @@ def insert_error_party_analysis(
                 player_name[a],
                 player_id[a],
                 main_stat_no_buff[a],
-                None if secondary_stat_no_buff[a] == "None" else secondary_stat_no_buff[a],
+                None
+                if secondary_stat_no_buff[a] == "None"
+                else secondary_stat_no_buff[a],
                 determination[a],
                 speed[a],
                 crit[a],
@@ -200,14 +202,14 @@ def insert_error_party_analysis(
                 None if etro_url[a] == "" else etro_url[a],
                 error_message,
                 error_traceback,
-                error_ts
+                error_ts,
             )
         )
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
     cur.executemany(sql_query, rows_to_insert)
     con.commit()
-    con.close()        
+    con.close()
 
 
 def update_encounter_table(db_rows):
