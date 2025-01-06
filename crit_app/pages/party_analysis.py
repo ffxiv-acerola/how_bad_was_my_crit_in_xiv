@@ -25,7 +25,6 @@ from crit_app.api_queries import (
     parse_etro_url,
     parse_fflogs_url,
 )
-from crit_app.util.dash_elements import error_alert
 
 # from app import app
 from crit_app.config import BLOB_URI, DRY_RUN
@@ -62,6 +61,7 @@ from crit_app.shared_elements import (
     validate_speed_stat,
     validate_weapon_damage,
 )
+from crit_app.util.dash_elements import error_alert
 from crit_app.util.db import (
     check_prior_party_analysis,
     get_party_analysis_encounter_info,
@@ -795,9 +795,6 @@ def analyze_party_rotation(
     # Fixed time between phases, need to find killing damage event
     t_clips = [2.5, 5, 7.5, 10]
     # Damage step size for
-    rotation_dmg_step = LEVEL_STEP_MAP[level]["rotation_dmg_step"]
-    action_delta = LEVEL_STEP_MAP[level]["action_delta"]
-    rotation_delta = LEVEL_STEP_MAP[level]["rotation_delta"]
     n_data_points = 5000
 
     ######
@@ -874,68 +871,22 @@ def analyze_party_rotation(
         error_message = results[-2]
         insert_error_player_analysis(*results)
         return updated_url, [error_alert(error_message)]
+
     ########################
     # Party-level analysis
     ########################
     try:
-        rotation_pdf, rotation_supp = rotation_dps_pdf(job_rotation_pdf_list, lb_damage)
-
-        truncated_party_distribution, party_distribution_clipping = kill_time_analysis(
+        party_rotation = party_analysis_portion(
             job_rotation_analyses_list,
             job_rotation_pdf_list,
-            lb_damage_events_df,
             job_rotation_clipping_analyses,
             job_rotation_clipping_pdf_list,
-            rotation_pdf,
-            rotation_supp,
-            t_clips,
-            rotation_dmg_step,
-        )
-
-        #
-        boss_total_hp = (
-            sum([a.actions_df["amount"].sum() for a in job_rotation_analyses_list])
-            + lb_damage
-        )
-        # Party analysis
-        # Create an ID if it's not a recompute
-        if party_analysis_id is None:
-            party_analysis_id = str(uuid4())
-
-        party_mean = sum([a.rotation_mean for a in job_rotation_pdf_list])
-        party_std = sum([a.rotation_variance for a in job_rotation_pdf_list]) ** (0.5)
-        party_skewness = sum(
-            [
-                a.rotation_skewness * a.rotation_variance ** (3 / 2)
-                for a in job_rotation_pdf_list
-            ]
-        ) / sum([a.rotation_variance ** (3 / 2) for a in job_rotation_pdf_list])
-
-        party_rotation = PartyRotation(
-            party_analysis_id,
-            boss_total_hp,
-            job_rotation_analyses_list[0].fight_time,
+            lb_damage,
             lb_damage_events_df,
-            party_mean,
-            party_std,
-            party_skewness,
-            rotation_pdf,
-            rotation_supp,
-            [
-                SplitPartyRotation(
-                    t,
-                    boss_total_hp,
-                    truncated_party_distribution[t]["pdf"],
-                    truncated_party_distribution[t]["support"],
-                    party_distribution_clipping[t]["pdf"],
-                    party_distribution_clipping[t]["support"],
-                )
-                for t in t_clips
-            ],
-        )
-
-        party_rotation.interpolate_distributions(
-            rotation_n=n_data_points, split_n=n_data_points
+            party_analysis_id,
+            t_clips,
+            n_data_points,
+            level,
         )
 
     except Exception as e:
@@ -960,8 +911,8 @@ def analyze_party_rotation(
             str(e),
             traceback.format_exc(),
         )
-        insert_error_party_analysis(*party_error_info)
 
+        insert_error_party_analysis(*party_error_info)
         return updated_url, [error_alert(str(e))]
     ##########################################
     # Export all the data we've generated
@@ -1047,7 +998,19 @@ def player_analysis_loop(
     etro_url: List[str],
     player_analysis_ids: List[Optional[str]],
     t_clips: List[float],
-) -> Tuple[bool, Union[Tuple[List[Any], List[Any], List[Any], Dict[float, List[Any]], Dict[float, List[Any]]], Tuple[Any, ...]]]:
+) -> Tuple[
+    bool,
+    Union[
+        Tuple[
+            List[Any],
+            List[Any],
+            List[Any],
+            Dict[float, List[Any]],
+            Dict[float, List[Any]],
+        ],
+        Tuple[Any, ...],
+    ],
+]:
     """
     Analyzes each player's combat performance by building rotation analyses and PDFs.
 
@@ -1307,3 +1270,101 @@ def player_analysis_loop(
             traceback.format_exc(),
         )
         return success, (player_error_info)
+
+
+def party_analysis_portion(
+    job_rotation_analyses_list: List[Any],
+    job_rotation_pdf_list: List[Any],
+    job_rotation_clipping_analyses: Dict[float, List[Any]],
+    job_rotation_clipping_pdf_list: Dict[float, List[Any]],
+    lb_damage: float,
+    lb_damage_events_df: pd.DataFrame,
+    party_analysis_id: Optional[str],
+    t_clips: List[float],
+    n_data_points: int,
+    level: int,
+) -> "PartyRotation":
+    """Perform party-level analysis by combining individual rotation analyses.
+
+    Takes individual player rotation analyses and combines them into a party-level
+    analysis. Computes overall party damage distributions, statistics, and creates
+    truncated analyses for different kill times.
+
+    Args:
+        job_rotation_analyses_list: List of rotation analyses for each player
+        job_rotation_pdf_list: List of probability distributions for each rotation
+        job_rotation_clipping_analyses: Dictionary mapping clip times to truncated analyses
+        job_rotation_clipping_pdf_list: Dictionary mapping clip times to truncated PDFs
+        lb_damage: Total damage from limit breaks
+        lb_damage_events_df: DataFrame containing limit break damage events
+        party_analysis_id: Unique ID for this party analysis, generated if None
+        t_clips: List of times to analyze truncated rotations
+        n_data_points: Number of points to use when interpolating distributions
+        level: Character level used for damage step calculations
+
+    Returns:
+        PartyRotation: Object containing party-level damage distributions and statistics
+    """
+    rotation_dmg_step = LEVEL_STEP_MAP[level]["rotation_dmg_step"]
+
+    rotation_pdf, rotation_supp = rotation_dps_pdf(job_rotation_pdf_list, lb_damage)
+
+    truncated_party_distribution, party_distribution_clipping = kill_time_analysis(
+        job_rotation_analyses_list,
+        job_rotation_pdf_list,
+        lb_damage_events_df,
+        job_rotation_clipping_analyses,
+        job_rotation_clipping_pdf_list,
+        rotation_pdf,
+        rotation_supp,
+        t_clips,
+        rotation_dmg_step,
+    )
+
+    #
+    boss_total_hp = (
+        sum([a.actions_df["amount"].sum() for a in job_rotation_analyses_list])
+        + lb_damage
+    )
+    # Party analysis
+    # Create an ID if it's not a recompute
+    if party_analysis_id is None:
+        party_analysis_id = str(uuid4())
+
+    party_mean = sum([a.rotation_mean for a in job_rotation_pdf_list])
+    party_std = sum([a.rotation_variance for a in job_rotation_pdf_list]) ** (0.5)
+    party_skewness = sum(
+        [
+            a.rotation_skewness * a.rotation_variance ** (3 / 2)
+            for a in job_rotation_pdf_list
+        ]
+    ) / sum([a.rotation_variance ** (3 / 2) for a in job_rotation_pdf_list])
+
+    party_rotation = PartyRotation(
+        party_analysis_id,
+        boss_total_hp,
+        job_rotation_analyses_list[0].fight_time,
+        lb_damage_events_df,
+        party_mean,
+        party_std,
+        party_skewness,
+        rotation_pdf,
+        rotation_supp,
+        [
+            SplitPartyRotation(
+                t,
+                boss_total_hp,
+                truncated_party_distribution[t]["pdf"],
+                truncated_party_distribution[t]["support"],
+                party_distribution_clipping[t]["pdf"],
+                party_distribution_clipping[t]["support"],
+            )
+            for t in t_clips
+        ],
+    )
+    # Interpolate onto n_data_points
+    party_rotation.interpolate_distributions(
+        rotation_n=n_data_points, split_n=n_data_points
+    )
+
+    return party_rotation
