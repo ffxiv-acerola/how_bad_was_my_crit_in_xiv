@@ -8,6 +8,7 @@ from dash import (
     html,
 )
 
+from crit_app.job_data.encounter_data import stat_ranges
 from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
 
 QUICK_BUILD_TABLE_STYLES = {
@@ -597,12 +598,19 @@ def create_job_build_content(
             id={"type": "main-stat-label", "index": id_idx},
         ),
         dbc.Col(
-            dbc.Input(
-                value=main_stat,
-                type="number",
-                placeholder=role_labels["main_stat"]["placeholder"],
-                id={"type": "main-stat", "index": id_idx},
-            )
+            [
+                dbc.Input(
+                    value=main_stat,
+                    type="number",
+                    placeholder=role_labels["main_stat"]["placeholder"],
+                    id={"type": "main-stat", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['main_stat']['lower']} and {stat_ranges['main_stat']['upper']}.",
+                    type="invalid",
+                    id={"type": "main-stat-feedback", "index": id_idx},
+                ),
+            ]
         ),
         dbc.Label(
             children="DET:",
@@ -611,18 +619,25 @@ def create_job_build_content(
             id={"type": "det-label", "index": id_idx},
         ),
         dbc.Col(
-            dbc.Input(
-                value=determination,
-                type="number",
-                placeholder="Determination",
-                id={"type": "DET", "index": id_idx},
-            )
+            [
+                dbc.Input(
+                    value=determination,
+                    type="number",
+                    placeholder="Determination",
+                    id={"type": "DET", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['DET']['lower']} and {stat_ranges['DET']['upper']}.",
+                    type="invalid",
+                    id={"type": "DET-feedback", "index": id_idx},
+                ),
+            ]
         ),
         dbc.Label(
             children=[
                 html.Span(
                     children=role_labels["speed_stat"]["label"],
-                    id=f"speed-tooltip-{id_idx}",
+                    id={"type": "speed-tooltip", "index": id_idx},
                     style={
                         "textDecoration": "underline",
                         "textDecorationStyle": "dotted",
@@ -631,71 +646,119 @@ def create_job_build_content(
                 ),
                 dbc.Tooltip(
                     "Your Skill/Spell Speed stat, not your GCD.",
-                    target=f"speed-tooltip-{id_idx}",
-                ),
-                dbc.FormFeedback(
-                    "Please enter your Skill/Spell Speed stat, not GCD.",
-                    type="invalid",
-                    id=f"speed-feedback-{id_idx}",
+                    target={"type": "speed-tooltip", "index": id_idx},
                 ),
             ],
             width=12,
             md=1,
-            id=f"speed-stat-label-{id_idx}",
+            id={"type": "speed-stat-label", "index": id_idx},
         ),
         dbc.Col(
-            dbc.Input(
-                value=speed,
-                type="number",
-                placeholder=role_labels["speed_stat"]["placeholder"],
-                # min=100,
-                # max=4000,
-                id={"type": "speed-stat", "index": id_idx},
-            )
+            [
+                dbc.Input(
+                    value=speed,
+                    type="number",
+                    placeholder=role_labels["speed_stat"]["placeholder"],
+                    id={"type": "speed-stat", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Value must be between {stat_ranges['SPEED']['lower']} and {stat_ranges['SPEED']['upper']}. Do not enter your GCD.",
+                    type="invalid",
+                    id={"type": "speed-stat-feedback", "index": id_idx},
+                ),
+            ]
         ),
     ]
 
-    bottom_stat_list = [
-        dbc.Label("CRT:", width=12, md=1, id={"type": "crt-label", "index": id_idx}),
-        dbc.Col(
-            dbc.Input(
-                value=crit,
-                type="number",
-                placeholder="Critical Hit",
-                id={"type": "CRT", "index": id_idx},
-            )
+    middle_stat_list = [
+        dbc.Label(
+            "CRT:",
+            width=12,
+            md=1,
+            id={"type": "crt-label", "index": id_idx},
         ),
-        dbc.Label("DH:", width=12, md=1, id={"type": "dh-label", "index": id_idx}),
         dbc.Col(
-            dbc.Input(
-                value=direct_hit,
-                type="number",
-                placeholder="Direct Hit",
-                id={"type": "DH", "index": id_idx},
-            )
+            [
+                dbc.Input(
+                    value=crit,
+                    type="number",
+                    placeholder="Critical Hit",
+                    id={"type": "CRT", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['CRT']['lower']} and {stat_ranges['CRT']['upper']}.",
+                    type="invalid",
+                    id={"type": "CRT-feedback", "index": id_idx},
+                ),
+            ]
         ),
-        dbc.Label("WD:", width=12, md=1, id={"type": "wd-label", "index": id_idx}),
+        dbc.Label(
+            "DH:",
+            width=12,
+            md=1,
+            id={"type": "dh-label", "index": id_idx},
+        ),
         dbc.Col(
-            dbc.Input(
-                value=weapon_damage,
-                type="number",
-                placeholder="Weapon Damage",
-                id={"type": "WD", "index": id_idx},
-            )
+            [
+                dbc.Input(
+                    value=direct_hit,
+                    type="number",
+                    placeholder="Direct Hit",
+                    id={"type": "DH", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['DH']['lower']} and {stat_ranges['DH']['upper']}.",
+                    type="invalid",
+                    id={"type": "DH-feedback", "index": id_idx},
+                ),
+            ]
+        ),
+        dbc.Label(
+            "WD:",
+            width=12,
+            md=1,
+            id={"type": "wd-label", "index": id_idx},
+        ),
+        dbc.Col(
+            [
+                dbc.Input(
+                    value=weapon_damage,
+                    type="number",
+                    placeholder="Weapon Damage",
+                    id={"type": "WD", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['WD']['lower']} and {stat_ranges['WD']['upper']}.",
+                    type="invalid",
+                    id={"type": "WD-feedback", "index": id_idx},
+                ),
+            ]
         ),
     ]
 
     tenacity_stat_list = [
-        dbc.Label("TEN:", width=12, md=1, id="tenacity-label"),
+        dbc.Label(
+            "TEN:",
+            width=12,
+            md=1,
+            id={"type": "tenacity-label", "index": id_idx},
+        ),
         dbc.Col(
-            dbc.Input(
-                value=tenacity,
-                type="number",
-                placeholder="Tenacity",
-                min=100,
-                max=6000,
-                id={"type": "TEN", "index": id_idx},
-            ),
+            [
+                dbc.Input(
+                    value=tenacity,
+                    type="number",
+                    placeholder="Tenacity",
+                    min=stat_ranges["TEN"]["lower"],
+                    max=stat_ranges["TEN"]["upper"],
+                    id={"type": "TEN", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['TEN']['lower']} and {stat_ranges['TEN']['upper']} for Tenacity.",
+                    type="invalid",
+                    id={"type": "TEN-feedback", "index": id_idx},
+                ),
+            ],
             width=12,
             md=3,
         ),
@@ -705,8 +768,8 @@ def create_job_build_content(
     top_stat_row = dbc.Row(
         top_stat_list, class_name="g-2", style={"padding-bottom": "15px"}
     )
-    bottom_stat_row = dbc.Row(
-        bottom_stat_list, class_name="g-2", style={"padding-bottom": "15px"}
+    middle_stat_row = dbc.Row(
+        middle_stat_list, class_name="g-2", style={"padding-bottom": "15px"}
     )
     tenacity_stat_row = html.Div(
         dbc.Row(tenacity_stat_list, class_name="g-2", style={"padding-bottom": "15px"}),
@@ -718,7 +781,7 @@ def create_job_build_content(
             [
                 html.H4(id={"type": "build-name", "index": id_idx}),
                 top_stat_row,
-                bottom_stat_row,
+                middle_stat_row,
                 tenacity_stat_row,
             ]
         )

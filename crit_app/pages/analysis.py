@@ -27,7 +27,6 @@ from crit_app.cards import (
 from crit_app.config import BLOB_URI, DEBUG, DRY_RUN
 from crit_app.dmg_distribution import (
     get_dps_dmg_percentile,
-    # job_analysis_to_data_class,
 )
 from crit_app.figures import (
     make_action_box_and_whisker_figure,
