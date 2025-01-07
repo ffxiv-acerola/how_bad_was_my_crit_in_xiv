@@ -4,10 +4,39 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 from dash import (
     dash_table,
+    dcc,
     html,
 )
 
+from crit_app.job_data.encounter_data import stat_ranges
 from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
+
+QUICK_BUILD_TABLE_STYLES = {
+    "header": {
+        "backgroundColor": "rgb(30, 30, 30)",
+        "color": "white",
+        "font-family": "sans-serif",
+        "font-size": "1.0em",
+    },
+    "data": {"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
+}
+
+QUICK_BUILD_COLUMN_STYLES = [
+    {
+        "if": {"column_id": "job"},
+        "width": "50px",
+        "textAlign": "center",
+        "padding-bottom": "4px",
+        "font-family": "job-icons",
+        "font-size": "1.3em",
+    },
+    {
+        "if": {"column_id": "player_name"},
+        "width": "200px",
+        "textAlign": "left",
+        "padding-left": "10px",
+    },
+]
 
 party_analysis_assumptions_modal = dbc.Modal(
     [
@@ -40,7 +69,20 @@ party_analysis_assumptions_modal = dbc.Modal(
 
 
 def create_fflogs_card(
-    fflogs_url: Optional[str] = None, encounter_info_children: Optional[List] = None
+    fflogs_url: Optional[str] = None,
+    encounter_name=[],
+    kill_time_str: str = "",
+    phase_selector_value="0",
+    phase_selector_options: list = [],
+    phase_select_hidden: bool = False,
+    medication_amount: int = 392,
+    quick_build_table_data: list = [],
+    party_accordion_items: list = [],
+    analysis_progress_children="Analysis progress: Done!",
+    analysis_progress_value: int = 100,
+    hide_fflogs_div: bool = True,
+    analyze_button_text: str = "Analyze party rotation",
+    wrap_collapse: bool = False,
 ) -> dbc.Card:
     """
     Create card component for FFLogs URL input and encounter info.
@@ -82,7 +124,189 @@ def create_fflogs_card(
     )
 
     # Encounter info row
-    encounter_info = dbc.Row(encounter_info_children, id="encounter-info")
+    encounter_info = html.H3(
+        [
+            html.Span(encounter_name, id="party-encounter-name"),
+            " (",
+            html.Span(kill_time_str, id="party-kill-time"),
+            ")",
+        ]
+    )
+
+    # Display fight
+
+    # Phase selection
+    phase_select = html.Div(
+        dbc.Row(
+            children=[
+                dbc.Label("Phase:", width=12, md=2, id="party-phase-label"),
+                dbc.Col(
+                    dbc.Select(
+                        options=phase_selector_options,
+                        value=phase_selector_value,
+                        id="party-phase-select",
+                    ),
+                    width=1,
+                    md=5,
+                ),
+            ],
+        ),
+        id="party-phase-select-div",
+        style={"padding-bottom": "15px"},
+        hidden=phase_select_hidden,
+    )
+
+    # Job build
+    job_build_text = [
+        html.H3("Enter job builds"),
+        html.P(
+            "Job builds for all players must be entered. "
+            "Either enter the Etro link or input each job's stats. "
+            "Do not include any party composition bonuses to the main stat, "
+            "this is automatically calculated."
+        ),
+    ]
+
+    # Medication
+    medication_selector = create_tincture_input(medication_amount)
+
+    # Quick build input
+    # quick_build_div = create_quick_build_div(
+    #     create_quick_build_table(etro_job_build_information)
+    # )
+    quick_build_table = dash_table.DataTable(
+        data=quick_build_table_data,
+        columns=[
+            {"id": "job", "name": "Job", "editable": False, "selectable": False},
+            {
+                "id": "player_name",
+                "name": "Player",
+                "editable": False,
+                "selectable": False,
+            },
+            {
+                "id": "etro_link",
+                "name": "Etro link",
+                "editable": True,
+                "selectable": True,
+            },
+        ],
+        style_header=QUICK_BUILD_TABLE_STYLES["header"],
+        style_data=QUICK_BUILD_TABLE_STYLES["data"],
+        style_cell_conditional=QUICK_BUILD_COLUMN_STYLES,
+        editable=True,
+        id="quick-build-table",
+    )
+
+    quick_build_div = html.Div(
+        [
+            html.H4("Quick build input"),
+            html.P(
+                'Quickly input all Etro links by pasting them into the "Etro link" '
+                "column below like you would a spreadsheet and then clicking the "
+                '"Fill in Etro links" button. Otherwise, enter the build information '
+                "one-by-one and then click the validate builds button."
+            ),
+            quick_build_table,
+            html.Br(),
+            dbc.Button("Fill in and apply Etro links", id="quick-build-fill-button"),
+        ],
+        style={"padding-top": "15px", "padding-bottom": "15px"},
+    )
+
+    # Party accordion
+    party_accordion = dbc.ListGroup(
+        children=party_accordion_items, id="party-accordion"
+    )
+
+    # Validate
+    buttons = html.Div(
+        [
+            html.Div(
+                [
+                    dbc.Button(
+                        analyze_button_text, id="party-compute", class_name="w-100"
+                    )
+                ],
+                id="party-compute-div",
+                hidden=True,
+                className="w-100",
+                style={"padding-top": "15px", "padding-bottom": "15px"},
+            ),
+        ],
+        style={"padding-top": "15px"},
+    )
+
+    # Progress bar
+    party_analysis_progress = [
+        html.H4(analysis_progress_children, id="party-progress-header"),
+        dbc.Progress(
+            value=analysis_progress_value,
+            style={"height": "25px"},
+            color="#009670",
+            id="party-progress",
+        ),
+        html.P(id="party-progress-job"),
+    ]
+
+    # Check whether to wrap things in a collapse to
+    # hide the lengthy form
+    if wrap_collapse:
+        job_build_items = [
+            dbc.Button(
+                children="Show party build",
+                n_clicks=0,
+                id="party-collapse-button",
+                class_name="w-100",
+            ),
+            dbc.Collapse(
+                [
+                    *job_build_text,
+                    medication_selector,
+                    quick_build_div,
+                    party_accordion,
+                    buttons,
+                ],
+                id="party-list-collapse",
+                is_open=False,
+                class_name="me-1",
+            ),
+        ]
+
+    else:
+        job_build_items = [
+            html.Div(
+                [
+                    dbc.Button(
+                        children="Show party build",
+                        n_clicks=0,
+                        id="party-collapse-button",
+                        class_name="mb-3",
+                    ),
+                    dbc.Collapse(
+                        id="party-list-collapse",
+                    ),
+                ],
+                hidden=True,
+            ),
+            *job_build_text,
+            medication_selector,
+            quick_build_div,
+            party_accordion,
+            buttons,
+        ]
+
+    fflogs_hidden_div = html.Div(
+        [
+            encounter_info,
+            phase_select,
+            *job_build_items,
+            *party_analysis_progress,
+            html.Div(id="party-analysis-error"),
+        ],
+        id="party-fflogs-hidden-div",
+        hidden=hide_fflogs_div,
+    )
 
     return dbc.Card(
         dbc.CardBody(
@@ -100,13 +324,168 @@ def create_fflogs_card(
                 html.Hr(className="my-2"),
                 html.H3("Enter log to analyze"),
                 url_input,
-                encounter_info,
+                fflogs_hidden_div,
             ]
         )
     )
 
 
-def create_quick_build_table(
+def create_results_card(
+    analysis_url: str = "",
+    party_dps_pdf_figure=None,
+    kill_time_figure=None,
+    player_analysis_selector_options=[],
+    player_analysis_default=None,
+):
+    party_analysis_summary = html.Div(
+        [
+            dbc.Row(
+                [
+                    html.P(
+                        [
+                            "Scroll down to see a detailed analysis showing the DPS distribution of the party's rotation, how likely faster kill times are, and individual player DPS distributions. Click ",
+                            html.A("here", href="#", id="party-analysis-open"),
+                            " to learn more about the limitations and assumptions of the results.",
+                            party_analysis_assumptions_modal,
+                        ]
+                    ),
+                ]
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        dbc.Label("Copy analysis link"),
+                        align="center",
+                        width=2,
+                    ),
+                    dbc.Col(
+                        dbc.Input(
+                            value=analysis_url,
+                            disabled=True,
+                            id="party-analysis-link",
+                        ),
+                        width=9,
+                        align="center",
+                    ),
+                    dbc.Col(
+                        dcc.Clipboard(
+                            id="party-clipboard",
+                            style={"display": "inline-block"},
+                        ),
+                        align="center",
+                        width=1,
+                    ),
+                ]
+            ),
+        ]
+    )
+
+    # Party rotation DPS distribution
+    party_dps_pdf = dbc.Card(
+        dbc.CardBody(
+            [
+                html.H3("Party DPS distribution"),
+                html.P(
+                    "The graph below shows the DPS distribution for the whole party. Mouse over curves/points to view corresponding percentiles."
+                ),
+                dcc.Graph(figure=party_dps_pdf_figure),
+            ]
+        )
+    )
+
+    # Kill time analysis
+    kill_time_card = html.Div(
+        dbc.Card(
+            dbc.CardBody(
+                html.Div(
+                    [
+                        html.H3("Kill time analysis"),
+                        html.P(
+                            "The graph below estimates how likely the actual kill time was and how likely faster kill times are. The y-axis represents all kills that are equal to or faster than the kill time reported on the x-axis. Faster kill times are estimated by simply truncating the rotation of the party by the respective time amount. Note the y-axis is on a log scale."
+                        ),
+                        html.P(
+                            "Low percent chances indicate that faster kill times with the given rotation are unlikely. Faster kill times may be achieved through means like further refining the party's rotation, performing a planned rotation more consistently, or generating more Limit Break usages."
+                        ),
+                        dcc.Graph(figure=kill_time_figure),
+                    ]
+                )
+            )
+        )
+    )
+
+    job_dps_selection = html.Div(
+        [
+            dbc.RadioItems(
+                options=[
+                    {"label": "Rotation DPS distribution", "value": "rotation"},
+                    {"label": "Action DPS distributions", "value": "actions"},
+                ],
+                value="rotation",
+                id="job-graph-type",
+                inline=True,
+            ),
+            html.Br(),
+            dcc.Dropdown(
+                player_analysis_selector_options,
+                value=player_analysis_default,
+                id="job-selector",
+                style={
+                    "height": "45px",
+                },
+            ),
+            html.Br(),
+        ],
+    )
+
+    job_view_card = html.Div(
+        dbc.Card(
+            dbc.CardBody(
+                html.Div(
+                    [
+                        html.H3("Job damage distributions"),
+                        html.P(
+                            "Click the drop-down to view the DPS distribution of a specific job. The radio buttons toggle between the overall rotation DPS distribution and the DPS distribution of each action. Mouse over curves/points to view corresponding percentiles."
+                        ),
+                        html.A(
+                            [
+                                "Open job-level analysis page  ",
+                                html.I(
+                                    className="fas fa-external-link-alt",
+                                    style={"font-size": "0.8em"},
+                                ),
+                            ],
+                            target="_blank",
+                            id="job-level-analysis",
+                        ),
+                        html.Br(),
+                        html.Br(),
+                        job_dps_selection,
+                        html.Br(),
+                        dcc.Graph(id="job-rotation-pdf"),
+                    ],
+                    className="me-1",
+                )
+            )
+        )
+    )
+
+    return dbc.Card(
+        dbc.CardBody(
+            [
+                html.H2("Party analysis results"),
+                party_analysis_summary,
+                html.Br(),
+                party_dps_pdf,
+                html.Br(),
+                kill_time_card,
+                html.Br(),
+                job_view_card,
+            ]
+        )
+    )
+
+
+def create_quick_build_table_data(
     job_information: List[Dict[str, Any]],
 ) -> dash_table.DataTable:
     """
@@ -128,33 +507,6 @@ def create_quick_build_table(
     #     "Magical Ranged": 5
     # }
 
-    TABLE_STYLES = {
-        "header": {
-            "backgroundColor": "rgb(30, 30, 30)",
-            "color": "white",
-            "font-family": "sans-serif",
-            "font-size": "1.0em",
-        },
-        "data": {"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
-    }
-
-    COLUMN_STYLES = [
-        {
-            "if": {"column_id": "job"},
-            "width": "50px",
-            "textAlign": "center",
-            "padding-bottom": "4px",
-            "font-family": "job-icons",
-            "font-size": "1.3em",
-        },
-        {
-            "if": {"column_id": "player_name"},
-            "width": "200px",
-            "textAlign": "left",
-            "padding-left": "10px",
-        },
-    ]
-
     # Create and sort dataframe
     quick_build = pd.DataFrame(job_information)
     # TODO: Verify this is correct
@@ -166,35 +518,15 @@ def create_quick_build_table(
     quick_build.loc[quick_build["role"] == "Magical Ranged", "role_order"] = 5
     quick_build["job"] = quick_build["job"].map(abbreviated_job_map)
     quick_build["etro_link"] = None
+    quick_build.loc[~quick_build["etro_id"].isna(), "etro_link"] = (
+        "https://etro.gg/gearset/" + quick_build["etro_id"]
+    )
 
     quick_build = quick_build.sort_values(
         ["role_order", "job", "player_name", "player_id"]
     )[["job", "player_name", "etro_link"]]
 
-    # Create table
-    return dash_table.DataTable(
-        data=quick_build.to_dict("records"),
-        columns=[
-            {"id": "job", "name": "Job", "editable": False, "selectable": False},
-            {
-                "id": "player_name",
-                "name": "Player",
-                "editable": False,
-                "selectable": False,
-            },
-            {
-                "id": "etro_link",
-                "name": "Etro link",
-                "editable": True,
-                "selectable": True,
-            },
-        ],
-        style_header=TABLE_STYLES["header"],
-        style_data=TABLE_STYLES["data"],
-        style_cell_conditional=COLUMN_STYLES,
-        editable=True,
-        id="quick-build-table",
-    )
+    return quick_build.to_dict("records")
 
 
 def create_quick_build_div(quick_build_table: Any) -> html.Div:
@@ -266,12 +598,19 @@ def create_job_build_content(
             id={"type": "main-stat-label", "index": id_idx},
         ),
         dbc.Col(
-            dbc.Input(
-                value=main_stat,
-                type="number",
-                placeholder=role_labels["main_stat"]["placeholder"],
-                id={"type": "main-stat", "index": id_idx},
-            )
+            [
+                dbc.Input(
+                    value=main_stat,
+                    type="number",
+                    placeholder=role_labels["main_stat"]["placeholder"],
+                    id={"type": "main-stat", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['main_stat']['lower']} and {stat_ranges['main_stat']['upper']}.",
+                    type="invalid",
+                    id={"type": "main-stat-feedback", "index": id_idx},
+                ),
+            ]
         ),
         dbc.Label(
             children="DET:",
@@ -280,18 +619,25 @@ def create_job_build_content(
             id={"type": "det-label", "index": id_idx},
         ),
         dbc.Col(
-            dbc.Input(
-                value=determination,
-                type="number",
-                placeholder="Determination",
-                id={"type": "DET", "index": id_idx},
-            )
+            [
+                dbc.Input(
+                    value=determination,
+                    type="number",
+                    placeholder="Determination",
+                    id={"type": "DET", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['DET']['lower']} and {stat_ranges['DET']['upper']}.",
+                    type="invalid",
+                    id={"type": "DET-feedback", "index": id_idx},
+                ),
+            ]
         ),
         dbc.Label(
             children=[
                 html.Span(
                     children=role_labels["speed_stat"]["label"],
-                    id=f"speed-tooltip-{id_idx}",
+                    id={"type": "speed-tooltip", "index": id_idx},
                     style={
                         "textDecoration": "underline",
                         "textDecorationStyle": "dotted",
@@ -300,71 +646,119 @@ def create_job_build_content(
                 ),
                 dbc.Tooltip(
                     "Your Skill/Spell Speed stat, not your GCD.",
-                    target=f"speed-tooltip-{id_idx}",
-                ),
-                dbc.FormFeedback(
-                    "Please enter your Skill/Spell Speed stat, not GCD.",
-                    type="invalid",
-                    id=f"speed-feedback-{id_idx}",
+                    target={"type": "speed-tooltip", "index": id_idx},
                 ),
             ],
             width=12,
             md=1,
-            id=f"speed-stat-label-{id_idx}",
+            id={"type": "speed-stat-label", "index": id_idx},
         ),
         dbc.Col(
-            dbc.Input(
-                value=speed,
-                type="number",
-                placeholder=role_labels["speed_stat"]["placeholder"],
-                # min=100,
-                # max=4000,
-                id={"type": "speed-stat", "index": id_idx},
-            )
+            [
+                dbc.Input(
+                    value=speed,
+                    type="number",
+                    placeholder=role_labels["speed_stat"]["placeholder"],
+                    id={"type": "speed-stat", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Value must be between {stat_ranges['SPEED']['lower']} and {stat_ranges['SPEED']['upper']}. Do not enter your GCD.",
+                    type="invalid",
+                    id={"type": "speed-stat-feedback", "index": id_idx},
+                ),
+            ]
         ),
     ]
 
-    bottom_stat_list = [
-        dbc.Label("CRT:", width=12, md=1, id={"type": "crt-label", "index": id_idx}),
-        dbc.Col(
-            dbc.Input(
-                value=crit,
-                type="number",
-                placeholder="Critical Hit",
-                id={"type": "CRT", "index": id_idx},
-            )
+    middle_stat_list = [
+        dbc.Label(
+            "CRT:",
+            width=12,
+            md=1,
+            id={"type": "crt-label", "index": id_idx},
         ),
-        dbc.Label("DH:", width=12, md=1, id={"type": "dh-label", "index": id_idx}),
         dbc.Col(
-            dbc.Input(
-                value=direct_hit,
-                type="number",
-                placeholder="Direct Hit",
-                id={"type": "DH", "index": id_idx},
-            )
+            [
+                dbc.Input(
+                    value=crit,
+                    type="number",
+                    placeholder="Critical Hit",
+                    id={"type": "CRT", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['CRT']['lower']} and {stat_ranges['CRT']['upper']}.",
+                    type="invalid",
+                    id={"type": "CRT-feedback", "index": id_idx},
+                ),
+            ]
         ),
-        dbc.Label("WD:", width=12, md=1, id={"type": "wd-label", "index": id_idx}),
+        dbc.Label(
+            "DH:",
+            width=12,
+            md=1,
+            id={"type": "dh-label", "index": id_idx},
+        ),
         dbc.Col(
-            dbc.Input(
-                value=weapon_damage,
-                type="number",
-                placeholder="Weapon Damage",
-                id={"type": "WD", "index": id_idx},
-            )
+            [
+                dbc.Input(
+                    value=direct_hit,
+                    type="number",
+                    placeholder="Direct Hit",
+                    id={"type": "DH", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['DH']['lower']} and {stat_ranges['DH']['upper']}.",
+                    type="invalid",
+                    id={"type": "DH-feedback", "index": id_idx},
+                ),
+            ]
+        ),
+        dbc.Label(
+            "WD:",
+            width=12,
+            md=1,
+            id={"type": "wd-label", "index": id_idx},
+        ),
+        dbc.Col(
+            [
+                dbc.Input(
+                    value=weapon_damage,
+                    type="number",
+                    placeholder="Weapon Damage",
+                    id={"type": "WD", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['WD']['lower']} and {stat_ranges['WD']['upper']}.",
+                    type="invalid",
+                    id={"type": "WD-feedback", "index": id_idx},
+                ),
+            ]
         ),
     ]
 
     tenacity_stat_list = [
-        dbc.Label("TEN:", width=12, md=1, id="tenacity-label"),
+        dbc.Label(
+            "TEN:",
+            width=12,
+            md=1,
+            id={"type": "tenacity-label", "index": id_idx},
+        ),
         dbc.Col(
-            dbc.Input(
-                value=tenacity,
-                type="number",
-                placeholder="Tenacity",
-                min=100,
-                max=6000,
-                id={"type": "TEN", "index": id_idx},
-            ),
+            [
+                dbc.Input(
+                    value=tenacity,
+                    type="number",
+                    placeholder="Tenacity",
+                    min=stat_ranges["TEN"]["lower"],
+                    max=stat_ranges["TEN"]["upper"],
+                    id={"type": "TEN", "index": id_idx},
+                ),
+                dbc.FormFeedback(
+                    f"Please enter a value between {stat_ranges['TEN']['lower']} and {stat_ranges['TEN']['upper']} for Tenacity.",
+                    type="invalid",
+                    id={"type": "TEN-feedback", "index": id_idx},
+                ),
+            ],
             width=12,
             md=3,
         ),
@@ -374,8 +768,8 @@ def create_job_build_content(
     top_stat_row = dbc.Row(
         top_stat_list, class_name="g-2", style={"padding-bottom": "15px"}
     )
-    bottom_stat_row = dbc.Row(
-        bottom_stat_list, class_name="g-2", style={"padding-bottom": "15px"}
+    middle_stat_row = dbc.Row(
+        middle_stat_list, class_name="g-2", style={"padding-bottom": "15px"}
     )
     tenacity_stat_row = html.Div(
         dbc.Row(tenacity_stat_list, class_name="g-2", style={"padding-bottom": "15px"}),
@@ -387,7 +781,7 @@ def create_job_build_content(
             [
                 html.H4(id={"type": "build-name", "index": id_idx}),
                 top_stat_row,
-                bottom_stat_row,
+                middle_stat_row,
                 tenacity_stat_row,
             ]
         )
@@ -563,10 +957,10 @@ def create_accordion_items(
     )
 
 
-def create_party_accordion(
+def create_party_accordion_children(
     job_information: List[Dict[str, Union[str, int, float, None]]],
     job_build_present: bool = False,
-) -> dbc.ListGroup:
+) -> list:
     """
     Create accordion UI component grouping party members by role.
 
@@ -728,53 +1122,50 @@ def create_party_accordion(
                 )
             )
 
-    return dbc.ListGroup(
-        [
-            dbc.ListGroupItem(
-                [
-                    html.H4("Tank"),
-                    dbc.Accordion(
-                        tanks,
-                        start_collapsed=True,
-                    ),
-                ],
-            ),
-            dbc.ListGroupItem(
-                [
-                    html.H4("Healer"),
-                    dbc.Accordion(
-                        healers,
-                        start_collapsed=True,
-                    ),
-                ]
-            ),
-            dbc.ListGroupItem(
-                [
-                    html.H4("Melee"),
-                    dbc.Accordion(
-                        melee,
-                        start_collapsed=True,
-                    ),
-                ]
-            ),
-            dbc.ListGroupItem(
-                [
-                    html.H4("Physical Ranged"),
-                    dbc.Accordion(
-                        physical_ranged,
-                        start_collapsed=True,
-                    ),
-                ]
-            ),
-            dbc.ListGroupItem(
-                [
-                    html.H4("Magical Ranged"),
-                    dbc.Accordion(
-                        casters,
-                        start_collapsed=True,
-                    ),
-                ]
-            ),
-        ],
-        id="party-accordion",
-    )
+    return [
+        dbc.ListGroupItem(
+            [
+                html.H4("Tank"),
+                dbc.Accordion(
+                    tanks,
+                    start_collapsed=True,
+                ),
+            ],
+        ),
+        dbc.ListGroupItem(
+            [
+                html.H4("Healer"),
+                dbc.Accordion(
+                    healers,
+                    start_collapsed=True,
+                ),
+            ]
+        ),
+        dbc.ListGroupItem(
+            [
+                html.H4("Melee"),
+                dbc.Accordion(
+                    melee,
+                    start_collapsed=True,
+                ),
+            ]
+        ),
+        dbc.ListGroupItem(
+            [
+                html.H4("Physical Ranged"),
+                dbc.Accordion(
+                    physical_ranged,
+                    start_collapsed=True,
+                ),
+            ]
+        ),
+        dbc.ListGroupItem(
+            [
+                html.H4("Magical Ranged"),
+                dbc.Accordion(
+                    casters,
+                    start_collapsed=True,
+                ),
+            ]
+        ),
+    ]

@@ -98,7 +98,7 @@ create table if not exists access(
 strict
 """
 
-create_error_table = """
+create_player_error_table = """
 create table
     if not exists error_player_analysis (
         report_id TEXT NOT NULL,
@@ -130,12 +130,39 @@ create table
     ) strict
 """
 
+create_party_error_table = """
+create table if not exists error_party_analysis(
+    report_id TEXT NOT NULL,
+    fight_id INTEGER NOT NULL,
+    fight_phase INTEGER NOT NULL,
+    encounter_id INTEGER NOT NULL,
+    job TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    player_id INTEGER NOT NULL,
+    main_stat_no_buff INTEGER NOT NULL,
+    secondary_stat_no_buff INTEGER,
+    determination INTEGER NOT NULL,
+    speed INTEGER NOT NULL,
+    critical_hit INTEGER NOT NULL,
+    direct_hit INTEGER NOT NULL,
+    weapon_damage INTEGER NOT NULL,
+    party_bonus REAL NOT NULL,
+    medication_amount INTEGER NOT NULL,
+    etro_url TEXT,
+    error_message TEXT NOT NULL,
+    traceback TEXT NOT NULL,
+    error_ts TEXT NOT NULL,
+    primary key (report_id, fight_id, fight_phase, player_id)
+) strict;
+"""
+
 con = sqlite3.connect(DB_URI)
 cur = con.cursor()
 cur.execute(create_encounter_table)
 cur.execute(create_report_table)
 cur.execute(create_party_report_table)
 cur.execute(create_access_table)
-cur.execute(create_error_table)
+cur.execute(create_player_error_table)
+cur.execute(create_party_error_table)
 cur.close()
 con.close()

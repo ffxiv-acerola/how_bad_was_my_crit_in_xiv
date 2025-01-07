@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from crit_app.config import DB_URI
 
 
-def insert_error_analysis(
+def insert_error_player_analysis(
     report_id: str,
     fight_id: int,
     player_id: int,
@@ -120,6 +120,94 @@ def insert_error_analysis(
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
     cur.execute(sql_query, params)
+    con.commit()
+    con.close()
+
+
+def insert_error_party_analysis(
+    report_id: str,
+    fight_id: int,
+    fight_phase: int,
+    encounter_id: int,
+    job: List[str],
+    player_name: List[str],
+    player_id: List[int],
+    main_stat_no_buff: List[int],
+    secondary_stat_no_buff: List[int],
+    determination: List[int],
+    speed: List[int],
+    crit: List[int],
+    dh: List[int],
+    weapon_damage: List[int],
+    main_stat_multiplier: List[float],
+    medication_amt: int,
+    etro_url: str,
+    error_message: str,
+    error_traceback: str,
+) -> None:
+    """Insert error analysis information for party into database.
+
+    Args:
+        report_id (str): FFLogs report identifier
+        fight_id (int): Fight ID within report
+        fight_phase (int): Phase ID within fight
+        encounter_id (int): Encounter ID
+        job (List[str]): List of player jobs/classes
+        player_name (List[str]): List of player names
+        player_id (List[int]): List of player IDs
+        main_stat_no_buff (List[int]): List of main stat values without buffs
+        secondary_stat_no_buff (List[int]): List of secondary stat values without buffs
+        secondary_stat_type (List[str]): List of secondary stat types
+        determination (List[int]): List of determination stat values
+        speed (List[int]): List of speed stat values
+        crit (List[int]): List of critical hit stat values
+        dh (List[int]): List of direct hit stat values
+        weapon_damage (List[int]): List of weapon damage values
+        main_stat_multiplier (List[float]): List of main stat multipliers
+        medication_amt (int): Medicine/food bonus
+        error_message (str): Error message
+        error_traceback (str): Error traceback
+    """
+    sql_query = """
+    INSERT OR REPLACE INTO error_party_analysis VALUES (
+        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+    )
+    """
+
+    # format into 8 rows
+    rows_to_insert = []
+    error_ts = datetime.datetime.now()
+
+    for a in range(len(player_name)):
+        rows_to_insert.append(
+            (
+                report_id,
+                fight_id,
+                fight_phase,
+                encounter_id,
+                job[a].upper(),
+                player_name[a],
+                player_id[a],
+                main_stat_no_buff[a],
+                None
+                if secondary_stat_no_buff[a] == "None"
+                else secondary_stat_no_buff[a],
+                determination[a],
+                speed[a],
+                crit[a],
+                dh[a],
+                weapon_damage[a],
+                main_stat_multiplier,
+                medication_amt,
+                None if etro_url[a] == "" else etro_url[a],
+                error_message,
+                error_traceback,
+                error_ts,
+            )
+        )
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.executemany(sql_query, rows_to_insert)
     con.commit()
     con.close()
 
@@ -676,7 +764,8 @@ def get_party_analysis_encounter_info(
         last_phase_index,
         encounter_id,
         encounter_name,
-        kill_time
+        kill_time,
+        redo_analysis_flag
     from
         party_report pr
         inner join encounter e using (report_id, fight_id)
@@ -697,6 +786,7 @@ def get_party_analysis_encounter_info(
         encounter_id,
         encounter_name,
         kill_time,
+        redo_analysis_flag,
     ) = cur.fetchone()
 
     cur.close()
@@ -710,6 +800,7 @@ def get_party_analysis_encounter_info(
         encounter_id,
         encounter_name,
         kill_time,
+        redo_analysis_flag,
     )
 
 
@@ -845,18 +936,19 @@ def check_prior_party_analysis(player_analysis_ids):
     placeholders = ",".join("?" for _ in player_analysis_ids)
     sql_query = f"""
     SELECT
-    party_analysis_id
+        party_analysis_id,
+        redo_analysis_flag
     FROM
-    party_report
+        party_report
     WHERE
-    analysis_id_1 IN ({placeholders})
-    AND analysis_id_2 IN ({placeholders})
-    AND analysis_id_3 IN ({placeholders})
-    AND analysis_id_4 IN ({placeholders})
-    AND analysis_id_5 IN ({placeholders})
-    AND analysis_id_6 IN ({placeholders})
-    AND analysis_id_7 IN ({placeholders})
-    AND analysis_id_8 IN ({placeholders})
+        analysis_id_1 IN ({placeholders})
+        AND analysis_id_2 IN ({placeholders})
+        AND analysis_id_3 IN ({placeholders})
+        AND analysis_id_4 IN ({placeholders})
+        AND analysis_id_5 IN ({placeholders})
+        AND analysis_id_6 IN ({placeholders})
+        AND analysis_id_7 IN ({placeholders})
+        AND analysis_id_8 IN ({placeholders})
     """
 
     params = player_analysis_ids * 8
@@ -870,8 +962,9 @@ def check_prior_party_analysis(player_analysis_ids):
     con.close()
 
     if prior_party_analysis_id is not None:
-        prior_party_analysis_id = prior_party_analysis_id[0]
-    return prior_party_analysis_id
+        return prior_party_analysis_id
+    else:
+        return None, 0
 
 
 if __name__ == "__main__":

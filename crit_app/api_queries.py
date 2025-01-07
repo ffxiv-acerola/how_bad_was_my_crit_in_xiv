@@ -229,7 +229,7 @@ def get_encounter_job_info(
 
 
 def limit_break_damage_events(
-    report_id: str, fight_id: int, limit_break_id: int
+    report_id: str, fight_id: int, limit_break_id: int, phase=None
 ) -> pd.DataFrame:
     """
     Get all limit break damage events that successfully landed on targets.
@@ -253,21 +253,40 @@ def limit_break_damage_events(
            report_id  fight_id  timestamp  target_id  amount
         0    a1b2c3         1  12345678        101   50000
     """
-    variables = {"code": report_id, "id": [fight_id], "limitBreakID": limit_break_id}
+    if (phase is None) or (phase == 0):
+        filter_slug = ""
+    else:
+        filter_slug = f"encounterPhase={phase}"
+
+    variables = {
+        "code": report_id,
+        "id": [fight_id],
+        "limitBreakID": limit_break_id,
+        "filterSlug": filter_slug,
+    }
 
     json_payload = {
         "query": """
-        query LimitBreakDamage($code: String!, $id: [Int]!, $limitBreakID: Int!) {
-            reportData {
-                report(code: $code) {
-                    startTime
-                    events(fightIDs: $id, sourceClass:"LimitBreak", sourceID: $limitBreakID){
-                        data
+            query LimitBreakDamage(
+                $code: String!
+                $id: [Int]!
+                $limitBreakID: Int!
+                $filterSlug: String!
+            ) {
+                reportData {
+                    report(code: $code) {
+                        startTime
+                        events(
+                            fightIDs: $id
+                            sourceClass: "LimitBreak"
+                            sourceID: $limitBreakID
+                            filterExpression: $filterSlug
+                        ) {
+                            data
+                        }
                     }
                 }
             }
-}
-
     """,
         "variables": variables,
         "operationName": "LimitBreakDamage",
@@ -297,38 +316,5 @@ def limit_break_damage_events(
         return lb_df
 
 
-# TODO: DEPRECATED
-# def boss_healing_amount(report_id: str, fight_id: int):
-#     """Get boss healing events, which affects total HP/damage dealt.
-
-#     Used for party analysis.
-
-#     Args:
-#         report_id (str): FFLogs report ID
-#         fight_id (int): FFLogs fight ID
-#     """
-
-#     variables = {"code": report_id, "id": [fight_id]}
-
-#     json_payload = {
-#         "query": """
-#             query bossHealing($code: String!, $id: [Int]!) {
-#                 reportData {
-#                     report(code: $code) {
-#                         startTime
-#                         table(dataType: Healing, fightIDs: $id, hostilityType: Enemies)
-#                     }
-#                 }
-#             }
-#     """,
-#         "variables": variables,
-#         "operationName": "bossHealing",
-#     }
-#     r = requests.post(url=url, json=json_payload, headers=headers)
-#     r = json.loads(r.text)
-
-#     healing_amount = r["data"]["reportData"]["report"]["table"]["data"]["entries"]
-#     if len(healing_amount) == 0:
-#         return 0
-#     else:
-#         return sum([h["total"] for h in healing_amount])
+if __name__ == "__main__":
+    limit_break_damage_events("ZfnF8AqRaBbzxW3w", 5, 56, 5)
