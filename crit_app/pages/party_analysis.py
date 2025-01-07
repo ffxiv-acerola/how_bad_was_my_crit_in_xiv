@@ -36,8 +36,9 @@ from crit_app.figures import (
 )
 from crit_app.job_data.encounter_data import (
     encounter_level,
+    stat_ranges,
     valid_encounters,
-)
+)  # ensure stat_ranges is accessible
 from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
 from crit_app.job_data.roles import (
     abbreviated_job_map,
@@ -56,6 +57,7 @@ from crit_app.shared_elements import (
     format_kill_time_str,
     get_phase_selector_options,
     rotation_analysis,
+    validate_main_stat,
     validate_meldable_stat,
     validate_secondary_stat,
     validate_speed_stat,
@@ -483,18 +485,22 @@ def hide_non_tank_tenactiy(main_stat_label) -> bool:
 
 
 @callback(
-    Output({"type": "main-stat", "index": MATCH}, "value"),
-    Output({"type": "TEN", "index": MATCH}, "value"),
-    Output({"type": "DET", "index": MATCH}, "value"),
-    Output({"type": "speed-stat", "index": MATCH}, "value"),
-    Output({"type": "CRT", "index": MATCH}, "value"),
-    Output({"type": "DH", "index": MATCH}, "value"),
-    Output({"type": "WD", "index": MATCH}, "value"),
+    Output(
+        {"type": "main-stat", "index": MATCH},
+        "value",
+        allow_duplicate=True,
+    ),
+    Output({"type": "TEN", "index": MATCH}, "value", allow_duplicate=True),
+    Output({"type": "DET", "index": MATCH}, "value", allow_duplicate=True),
+    Output({"type": "speed-stat", "index": MATCH}, "value", allow_duplicate=True),
+    Output({"type": "CRT", "index": MATCH}, "value", allow_duplicate=True),
+    Output({"type": "DH", "index": MATCH}, "value", allow_duplicate=True),
+    Output({"type": "WD", "index": MATCH}, "value", allow_duplicate=True),
     Output({"type": "build-name", "index": MATCH}, "children"),
     Output({"type": "etro-input", "index": MATCH}, "valid"),
     Output({"type": "etro-input", "index": MATCH}, "invalid"),
     Output({"type": "etro-feedback", "index": MATCH}, "children"),
-    Input("etro-validate", "n_clicks"),
+    Input("quick-build-fill-button", "n_clicks"),
     State({"type": "etro-input", "index": MATCH}, "value"),
     State({"type": "main-stat-label", "index": MATCH}, "children"),
     State({"type": "main-stat", "index": MATCH}, "value"),
@@ -504,6 +510,7 @@ def hide_non_tank_tenactiy(main_stat_label) -> bool:
     State({"type": "CRT", "index": MATCH}, "value"),
     State({"type": "DH", "index": MATCH}, "value"),
     State({"type": "WD", "index": MATCH}, "value"),
+    prevent_initial_call="initial_duplicate",
 )
 def etro_process(
     n_clicks,
@@ -673,16 +680,250 @@ def etro_process(
         return tuple(invalid_return)
 
 
+valid_stat_return = (True, False)
+invalid_stat_return = (False, True)
+
+
+@app.callback(
+    Output({"type": "main-stat", "index": MATCH}, "valid"),
+    Output({"type": "main-stat", "index": MATCH}, "invalid"),
+    Input({"type": "main-stat", "index": MATCH}, "value"),
+)
+def validate_main_stat_wildcard(value):
+    """
+    Validate the player's main stat using the same approach as analysis.py,.
+
+    but with wildcard matching for multiple players/rows.
+    """
+    if not value:
+        return invalid_stat_return
+    try:
+        stat_val = int(value)
+    except ValueError:
+        return invalid_stat_return
+
+    result, _ = validate_main_stat(
+        "main_stat",
+        stat_val,
+        lower=stat_ranges["main_stat"]["lower"],
+        upper=stat_ranges["main_stat"]["upper"],
+    )
+    return valid_stat_return if result else invalid_stat_return
+
+
+@app.callback(
+    Output({"type": "DET", "index": MATCH}, "valid"),
+    Output({"type": "DET", "index": MATCH}, "invalid"),
+    Input({"type": "DET", "index": MATCH}, "value"),
+)
+def validate_det_stat_wildcard(value):
+    """Validate the player's Determination stat using wildcard matching."""
+    if not value:
+        return invalid_stat_return
+    try:
+        stat_val = int(value)
+    except ValueError:
+        return invalid_stat_return
+
+    result, _ = validate_meldable_stat(
+        "DET",
+        stat_val,
+        lower=stat_ranges["DET"]["lower"],
+        upper=stat_ranges["DET"]["upper"],
+    )
+    return valid_stat_return if result else invalid_stat_return
+
+
+@app.callback(
+    Output({"type": "speed-stat", "index": MATCH}, "valid"),
+    Output({"type": "speed-stat", "index": MATCH}, "invalid"),
+    Input({"type": "speed-stat", "index": MATCH}, "value"),
+)
+def validate_speed_stat_wildcard(value):
+    """Validate the player's Speed (SkS/SpS) stat using wildcard matching."""
+    if not value:
+        return invalid_stat_return
+    try:
+        stat_val = int(value)
+    except ValueError:
+        return invalid_stat_return
+
+    result, _ = validate_speed_stat(stat_val)
+    if not result:
+        return invalid_stat_return
+    # Also ensure it fits the acceptable range from stat_ranges if desired
+    if (
+        stat_val < stat_ranges["SPEED"]["lower"]
+        or stat_val > stat_ranges["SPEED"]["upper"]
+    ):
+        return invalid_stat_return
+    return valid_stat_return
+
+
+@app.callback(
+    Output({"type": "CRT", "index": MATCH}, "valid"),
+    Output({"type": "CRT", "index": MATCH}, "invalid"),
+    Input({"type": "CRT", "index": MATCH}, "value"),
+)
+def validate_crit_stat_wildcard(value):
+    """Validate the player's Critical Hit stat using wildcard matching."""
+    if not value:
+        return invalid_stat_return
+    try:
+        stat_val = int(value)
+    except ValueError:
+        return invalid_stat_return
+
+    result, _ = validate_meldable_stat(
+        "CRT",
+        stat_val,
+        lower=stat_ranges["CRT"]["lower"],
+        upper=stat_ranges["CRT"]["upper"],
+    )
+    return valid_stat_return if result else invalid_stat_return
+
+
+@app.callback(
+    Output({"type": "DH", "index": MATCH}, "valid"),
+    Output({"type": "DH", "index": MATCH}, "invalid"),
+    Input({"type": "DH", "index": MATCH}, "value"),
+)
+def validate_dh_stat_wildcard(value):
+    """Validate the player's Direct Hit stat using wildcard matching."""
+    if not value:
+        return invalid_stat_return
+    try:
+        stat_val = int(value)
+    except ValueError:
+        return invalid_stat_return
+
+    result, _ = validate_meldable_stat(
+        "DH",
+        stat_val,
+        lower=stat_ranges["DH"]["lower"],
+        upper=stat_ranges["DH"]["upper"],
+    )
+    return valid_stat_return if result else invalid_stat_return
+
+
+@app.callback(
+    Output({"type": "WD", "index": MATCH}, "valid"),
+    Output({"type": "WD", "index": MATCH}, "invalid"),
+    Input({"type": "WD", "index": MATCH}, "value"),
+)
+def validate_wd_stat_wildcard(value):
+    """Validate the player's Weapon Damage stat using wildcard matching."""
+    if not value:
+        return invalid_stat_return
+    try:
+        stat_val = int(value)
+    except ValueError:
+        return invalid_stat_return
+
+    result, _ = validate_weapon_damage(stat_val)
+    if not result:
+        return invalid_stat_return
+
+    if stat_val < stat_ranges["WD"]["lower"] or stat_val > stat_ranges["WD"]["upper"]:
+        return invalid_stat_return
+    return valid_stat_return
+
+
+@app.callback(
+    Output({"type": "TEN", "index": MATCH}, "valid"),
+    Output({"type": "TEN", "index": MATCH}, "invalid"),
+    Input({"type": "TEN", "index": MATCH}, "value"),
+    State({"type": "main-stat-label", "index": MATCH}, "children"),
+)
+def validate_tenacity_wildcard(ten_value, main_stat_label):
+    """
+    Validate the player's Tenacity stat if they're a tank (main_stat_label == "STR"),.
+
+    otherwise always valid. No form feedback is returned.
+    """
+    # Non-tank => always valid
+    if main_stat_label != "STR":
+        return valid_stat_return
+
+    # Tank => do normal validation
+    if not ten_value:
+        return invalid_stat_return
+    try:
+        stat_val = int(ten_value)
+    except ValueError:
+        return invalid_stat_return
+
+    result, _ = validate_meldable_stat(
+        "TEN",
+        stat_val,
+        lower=stat_ranges["TEN"]["lower"],
+        upper=stat_ranges["TEN"]["upper"],
+    )
+    return valid_stat_return if result else invalid_stat_return
+
+
 @callback(
     Output("party-compute-div", "hidden"),
-    Input({"type": "etro-input", "index": ALL}, "valid"),
-    Input({"type": "etro-input", "index": ALL}, "invalid"),
+    Input({"type": "main-stat", "index": ALL}, "valid"),
+    Input({"type": "main-stat", "index": ALL}, "invalid"),
+    Input({"type": "TEN", "index": ALL}, "valid"),
+    Input({"type": "TEN", "index": ALL}, "invalid"),
+    Input({"type": "DET", "index": ALL}, "valid"),
+    Input({"type": "DET", "index": ALL}, "invalid"),
+    Input({"type": "speed-stat", "index": ALL}, "valid"),
+    Input({"type": "speed-stat", "index": ALL}, "invalid"),
+    Input({"type": "CRT", "index": ALL}, "valid"),
+    Input({"type": "CRT", "index": ALL}, "invalid"),
+    Input({"type": "DH", "index": ALL}, "valid"),
+    Input({"type": "DH", "index": ALL}, "invalid"),
+    Input({"type": "WD", "index": ALL}, "valid"),
+    Input({"type": "WD", "index": ALL}, "invalid"),
 )
-def validate_job_builds(etro_input_valid, etro_input_invalid):
-    if (not any(etro_input_invalid)) & (all(etro_input_valid)):
-        return False
-    else:
-        return True
+def validate_job_builds(
+    main_stat_valid_list,
+    main_stat_invalid_list,
+    ten_valid_list,
+    ten_invalid_list,
+    det_valid_list,
+    det_invalid_list,
+    speed_valid_list,
+    speed_invalid_list,
+    crit_valid_list,
+    crit_invalid_list,
+    dh_valid_list,
+    dh_invalid_list,
+    wd_valid_list,
+    wd_invalid_list,
+):
+    """
+    Hide the 'party-compute-div' if any required stats are invalid or if.
+
+    not all are valid. This replaces the previous check on etro-input.
+    """
+    # If any stat input is invalid across all players, hide the compute button:
+    any_invalid = (
+        any(main_stat_invalid_list)
+        or any(ten_invalid_list)
+        or any(det_invalid_list)
+        or any(speed_invalid_list)
+        or any(crit_invalid_list)
+        or any(dh_invalid_list)
+        or any(wd_invalid_list)
+    )
+    # Or if not all are valid, also hide:
+    not_all_valid = not (
+        all(main_stat_valid_list)
+        and all(ten_valid_list)
+        and all(det_valid_list)
+        and all(speed_valid_list)
+        and all(crit_valid_list)
+        and all(dh_valid_list)
+        and all(wd_valid_list)
+    )
+
+    # If any stat is invalid or not all valid => hide = True
+    hide_div = any_invalid or not_all_valid
+    return hide_div
 
 
 def job_progress(job_list, active_job):

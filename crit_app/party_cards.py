@@ -77,7 +77,7 @@ def create_fflogs_card(
     medication_amount: int = 392,
     quick_build_table_data: list = [],
     party_accordion_items: list = [],
-    analysis_progress_children = "Analysis progress: Done!",
+    analysis_progress_children="Analysis progress: Done!",
     analysis_progress_value: int = 100,
     hide_fflogs_div: bool = True,
     analyze_button_text: str = "Analyze party rotation",
@@ -208,7 +208,7 @@ def create_fflogs_card(
             ),
             quick_build_table,
             html.Br(),
-            dbc.Button("Fill in Etro links", id="quick-build-fill-button"),
+            dbc.Button("Fill in and apply Etro links", id="quick-build-fill-button"),
         ],
         style={"padding-top": "15px", "padding-bottom": "15px"},
     )
@@ -221,11 +221,6 @@ def create_fflogs_card(
     # Validate
     buttons = html.Div(
         [
-            dbc.Button(
-                "Validate builds (click to show analyze button)",
-                id="etro-validate",
-                class_name="me-1 w-100",
-            ),
             html.Div(
                 [
                     dbc.Button(
@@ -245,7 +240,10 @@ def create_fflogs_card(
     party_analysis_progress = [
         html.H4(analysis_progress_children, id="party-progress-header"),
         dbc.Progress(
-            value=analysis_progress_value, style={"height": "25px"}, color="#009670", id="party-progress"
+            value=analysis_progress_value,
+            style={"height": "25px"},
+            color="#009670",
+            id="party-progress",
         ),
         html.P(id="party-progress-job"),
     ]
@@ -519,6 +517,9 @@ def create_quick_build_table_data(
     quick_build.loc[quick_build["role"] == "Magical Ranged", "role_order"] = 5
     quick_build["job"] = quick_build["job"].map(abbreviated_job_map)
     quick_build["etro_link"] = None
+    quick_build.loc[~quick_build["etro_id"].isna(), "etro_link"] = (
+        "https://etro.gg/gearset/" + quick_build["etro_id"]
+    )
 
     quick_build = quick_build.sort_values(
         ["role_order", "job", "player_name", "player_id"]
