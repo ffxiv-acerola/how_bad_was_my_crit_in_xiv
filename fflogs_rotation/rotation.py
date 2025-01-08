@@ -440,6 +440,9 @@ class ActionTable(object):
             )
             downtime = self.get_downtime(phase_response)
 
+            self.phase_start_time = phase_start_time
+            self.phase_end_time = phase_end_time
+
             self.fight_start_time = self.report_start_time + phase_start_time
             self.fight_end_time = self.report_start_time + phase_end_time
 

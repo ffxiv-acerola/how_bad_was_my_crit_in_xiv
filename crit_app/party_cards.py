@@ -10,6 +10,7 @@ from dash import (
 
 from crit_app.job_data.encounter_data import stat_ranges
 from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
+from crit_app.shared_elements import format_kill_time_str
 
 QUICK_BUILD_TABLE_STYLES = {
     "header": {
@@ -265,7 +266,7 @@ def create_fflogs_card(
                     medication_selector,
                     quick_build_div,
                     party_accordion,
-                    buttons,
+                    # buttons,
                 ],
                 id="party-list-collapse",
                 is_open=False,
@@ -293,7 +294,7 @@ def create_fflogs_card(
             medication_selector,
             quick_build_div,
             party_accordion,
-            buttons,
+            # buttons,
         ]
 
     fflogs_hidden_div = html.Div(
@@ -301,6 +302,7 @@ def create_fflogs_card(
             encounter_info,
             phase_select,
             *job_build_items,
+            buttons,
             *party_analysis_progress,
             html.Div(id="party-analysis-error"),
         ],
@@ -332,20 +334,67 @@ def create_fflogs_card(
 
 def create_results_card(
     analysis_url: str = "",
+    encounter_name: str = "",
+    encounter_duration: float = 0,
+    encounter_phase: int = 0,
     party_dps_pdf_figure=None,
+    perform_kill_time_analysis: bool = True,
     kill_time_figure=None,
-    player_analysis_selector_options=[],
+    player_analysis_selector_options=None,
     player_analysis_default=None,
 ):
+    """
+    Creates a card layout for party analysis, including DPS distributions,.
+
+    kill time analysis, and job-level graphs.
+
+    Args:
+        analysis_url (str):
+            The URL for referencing or sharing this party analysis. Displayed
+            as a disabled input to copy from.
+        encounter_name (str):
+            Name/title of the encounter (e.g. "E4S: Titan").
+        encounter_duration (float):
+            Total duration of the encounter in seconds.
+        encounter_phase (int):
+            Phase of the encounter being analyzed. Defaults to 0.
+        party_dps_pdf_figure:
+            A Plotly figure object showing the party DPS distribution.
+        perform_kill_time_analysis (bool):
+            Whether to display kill-time probability. Defaults to True.
+        kill_time_figure:
+            A Plotly figure object for kill-time distribution.
+        player_analysis_selector_options (list):
+            Options for selecting a job/player to view analysis details.
+        player_analysis_default:
+            Default selection for the job-level analysis dropdown.
+
+    Returns:
+        dbc.Card:
+            A Bootstrap card containing the entire party analysis: summary,
+            DPS distribution charts, optional kill time analysis, and
+            job-level distribution viewer.
+    """
+
+    kill_time_string = format_kill_time_str(encounter_duration)
+    if encounter_phase == 0:
+        fight_info_string = f"{encounter_name} ({kill_time_string})"
+    else:
+        fight_info_string = f"{encounter_name} P{encounter_phase} ({kill_time_string})"
+
     party_analysis_summary = html.Div(
         [
             dbc.Row(
                 [
                     html.P(
                         [
-                            "Scroll down to see a detailed analysis showing the DPS distribution of the party's rotation, how likely faster kill times are, and individual player DPS distributions. Click ",
+                            "Scroll down to see a detailed analysis showing the DPS "
+                            "distribution of the party's rotation, how likely faster "
+                            "kill times are, and individual player DPS distributions. "
+                            "Click ",
                             html.A("here", href="#", id="party-analysis-open"),
-                            " to learn more about the limitations and assumptions of the results.",
+                            " to learn more about the limitations and assumptions of "
+                            "the results.",
                             party_analysis_assumptions_modal,
                         ]
                     ),
@@ -380,33 +429,51 @@ def create_results_card(
         ]
     )
 
-    # Party rotation DPS distribution
     party_dps_pdf = dbc.Card(
         dbc.CardBody(
             [
                 html.H3("Party DPS distribution"),
                 html.P(
-                    "The graph below shows the DPS distribution for the whole party. Mouse over curves/points to view corresponding percentiles."
+                    "The graph below shows the DPS distribution for the whole "
+                    "party. Mouse over curves/points to view corresponding "
+                    "percentiles."
                 ),
                 dcc.Graph(figure=party_dps_pdf_figure),
             ]
         )
     )
 
-    # Kill time analysis
+    if perform_kill_time_analysis:
+        kill_time_children = [
+            html.P(
+                "The graph below estimates how likely the actual kill time was "
+                "and how likely faster kill times might be. The y-axis "
+                "represents all kills that are equal to or faster than the "
+                "kill time on the x-axis. Faster kill times are estimated by "
+                "truncating the rotation of the party. Note the log scale."
+            ),
+            html.P(
+                "Low percent chances indicate that faster kill times with the "
+                "given rotation are unlikely. Improve rotation, consistency, or "
+                "use more Limit Break to achieve faster kills."
+            ),
+            dcc.Graph(figure=kill_time_figure),
+        ]
+    else:
+        kill_time_children = [
+            html.P(
+                "A kill time analysis was not performed because the selected "
+                "phase has a fixed duration."
+            )
+        ]
+
     kill_time_card = html.Div(
         dbc.Card(
             dbc.CardBody(
                 html.Div(
                     [
                         html.H3("Kill time analysis"),
-                        html.P(
-                            "The graph below estimates how likely the actual kill time was and how likely faster kill times are. The y-axis represents all kills that are equal to or faster than the kill time reported on the x-axis. Faster kill times are estimated by simply truncating the rotation of the party by the respective time amount. Note the y-axis is on a log scale."
-                        ),
-                        html.P(
-                            "Low percent chances indicate that faster kill times with the given rotation are unlikely. Faster kill times may be achieved through means like further refining the party's rotation, performing a planned rotation more consistently, or generating more Limit Break usages."
-                        ),
-                        dcc.Graph(figure=kill_time_figure),
+                        *kill_time_children,
                     ]
                 )
             )
@@ -429,9 +496,7 @@ def create_results_card(
                 player_analysis_selector_options,
                 value=player_analysis_default,
                 id="job-selector",
-                style={
-                    "height": "45px",
-                },
+                style={"height": "45px"},
             ),
             html.Br(),
         ],
@@ -444,7 +509,11 @@ def create_results_card(
                     [
                         html.H3("Job damage distributions"),
                         html.P(
-                            "Click the drop-down to view the DPS distribution of a specific job. The radio buttons toggle between the overall rotation DPS distribution and the DPS distribution of each action. Mouse over curves/points to view corresponding percentiles."
+                            "Use the dropdown to view a particular job's DPS "
+                            "distribution. The radio buttons toggle between "
+                            "the overall rotation DPS distribution and the "
+                            "action-by-action distribution. Mouse over curves "
+                            "to see percentiles."
                         ),
                         html.A(
                             [
@@ -472,7 +541,7 @@ def create_results_card(
     return dbc.Card(
         dbc.CardBody(
             [
-                html.H2("Party analysis results"),
+                html.H2(f"Analysis for {fight_info_string}"),
                 party_analysis_summary,
                 html.Br(),
                 party_dps_pdf,

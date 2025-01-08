@@ -56,6 +56,8 @@ encounter_phases = {
     #     6: "P6: Alpha Omega",
     # }
 }
+custom_t_clip_encounter_phases = {1079: [1, 2, 3, 4]}
+skip_kill_time_analysis_phases = {1079: [2, 3]}
 
 # Used for Party analysis
 boss_hp = {
