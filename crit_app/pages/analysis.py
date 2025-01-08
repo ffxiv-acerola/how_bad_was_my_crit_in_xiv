@@ -1305,6 +1305,112 @@ def process_fflogs_url(n_clicks, url, role):
 
 
 @callback(
+    Output("tank-jobs", "options", allow_duplicate=True),
+    Output("tank-jobs", "value", allow_duplicate=True),
+    Output("healer-jobs", "options", allow_duplicate=True),
+    Output("healer-jobs", "value", allow_duplicate=True),
+    Output("melee-jobs", "options", allow_duplicate=True),
+    Output("melee-jobs", "value", allow_duplicate=True),
+    Output("physical-ranged-jobs", "options", allow_duplicate=True),
+    Output("physical-ranged-jobs", "value", allow_duplicate=True),
+    Output("magical-ranged-jobs", "options", allow_duplicate=True),
+    Output("magical-ranged-jobs", "value", allow_duplicate=True),
+    Input("role-select", "value"),
+    State("tank-jobs", "options"),
+    State("tank-jobs", "value"),
+    State("healer-jobs", "options"),
+    State("healer-jobs", "value"),
+    State("melee-jobs", "options"),
+    State("melee-jobs", "value"),
+    State("physical-ranged-jobs", "options"),
+    State("physical-ranged-jobs", "value"),
+    State("magical-ranged-jobs", "options"),
+    State("magical-ranged-jobs", "value"),
+    prevent_initial_call=True,
+)
+def update_player_job_selector(
+    selected_role: str,
+    tank_jobs: list,
+    tank_values: list,
+    healer_jobs: list,
+    healer_values: list,
+    melee_jobs: list,
+    melee_values: list,
+    phys_ranged_jobs: list,
+    phys_ranged_values: list,
+    caster_jobs: list,
+    caster_values: list,
+) -> tuple:
+    """
+    Update job selectors by enabling the jobs of the selected role and disabling others.
+
+    Additionally, preserve the value list for the selected role and set others to None.
+
+    Args:
+        selected_role (str): The currently selected job role (e.g., "Tank", "Healer").
+        tank_jobs (list): List of Tank job dictionaries.
+        tank_values (list): Selected values for Tank jobs.
+        healer_jobs (list): List of Healer job dictionaries.
+        healer_values (list): Selected values for Healer jobs.
+        melee_jobs (list): List of Melee job dictionaries.
+        melee_values (list): Selected values for Melee jobs.
+        phys_ranged_jobs (list): List of Physical Ranged job dictionaries.
+        phys_ranged_values (list): Selected values for Physical Ranged jobs.
+        caster_jobs (list): List of Magical Ranged job dictionaries.
+        caster_values (list): Selected values for Magical Ranged jobs.
+
+    Returns:
+        tuple: Updated job lists and their corresponding values with 'disabled' flags set.
+    """
+    # Define a mapping of roles to their respective job lists
+    role_to_jobs = {
+        "Tank": tank_jobs,
+        "Healer": healer_jobs,
+        "Melee": melee_jobs,
+        "Physical Ranged": phys_ranged_jobs,
+        "Magical Ranged": caster_jobs,
+    }
+
+    role_to_values = {
+        "Tank": tank_values,
+        "Healer": healer_values,
+        "Melee": melee_values,
+        "Physical Ranged": phys_ranged_values,
+        "Magical Ranged": caster_values,
+    }
+
+    # Iterate over each role and its job list
+    for role, jobs in role_to_jobs.items():
+        # Determine if the current role is the selected role
+        is_selected = role == selected_role
+
+        # Update the 'disabled' status for each job in the current role
+        for job in jobs:
+            job["disabled"] = not is_selected
+
+    # Iterate over each role's values to preserve selected role's values and set others to None
+    for role, values in role_to_values.items():
+        if role != selected_role:
+            role_to_values[role] = None
+        # If it's the selected role, keep the values as is
+        # (No action needed)
+
+    # Return the updated job lists and their corresponding value lists in the specified order
+    return (
+        tank_jobs,
+        role_to_values["Tank"],
+        healer_jobs,
+        role_to_values["Healer"],
+        melee_jobs,
+        role_to_values["Melee"],
+        phys_ranged_jobs,
+        role_to_values["Physical Ranged"],
+        caster_jobs,
+        role_to_values["Magical Ranged"],
+    )
+
+
+@callback(
     Output("compute-dmg-div", "hidden"),
     Input("healer-jobs", "options"),
     Input("tank-jobs", "options"),
@@ -1363,7 +1469,8 @@ def display_compute_button(
         if x is not None
     ]
     if job_list is None or (selected_job == []) or (job_list == []):
-        raise PreventUpdate
+        hide_button = True
+        return hide_button
 
     # Get just the job names
     job_list = [x["value"] for x in job_list]
@@ -1543,14 +1650,14 @@ def analyze_and_register_rotation(
             gearset_id = None
 
         # Check if the rotation has been analyzed before
-        n_prior_reports, prior_analysis_id = search_prior_player_analyses(
+        prior_analysis_id, redo_analysis = search_prior_player_analyses(
             report_id,
             fight_id,
             fight_phase,
             job_no_space,
             player_name,
-            main_stat,
-            secondary_stat,
+            main_stat_pre_bonus,
+            secondary_stat_pre_bonus,
             determination,
             speed_stat,
             ch,
@@ -1560,8 +1667,8 @@ def analyze_and_register_rotation(
             medication_amt,
         )
 
-        if n_prior_reports >= 1:
-            # redirect instead
+        # redirect if it has and doesn't need to be redone
+        if (prior_analysis_id is not None) and (not redo_analysis):
             return (
                 f"/analysis/{prior_analysis_id}",
                 ["Analyze rotation"],
@@ -1570,93 +1677,93 @@ def analyze_and_register_rotation(
                 False,
             )
 
-        if n_prior_reports == 0:
-            rotation = RotationTable(
-                headers,
+        # if n_prior_reports == 0:
+        rotation = RotationTable(
+            headers,
+            report_id,
+            fight_id,
+            job_no_space,
+            player_id,
+            ch,
+            dh,
+            determination,
+            medication_amt,
+            level,
+            fight_phase,
+            damage_buff_table,
+            critical_hit_rate_table,
+            direct_hit_rate_table,
+            guaranteed_hits_by_action_table,
+            guaranteed_hits_by_buff_table,
+            potency_table,
+            pet_ids,
+        )
+
+        rotation_df = rotation.rotation_df
+        t = rotation.fight_time
+        encounter_name = rotation.fight_name
+
+        job_analysis_object = rotation_analysis(
+            role,
+            job_no_space,
+            rotation_df,
+            t,
+            main_stat,
+            secondary_stat,
+            determination,
+            speed_stat,
+            ch,
+            dh,
+            wd,
+            delay,
+            main_stat_pre_bonus,
+            action_delta=delta_map[level],
+            level=level,
+        )
+
+        job_analysis_data = job_analysis_to_data_class(job_analysis_object, t)
+        job_analysis_data.interpolate_distributions()
+
+        analysis_id = str(uuid4())
+        redo_rotation_flag = 0
+        redo_dps_pdf_flag = 0
+
+        if not DRY_RUN:
+            with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
+                pickle.dump(rotation, f)
+            with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
+                pickle.dump(job_analysis_data, f)
+
+            db_row = (
+                analysis_id,
                 report_id,
                 fight_id,
-                job_no_space,
-                player_id,
-                ch,
-                dh,
-                determination,
-                medication_amt,
-                level,
                 fight_phase,
-                damage_buff_table,
-                critical_hit_rate_table,
-                direct_hit_rate_table,
-                guaranteed_hits_by_action_table,
-                guaranteed_hits_by_buff_table,
-                potency_table,
-                pet_ids,
-            )
-
-            rotation_df = rotation.rotation_df
-            t = rotation.fight_time
-            encounter_name = rotation.fight_name
-
-            job_analysis_object = rotation_analysis(
-                role,
-                job_no_space,
-                rotation_df,
+                encounter_name,
                 t,
-                main_stat,
+                job_no_space,
+                player_name,
+                int(main_stat_pre_bonus),
+                int(main_stat),
+                main_stat_type,
+                secondary_stat_pre_bonus,
                 secondary_stat,
-                determination,
-                speed_stat,
-                ch,
-                dh,
-                wd,
+                secondary_stat_type,
+                int(determination),
+                int(speed_stat),
+                int(ch),
+                int(dh),
+                int(wd),
                 delay,
-                main_stat_pre_bonus,
-                action_delta=delta_map[level],
-                level=level,
+                medication_amt,
+                main_stat_multiplier,
+                gearset_id,
+                redo_dps_pdf_flag,
+                redo_rotation_flag,
             )
+            update_report_table(db_row)
 
-            job_analysis_data = job_analysis_to_data_class(job_analysis_object, t)
-            job_analysis_data.interpolate_distributions()
-
-            analysis_id = str(uuid4())
-            redo_rotation_flag = 0
-            redo_dps_pdf_flag = 0
-
-            if not DRY_RUN:
-                with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
-                    pickle.dump(rotation, f)
-                with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
-                    pickle.dump(job_analysis_data, f)
-
-                db_row = (
-                    analysis_id,
-                    report_id,
-                    fight_id,
-                    fight_phase,
-                    encounter_name,
-                    t,
-                    job_no_space,
-                    player_name,
-                    int(main_stat_pre_bonus),
-                    int(main_stat),
-                    main_stat_type,
-                    secondary_stat_pre_bonus,
-                    secondary_stat,
-                    secondary_stat_type,
-                    int(determination),
-                    int(speed_stat),
-                    int(ch),
-                    int(dh),
-                    int(wd),
-                    delay,
-                    medication_amt,
-                    main_stat_multiplier,
-                    gearset_id,
-                    redo_dps_pdf_flag,
-                    redo_rotation_flag,
-                )
-                update_report_table(db_row)
-
-            del job_analysis_object
+        del job_analysis_object
 
     # Catch any error and display it, then reset the button/prompt
     except Exception as e:

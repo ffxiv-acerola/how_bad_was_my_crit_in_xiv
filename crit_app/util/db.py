@@ -693,6 +693,39 @@ def unflag_redo_rotation(analysis_id: str) -> None:
 #################################
 
 
+def check_valid_party_analysis_id(party_analysis_id: str) -> bool:
+    """Check if a player analysis ID exists in the database.
+
+    Args:
+        party_analysis_id (str): Unique analysis identifier to check
+
+    Returns:
+        bool: True if analysis ID exists in database, False otherwise
+    """
+    if party_analysis_id is None:
+        return False
+
+    sql_query = """
+    select
+        count(1)
+    from
+        party_report
+    where
+        party_analysis_id = ?
+    """
+    params = (party_analysis_id,)
+
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.execute(sql_query, params)
+    valid_party_analysis_id = cur.fetchone()[0]
+    cur.close()
+    con.close()
+
+    valid_party_analysis_id = False if valid_party_analysis_id == 0 else True
+    return valid_party_analysis_id
+
+
 def update_party_report_table(db_row):
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
