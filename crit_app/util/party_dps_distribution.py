@@ -35,6 +35,7 @@ class SplitPartyRotation(KillTime):
     """Party rotation analysis split into a truncated segment and a clipping segment."""
 
     seconds_shortened: float
+    seconds_shortened_offset: float
     boss_hp: int
     truncated_damage_distribution: ArrayLike
     truncated_damage_support: ArrayLike
@@ -55,6 +56,8 @@ class PartyRotation(KillTime):
     party_id: str
     boss_hp: int
     active_dps_time: float
+    fight_duration: float
+    perform_kill_time_analysis: bool
     limit_break_events: pd.DataFrame
     party_mean: float
     party_std: float

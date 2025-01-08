@@ -487,6 +487,8 @@ def make_kill_time_graph(
     Returns:
         Figure: Plotly figure object displaying the kill time graph.
     """
+    # Phase-aware kill time
+    kill_time_seconds = party_rotation_dataclass.fight_duration
     x = [
         kill_time_seconds - x.seconds_shortened
         for x in party_rotation_dataclass.shortened_rotations

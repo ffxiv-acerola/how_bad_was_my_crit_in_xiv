@@ -35,10 +35,12 @@ from crit_app.figures import (
     make_rotation_pdf_figure,
 )
 from crit_app.job_data.encounter_data import (
+    custom_t_clip_encounter_phases,
     encounter_level,
+    skip_kill_time_analysis_phases,
     stat_ranges,
     valid_encounters,
-)  # ensure stat_ranges is accessible
+)
 from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
 from crit_app.job_data.roles import (
     abbreviated_job_map,
@@ -167,6 +169,7 @@ def layout(party_analysis_id=None):
         ### FFLogs Card Elements ###
         ############################
 
+        perform_kill_time_analysis = party_analysis_obj.perform_kill_time_analysis
         kill_time_str = format_kill_time_str(kill_time)
 
         phase_selector_options, phase_select_hidden = get_phase_selector_options(
@@ -225,7 +228,11 @@ def layout(party_analysis_id=None):
         )
 
         party_dps_figure = make_party_rotation_pdf_figure(party_analysis_obj)
-        kill_time_figure = make_kill_time_graph(party_analysis_obj, kill_time)
+        kill_time_figure = (
+            make_kill_time_graph(party_analysis_obj, kill_time)
+            if perform_kill_time_analysis
+            else None
+        )
         player_analysis_selector_options = [
             {
                 "label": html.Span(
@@ -251,7 +258,11 @@ def layout(party_analysis_id=None):
 
         results_card = create_results_card(
             analysis_url,
+            encounter_name,
+            party_analysis_obj.fight_duration,
+            phase_id,
             party_dps_figure,
+            perform_kill_time_analysis,
             kill_time_figure,
             player_analysis_selector_options,
             player_analysis_selector[0][2],
@@ -1050,7 +1061,19 @@ def analyze_party_rotation(
 
     # FIXME: this needs to be found for fights like FRU
     # Fixed time between phases, need to find killing damage event
+    find_t_clip_offset = False
+    perform_kill_time_analysis = True
+
+    if encounter_id in custom_t_clip_encounter_phases.keys():
+        if fight_phase in custom_t_clip_encounter_phases[encounter_id]:
+            find_t_clip_offset = True
+
+    if encounter_id in skip_kill_time_analysis_phases.keys():
+        if fight_phase in skip_kill_time_analysis_phases[encounter_id]:
+            perform_kill_time_analysis = False
+
     t_clips = [2.5, 5, 7.5, 10]
+    t_clip_offset = 0
     # Damage step size for
     n_data_points = 5000
 
@@ -1119,7 +1142,7 @@ def analyze_party_rotation(
         level,
         etro_url,
         player_analysis_ids,
-        t_clips,
+        # t_clips,
     )
 
     if success:
@@ -1127,9 +1150,6 @@ def analyze_party_rotation(
             job_rotation_analyses_list,
             job_rotation_pdf_list,
             job_db_rows,
-            job_rotation_clipping_pdf_list,
-            job_rotation_clipping_analyses,
-            t_clips,
         ) = results
 
     else:
@@ -1137,6 +1157,47 @@ def analyze_party_rotation(
         insert_error_player_analysis(*results)
         return updated_url, [error_alert(error_message)]
 
+    if perform_kill_time_analysis:
+        if find_t_clip_offset:
+            t_clip_offset = calculate_time_clip_offset(job_rotation_analyses_list)
+
+        clipping_success, clipping_results = create_rotation_clippings(
+            report_id,
+            fight_id,
+            encounter_name,
+            encounter_id,
+            player_name,
+            player_id,
+            fight_phase,
+            job,
+            main_stat_no_buff,
+            main_stat_multiplier,
+            secondary_stat_no_buff,
+            speed,
+            determination,
+            crit,
+            dh,
+            weapon_damage,
+            medication_amt,
+            level,
+            player_analysis_ids,
+            t_clips,
+            t_clip_offset,
+            job_rotation_analyses_list,
+        )
+
+        if clipping_success:
+            (
+                job_rotation_clipping_pdf_list,
+                job_rotation_clipping_analyses,
+            ) = clipping_results
+        else:
+            error_message = clipping_results[-2]
+            insert_error_player_analysis(*clipping_results)
+            return updated_url, [error_alert(error_message)]
+    else:
+        job_rotation_clipping_pdf_list = [None] * len(job)
+        job_rotation_clipping_analyses = [None] * len(job)
     ########################
     # Party-level analysis
     ########################
@@ -1150,6 +1211,8 @@ def analyze_party_rotation(
             lb_damage_events_df,
             party_analysis_id,
             t_clips,
+            t_clip_offset,
+            perform_kill_time_analysis,
             n_data_points,
             level,
         )
@@ -1267,7 +1330,6 @@ def player_analysis_loop(
     level: int,
     etro_url: List[str],
     player_analysis_ids: List[Optional[str]],
-    t_clips: List[float],
 ) -> Tuple[
     bool,
     Union[
@@ -1454,23 +1516,75 @@ def player_analysis_loop(
             if role in ("Healer", "Magical Ranged"):
                 actions_df = actions_df[actions_df["ability_name"] != "attack"]
 
-            # We have to get a little cute here because it's possible for to return an empty rotation
-            # If that's the case, we just want to skip over it and not append it, so individual lists
-            # of each dataclass are created and appended to if a rotation is returned.
-            t_out = []
-
-        # Phases often include a lot of downtime, which messes up t_clip because
-        # nothing happens during then.
-        # Find the "end" of the phase, marked by the final hit by anyone
-        final_action_time = max(
-            [t.actions_df["timestamp"].iloc[-1] for t in job_rotation_analyses_list]
+        success = True
+        return (
+            success,
+            (
+                job_rotation_analyses_list,
+                job_rotation_pdf_list,
+                job_db_rows,
+            ),
         )
-        t_clip_offset = (
-            job_rotation_analyses_list[0].fight_end_time - final_action_time
-        ) / 1000
 
-        t_clips = [float(t + t_clip_offset) for t in t_clips]
+    except Exception as e:
+        success = False
+        player_error_info = (
+            report_id,
+            fight_id,
+            player_id[a],
+            encounter_id,
+            encounter_name,
+            fight_phase,
+            full_job,
+            player_name[a],
+            int(main_stat_no_buff[a]),
+            int(main_stat_buff),
+            main_stat_type,
+            None if secondary_stat_no_buff[a] == "None" else secondary_stat_no_buff[a],
+            secondary_stat_buff,
+            secondary_stat_type,
+            int(determination[a]),
+            int(speed[a]),
+            int(crit[a]),
+            int(dh[a]),
+            int(weapon_damage[a]),
+            delay,
+            medication_amt,
+            main_stat_multiplier,
+            str(e),
+            traceback.format_exc(),
+        )
+        return success, (player_error_info)
 
+
+def create_rotation_clippings(
+    report_id: str,
+    fight_id: int,
+    encounter_name: str,
+    encounter_id: int,
+    player_name: List[str],
+    player_id: List[int],
+    fight_phase: int,
+    job: List[str],
+    main_stat_no_buff: List[float],
+    main_stat_multiplier: float,
+    secondary_stat_no_buff: List[Union[float, str]],
+    speed: List[int],
+    determination: List[int],
+    crit: List[int],
+    dh: List[int],
+    weapon_damage: List[int],
+    medication_amt: int,
+    level: int,
+    player_analysis_ids: List[Optional[str]],
+    t_clips: List[float],
+    t_clip_offset: float,
+    job_rotation_analyses_list,
+):
+    rotation_dmg_step = LEVEL_STEP_MAP[level]["rotation_dmg_step"]
+    action_delta = LEVEL_STEP_MAP[level]["action_delta"]
+    rotation_delta = LEVEL_STEP_MAP[level]["rotation_delta"]
+    try:
         # Job rotation clippings to unconvolve out later
         job_rotation_clipping_pdf_list = {t: [] for t in t_clips}
         job_rotation_clipping_analyses = {t: [] for t in t_clips}
@@ -1507,7 +1621,7 @@ def player_analysis_loop(
                 clipped_rotations.append(
                     job_rotation_analyses_list[a].make_rotation_df(
                         actions_df,
-                        t_end_clip=t,
+                        t_end_clip=t + t_clip_offset,
                         return_clipped=True,
                     )
                 )
@@ -1539,17 +1653,12 @@ def player_analysis_loop(
                     job_rotation_clipping_pdf_list[t].append(
                         job_rotation_clipping_analyses[t][-1]
                     )
-                    t_out.append(t)
         success = True
         return (
             success,
             (
-                job_rotation_analyses_list,
-                job_rotation_pdf_list,
-                job_db_rows,
                 job_rotation_clipping_pdf_list,
                 job_rotation_clipping_analyses,
-                t_clips,
             ),
         )
 
@@ -1582,6 +1691,7 @@ def player_analysis_loop(
             traceback.format_exc(),
         )
         return success, (player_error_info)
+    pass
 
 
 def party_analysis_portion(
@@ -1593,6 +1703,8 @@ def party_analysis_portion(
     lb_damage_events_df: pd.DataFrame,
     party_analysis_id: Optional[str],
     t_clips: List[float],
+    t_clip_offset: float,
+    perform_kill_time_analysis: bool,
     n_data_points: int,
     level: int,
 ) -> "PartyRotation":
@@ -1621,18 +1733,25 @@ def party_analysis_portion(
 
     rotation_pdf, rotation_supp = rotation_dps_pdf(job_rotation_pdf_list, lb_damage)
 
-    truncated_party_distribution, party_distribution_clipping = kill_time_analysis(
-        job_rotation_analyses_list,
-        job_rotation_pdf_list,
-        lb_damage_events_df,
-        job_rotation_clipping_analyses,
-        job_rotation_clipping_pdf_list,
-        rotation_pdf,
-        rotation_supp,
-        t_clips,
-        rotation_dmg_step,
-    )
-
+    if perform_kill_time_analysis:
+        truncated_party_distribution, party_distribution_clipping = kill_time_analysis(
+            job_rotation_analyses_list,
+            job_rotation_pdf_list,
+            lb_damage_events_df,
+            job_rotation_clipping_analyses,
+            job_rotation_clipping_pdf_list,
+            rotation_pdf,
+            rotation_supp,
+            t_clips,
+            rotation_dmg_step,
+        )
+    else:
+        truncated_party_distribution = {
+            t: {"pdf": [1, 0], "support": [1, 0]} for t in t_clips
+        }
+        party_distribution_clipping = {
+            t: {"pdf": [1, 0], "support": [1, 0]} for t in t_clips
+        }
     #
     boss_total_hp = (
         sum([a.actions_df["amount"].sum() for a in job_rotation_analyses_list])
@@ -1648,10 +1767,27 @@ def party_analysis_portion(
         ]
     ) / sum([a.rotation_variance ** (3 / 2) for a in job_rotation_pdf_list])
 
+    # FIXME: have fight/phase duration
+    # and active dps time
+    active_dps_time = job_rotation_analyses_list[0].fight_time
+
+    if job_rotation_analyses_list[0].phase > 0:
+        fight_duration = (
+            job_rotation_analyses_list[0].phase_end_time
+            - job_rotation_analyses_list[0].phase_start_time
+        ) / 1000
+    else:
+        fight_duration = (
+            job_rotation_analyses_list[0].fight_end_time
+            - job_rotation_analyses_list[0].fight_start_time
+        ) / 1000
+
     party_rotation = PartyRotation(
         party_analysis_id,
         boss_total_hp,
-        job_rotation_analyses_list[0].fight_time,
+        active_dps_time,
+        fight_duration,
+        perform_kill_time_analysis,
         lb_damage_events_df,
         party_mean,
         party_std,
@@ -1661,6 +1797,7 @@ def party_analysis_portion(
         [
             SplitPartyRotation(
                 t,
+                t_clip_offset,
                 boss_total_hp,
                 truncated_party_distribution[t]["pdf"],
                 truncated_party_distribution[t]["support"],
@@ -1676,3 +1813,36 @@ def party_analysis_portion(
     )
 
     return party_rotation
+
+
+def calculate_time_clip_offset(job_rotation_analyses_list: List[Any]) -> float:
+    """
+    Calculate the time clip offset to account for downtime phases in combat analysis.
+
+    Phases in combat often include significant downtime where no actions occur,
+    which can skew the time clipping (`t_clip`) calculations. This function
+    identifies the end of active combat by locating the timestamp of the final
+    action performed by any player and computes the offset needed to adjust
+    the clipping time accordingly.
+
+    Args:
+        job_rotation_analyses_list (List[Any]):
+            A list of job rotation analysis objects. Each object is expected to have
+            an `actions_df` attribute, which is a pandas DataFrame containing
+            a `'timestamp'` column, and a `fight_end_time` attribute representing
+            the end time of the fight in milliseconds.
+
+    Returns:
+        float:
+            The computed time clip offset in seconds. This offset adjusts for
+            the downtime by calculating the difference between the fight's end
+            time and the timestamp of the last action, then converting it from
+            milliseconds to seconds.
+    """
+    final_action_time = max(
+        [t.actions_df["timestamp"].iloc[-1] for t in job_rotation_analyses_list]
+    )
+    t_clip_offset = (
+        float(job_rotation_analyses_list[0].fight_end_time - final_action_time) / 1000
+    )
+    return t_clip_offset
