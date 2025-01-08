@@ -66,6 +66,7 @@ from crit_app.shared_elements import (
 from crit_app.util.dash_elements import error_alert
 from crit_app.util.db import (
     check_prior_party_analysis,
+    check_valid_party_analysis_id,
     get_party_analysis_encounter_info,
     get_party_analysis_player_constituents,
     get_party_analysis_player_info,
@@ -127,14 +128,9 @@ def layout(party_analysis_id=None):
         return dash.html.Div([fflogs_card])
 
     else:
-        # Read in everything:
-        try:
-            with open(
-                BLOB_URI / "party-analyses" / f"party-analysis-{party_analysis_id}.pkl",
-                "rb",
-            ) as f:
-                party_analysis_obj = pickle.load(f)
-        except Exception:
+        valid_party_analysis_id = check_valid_party_analysis_id(party_analysis_id)
+
+        if not valid_party_analysis_id:
             return html.Div(
                 [
                     html.H2("404 Not Found"),
@@ -147,7 +143,6 @@ def layout(party_analysis_id=None):
                     ),
                 ]
             )
-
         # Party level analysis,
         (
             report_id,
@@ -180,6 +175,16 @@ def layout(party_analysis_id=None):
         )
 
         fflogs_url = f"https://www.fflogs.com/reports/{report_id}#fight={fight_id}"
+
+        try:
+            with open(
+                BLOB_URI / "party-analyses" / f"party-analysis-{party_analysis_id}.pkl",
+                "rb",
+            ) as f:
+                party_analysis_obj = pickle.load(f)
+        except Exception:
+            # Cant find stuff, force recompute
+            redo_analysis_flag = 1
 
         # Check if analysis needs to be redone
         if redo_analysis_flag == 1:
