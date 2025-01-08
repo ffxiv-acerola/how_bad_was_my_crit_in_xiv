@@ -1129,6 +1129,7 @@ def analyze_party_rotation(
             job_db_rows,
             job_rotation_clipping_pdf_list,
             job_rotation_clipping_analyses,
+            t_clips,
         ) = results
 
     else:
@@ -1339,10 +1340,6 @@ def player_analysis_loop(
     job_rotation_pdf_list = []
     job_db_rows = []
 
-    # Job rotation clippings to unconvolve out later
-    job_rotation_clipping_pdf_list = {t: [] for t in t_clips}
-    job_rotation_clipping_analyses = {t: [] for t in t_clips}
-
     try:
         a = 0
         for a in range(len(job)):
@@ -1461,12 +1458,57 @@ def player_analysis_loop(
             # If that's the case, we just want to skip over it and not append it, so individual lists
             # of each dataclass are created and appended to if a rotation is returned.
             t_out = []
+
+        # Phases often include a lot of downtime, which messes up t_clip because
+        # nothing happens during then.
+        # Find the "end" of the phase, marked by the final hit by anyone
+        final_action_time = max(
+            [t.actions_df["timestamp"].iloc[-1] for t in job_rotation_analyses_list]
+        )
+        t_clip_offset = (
+            job_rotation_analyses_list[0].fight_end_time - final_action_time
+        ) / 1000
+
+        t_clips = [float(t + t_clip_offset) for t in t_clips]
+
+        # Job rotation clippings to unconvolve out later
+        job_rotation_clipping_pdf_list = {t: [] for t in t_clips}
+        job_rotation_clipping_analyses = {t: [] for t in t_clips}
+        for a in range(len(job)):
             clipped_rotations = []
+
+            full_job = reverse_abbreviated_role_map[job[a]]
+            role = role_mapping[full_job]
+            delay = weapon_delays[job[a].upper()]
+            main_stat_buff = int(main_stat_no_buff[a] * main_stat_multiplier)
+            # Assign analysis ID
+            # only append if analysis ID is None so the ID isn't overwritten
+            if player_analysis_ids[a] is None:
+                player_analysis_ids[a] = str(uuid4())
+            main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"]
+
+            secondary_stat_type = role_stat_dict[role]["secondary_stat"]["placeholder"]
+            secondary_stat_buff = (
+                int(caster_healer_strength[job[a].upper()] * main_stat_multiplier)
+                if role in ("Healer", "Magical Ranged")
+                else secondary_stat_no_buff[a]
+            )
+            secondary_stat_buff = (
+                None if secondary_stat_buff == "None" else secondary_stat_buff
+            )
+
             for idx, t in enumerate(t_clips):
-                print(t)
+                # t += t_clip_offset
+                # print(t)
+                actions_df = job_rotation_analyses_list[a].actions_df
+                if role in ("Healer", "Magical Ranged"):
+                    actions_df = actions_df[actions_df["ability_name"] != "attack"]
+
                 clipped_rotations.append(
                     job_rotation_analyses_list[a].make_rotation_df(
-                        actions_df, t_end_clip=t, return_clipped=True
+                        actions_df,
+                        t_end_clip=t,
+                        return_clipped=True,
                     )
                 )
                 if clipped_rotations[idx] is not None:
@@ -1507,6 +1549,7 @@ def player_analysis_loop(
                 job_db_rows,
                 job_rotation_clipping_pdf_list,
                 job_rotation_clipping_analyses,
+                t_clips,
             ),
         )
 

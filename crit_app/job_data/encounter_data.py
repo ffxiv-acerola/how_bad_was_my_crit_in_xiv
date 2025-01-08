@@ -57,6 +57,8 @@ encounter_phases = {
     # }
 }
 
+custom_t_clip_encounter_phases = {1079: [1, 2, 3, 4]}
+
 # Used for Party analysis
 boss_hp = {
     88: 36660084,

@@ -777,7 +777,7 @@ def get_party_analysis_encounter_info(
     con = sqlite3.connect(DB_URI)
     cur = con.cursor()
     cur.execute(sql_query, params)
-
+    # FIXME: check if none, redirect 404
     (
         report_id,
         fight_id,

@@ -265,7 +265,7 @@ def create_fflogs_card(
                     medication_selector,
                     quick_build_div,
                     party_accordion,
-                    buttons,
+                    # buttons,
                 ],
                 id="party-list-collapse",
                 is_open=False,
@@ -293,7 +293,7 @@ def create_fflogs_card(
             medication_selector,
             quick_build_div,
             party_accordion,
-            buttons,
+            # buttons,
         ]
 
     fflogs_hidden_div = html.Div(
@@ -301,6 +301,7 @@ def create_fflogs_card(
             encounter_info,
             phase_select,
             *job_build_items,
+            buttons,
             *party_analysis_progress,
             html.Div(id="party-analysis-error"),
         ],
