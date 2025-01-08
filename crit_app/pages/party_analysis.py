@@ -160,6 +160,16 @@ def layout(party_analysis_id=None):
         etro_job_build_information, player_analysis_selector, medication_amount = (
             get_party_analysis_player_constituents(party_analysis_id)
         )
+
+        try:
+            with open(
+                BLOB_URI / "party-analyses" / f"party-analysis-{party_analysis_id}.pkl",
+                "rb",
+            ) as f:
+                party_analysis_obj = pickle.load(f)
+        except Exception:
+            # Cant find stuff, force recompute
+            redo_analysis_flag = 1
         ############################
         ### FFLogs Card Elements ###
         ############################
@@ -178,16 +188,6 @@ def layout(party_analysis_id=None):
         )
 
         fflogs_url = f"https://www.fflogs.com/reports/{report_id}#fight={fight_id}"
-
-        try:
-            with open(
-                BLOB_URI / "party-analyses" / f"party-analysis-{party_analysis_id}.pkl",
-                "rb",
-            ) as f:
-                party_analysis_obj = pickle.load(f)
-        except Exception:
-            # Cant find stuff, force recompute
-            redo_analysis_flag = 1
 
         # Check if analysis needs to be redone
         if redo_analysis_flag == 1:
