@@ -220,7 +220,7 @@ def update_encounter_table(db_rows):
         insert
         or replace into encounter
         values
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         db_rows,
     )
@@ -277,6 +277,7 @@ def read_player_analysis_info(
         select
             player_name,
             pet_ids,
+            excluded_enemy_ids,
             job,
             `role`,
             encounter_id,
@@ -290,12 +291,30 @@ def read_player_analysis_info(
     """,
         (report_id, fight_id, player_id),
     )
-    player_name, pet_ids, job, role, encounter_id, encounter_name = cur.fetchone()
+    (
+        player_name,
+        pet_ids,
+        excluded_enemy_ids,
+        job,
+        role,
+        encounter_id,
+        encounter_name,
+    ) = cur.fetchone()
     cur.close()
     con.close()
     if pet_ids is not None:
         pet_ids = literal_eval(pet_ids)
-    return player_name, pet_ids, job, role, encounter_id, encounter_name
+    if excluded_enemy_ids is not None:
+        excluded_enemy_ids = literal_eval(excluded_enemy_ids)
+    return (
+        player_name,
+        pet_ids,
+        excluded_enemy_ids,
+        job,
+        role,
+        encounter_id,
+        encounter_name,
+    )
 
 
 def compute_party_bonus(report_id: str, fight_id: int) -> str:
@@ -494,6 +513,7 @@ def retrieve_player_analysis_information(analysis_id: str) -> Dict[str, Any]:
         encounter.job as job,
         player_id,
         pet_ids,
+        excluded_enemy_ids,
         role,
         encounter_id,
         kill_time,
@@ -535,6 +555,9 @@ def retrieve_player_analysis_information(analysis_id: str) -> Dict[str, Any]:
 
     if result["pet_ids"] is not None:
         result["pet_ids"] = literal_eval(result["pet_ids"])
+
+    if result["excluded_enemy_ids"] is not None:
+        result["excluded_enemy_ids"] = literal_eval(result["excluded_enemy_ids"])
 
     return result
 

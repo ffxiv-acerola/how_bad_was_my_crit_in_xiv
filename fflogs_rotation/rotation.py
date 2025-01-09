@@ -1203,6 +1203,7 @@ class RotationTable(ActionTable):
         guaranteed_hits_by_buff_table: pd.DataFrame,
         potency_table: pd.DataFrame,
         pet_ids: Optional[List[int]] = None,
+        excluded_enemy_ids: Optional[List[int]] = None,
         debug: bool = False,
     ) -> None:
         """
@@ -1227,6 +1228,7 @@ class RotationTable(ActionTable):
             guaranteed_hits_by_buff_table: DataFrame mapping buffs to hit types
             potency_table: DataFrame mapping actions to potencies
             pet_ids: Optional list of pet actor IDs
+            excluded_enemy_ids: Target IDs of enemies to exclude from rotation_df.
             debug: Enable debug logging
 
         Example:
@@ -1274,6 +1276,7 @@ class RotationTable(ActionTable):
             pet_ids,
             debug,
         )
+        self.excluded_enemy_ids = excluded_enemy_ids
 
         self.potency_table = potency_table[
             (potency_table["valid_start"] <= self.fight_start_time)
@@ -1290,6 +1293,12 @@ class RotationTable(ActionTable):
         ].apply(lambda x: x.split(";"))
         self.rotation_df = self.make_rotation_df(self.actions_df)
 
+        if excluded_enemy_ids is None:
+            self.filtered_actions_df = self.actions_df.copy()
+        else:
+            self.filtered_actions_df = self.actions_df.copy()[
+                ~self.actions_df["targetID"].isin(self.excluded_enemy_ids)
+            ]
         pass
 
     def normalize_hit_types(self, actions_df: pd.DataFrame) -> pd.DataFrame:
@@ -1603,6 +1612,13 @@ class RotationTable(ActionTable):
         )
         # Need to add potency falloff so counting is correctly done later.
         actions_df["buff_str"] += "." + actions_df["matched_falloff"].astype(str)
+
+        # Exclude any enemies in excluded_enemy_ids
+        # ex: crystals of darkness in FRU
+        if self.excluded_enemy_ids is not None:
+            actions_df = actions_df[
+                ~actions_df["targetID"].isin(self.excluded_enemy_ids)
+            ]
 
         # And you cant value count nans
         actions_df["bonusPercent"] = actions_df["bonusPercent"].fillna(-1)

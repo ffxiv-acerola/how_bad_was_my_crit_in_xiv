@@ -305,7 +305,7 @@ def load_job_rotation_figure(job_analysis_id: Optional[str], graph_type: str) ->
     with open(BLOB_URI / f"rotation-object-{job_analysis_id}.pkl", "rb") as f:
         rotation_object = pickle.load(f)
 
-    actions_df = rotation_object.actions_df
+    actions_df = rotation_object.filtered_actions_df
 
     action_dps = (
         actions_df[["ability_name", "amount"]].groupby("ability_name").sum()

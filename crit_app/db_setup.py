@@ -20,22 +20,23 @@ if not (BLOB_URI / "error-logs").exists():
     (BLOB_URI / "error-logs").resolve().mkdir(parents=True)
 
 create_encounter_table = """
-create table if not exists encounter(
-    report_id TEXT NOT NULL,
-    fight_id INTEGER NOT NULL,
-    encounter_id INTEGER NOT NULL,
-    last_phase_index INTEGER,
-    encounter_name TEXT NOT NULL,
-    kill_time REAL NOT NULL,
-    player_name TEXT NOT NULL,
-    player_server TEXT,
-    player_id INTEGER NOT NULL,
-    pet_ids TEXT,
-    job TEXT NOT NULL,
-    role TEXT NOT NULL,
-    primary key (report_id, fight_id, player_id)
-)
-strict
+CREATE TABLE
+    encounter (
+        report_id TEXT NOT NULL,
+        fight_id INTEGER NOT NULL,
+        encounter_id INTEGER NOT NULL,
+        last_phase_index INTEGER,
+        encounter_name TEXT NOT NULL,
+        kill_time REAL NOT NULL,
+        player_name TEXT NOT NULL,
+        player_server TEXT,
+        player_id INTEGER NOT NULL,
+        pet_ids TEXT,
+        excluded_enemy_ids TEXT,
+        job TEXT NOT NULL,
+        role TEXT NOT NULL,
+        PRIMARY KEY (report_id, fight_id, player_id)
+    ) STRICT;
 """
 
 create_report_table = """

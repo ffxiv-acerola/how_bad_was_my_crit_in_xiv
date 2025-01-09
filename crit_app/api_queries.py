@@ -8,6 +8,7 @@ import pandas as pd
 import requests
 
 from crit_app.config import FFLOGS_TOKEN
+from crit_app.job_data.encounter_data import excluded_enemy_game_ids
 from crit_app.job_data.roles import role_mapping
 
 # API config
@@ -147,6 +148,10 @@ def get_encounter_job_info(
                         endTime,
                         name,
                         lastPhase
+                        enemyNPCs{
+                            gameID,
+                            id
+                        }
                     }
                     playerDetails(fightIDs: $id)
                     table(fightIDs: $id, dataType: DamageDone)
@@ -165,6 +170,19 @@ def get_encounter_job_info(
     encounter_id = encounter_info["encounterID"]
     start_time = encounter_info["startTime"]
     furthest_phase_index = encounter_info["lastPhase"]
+
+    # Check if damage to any enemies should be filtered out later
+    # Ex: Dark crystals in FRU intermission
+    excluded_enemy_ids = None
+
+    if encounter_id in excluded_enemy_game_ids.keys():
+        potential_exclusions = [
+            e["id"]
+            for e in r["data"]["reportData"]["report"]["fights"][0]["enemyNPCs"]
+            if e["gameID"] in excluded_enemy_game_ids[encounter_id]
+        ]
+        if potential_exclusions:
+            excluded_enemy_ids = potential_exclusions
 
     # This probably isn't needed, but would require updating a table schema.
     server_info = r["data"]["reportData"]["report"]["playerDetails"]["data"][
@@ -224,6 +242,7 @@ def get_encounter_job_info(
         fight_name,
         report_start_time,
         furthest_phase_index,
+        excluded_enemy_ids,
         r,
     )
 

@@ -6,7 +6,6 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
-from scipy.signal import fftconvolve
 
 ### Data classes for job-level analyses
 
@@ -243,48 +242,3 @@ def get_dmg_percentile(percentile, dmg_distribution, dmg_distribution_support):
     dx = dmg_distribution_support[1] - dmg_distribution_support[0]
     F = np.cumsum(dmg_distribution) * dx
     return dmg_distribution_support[np.abs(F - percentile).argmin()]
-
-
-def summarize_actions(actions_df, unique_actions, active_dps_time, analysis_time):
-    """
-    List the expected DPS, actual DPS dealt, and corresponding percentile.
-
-    Inputs:
-    actions_df - pandas df, dataframe of actions from `create_action_df` in `rla.py`
-    unique_actions - unique_actions_distribution attribute from Job object in `ffxiv_stats`
-    t - float, time elapsed. Set t=1 for damage dealt instead of dps.
-    """
-
-    if analysis_time == 1:
-        t_div = active_dps_time
-    else:
-        t_div = 1
-
-    action_dps = (
-        actions_df[["ability_name", "amount"]].groupby("ability_name").sum()
-        / active_dps_time
-    )
-
-    action_dps = action_dps.reset_index()
-    action_dps["percentile"] = action_dps.apply(
-        lambda x: get_dps_dmg_percentile(
-            x["amount"],
-            unique_actions[x["ability_name"]]["dps_distribution"],
-            unique_actions[x["ability_name"]]["support"],
-            t_div,
-        )
-        / 100,
-        axis=1,
-    )
-
-    action_dps["dps_50th_percentile"] = action_dps["ability_name"].apply(
-        lambda x: get_dmg_percentile(
-            0.5,
-            unique_actions[x]["dps_distribution"],
-            unique_actions[x]["support"],
-        )
-    )
-
-    return action_dps[
-        ["ability_name", "dps_50th_percentile", "amount", "percentile"]
-    ].rename(columns={"amount": "actual_dps_dealt"})

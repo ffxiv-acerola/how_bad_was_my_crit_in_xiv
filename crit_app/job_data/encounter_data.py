@@ -75,6 +75,9 @@ boss_hp = {
     1072: 66146024,
 }
 
+# FFlogs periodically excludes damage to certain
+excluded_enemy_game_ids = {1079: [17828]}
+
 patch_times = {
     6.4: {"start": 1684836000000, "end": 1696327199999},
     6.5: {"start": 1696327200000, "end": 1719565299999},
