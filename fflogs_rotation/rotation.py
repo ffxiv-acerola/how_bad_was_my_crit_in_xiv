@@ -1299,6 +1299,14 @@ class RotationTable(ActionTable):
             self.filtered_actions_df = self.actions_df.copy()[
                 ~self.actions_df["targetID"].isin(self.excluded_enemy_ids)
             ]
+
+        mismatched_actions = set(self.rotation_df.base_action) - set(
+            self.actions_df.ability_name
+        )
+        if len(mismatched_actions) > 0:
+            raise IndexError(
+                f"Error matching the following actions with rotation: {', '.join(mismatched_actions)}"
+            )
         pass
 
     def normalize_hit_types(self, actions_df: pd.DataFrame) -> pd.DataFrame:
