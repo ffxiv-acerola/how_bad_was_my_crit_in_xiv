@@ -67,11 +67,11 @@ from crit_app.shared_elements import (
 )
 from crit_app.util.dash_elements import error_alert
 from crit_app.util.db import (
-    check_prior_party_analysis,
+    check_prior_party_analysis_via_player_analyses,
     check_valid_party_analysis_id,
+    get_party_analysis_calculation_info,
     get_party_analysis_encounter_info,
-    get_party_analysis_player_constituents,
-    get_party_analysis_player_info,
+    get_party_analysis_player_build,
     insert_error_party_analysis,
     insert_error_player_analysis,
     search_prior_player_analyses,
@@ -158,7 +158,7 @@ def layout(party_analysis_id=None):
         ) = get_party_analysis_encounter_info(party_analysis_id)
 
         etro_job_build_information, player_analysis_selector, medication_amount = (
-            get_party_analysis_player_constituents(party_analysis_id)
+            get_party_analysis_player_build(party_analysis_id)
         )
 
         try:
@@ -1045,7 +1045,7 @@ def analyze_party_rotation(
     # TODO: get etro URL
     set_progress((0, len(job), "Getting LB damage", "Analysis progress:"))
     report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
-    encounter_id, lb_player_id, pet_id_map = get_party_analysis_player_info(
+    encounter_id, lb_player_id, pet_id_map = get_party_analysis_calculation_info(
         report_id, fight_id
     )
     level = encounter_level[encounter_id]
@@ -1109,8 +1109,8 @@ def analyze_party_rotation(
     any_redo_flags = any([p[1] for p in prior_analysis_info])
 
     if len(set(player_analysis_ids)) == 8:
-        party_analysis_id, redo_party_analysis_flag = check_prior_party_analysis(
-            player_analysis_ids
+        party_analysis_id, redo_party_analysis_flag = (
+            check_prior_party_analysis_via_player_analyses(player_analysis_ids)
         )
     else:
         party_analysis_id = None
