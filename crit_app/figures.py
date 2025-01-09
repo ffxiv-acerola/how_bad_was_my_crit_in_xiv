@@ -14,7 +14,7 @@ from dash.dash_table import FormatTemplate
 from dash.dash_table.Format import Format, Scheme
 from plotly.graph_objs import Figure
 
-from crit_app.dmg_distribution import get_dps_dmg_percentile, summarize_actions
+from crit_app.dmg_distribution import get_dps_dmg_percentile
 
 
 def make_rotation_pdf_figure(
@@ -406,71 +406,6 @@ def make_action_pdfs_figure(
     fig.update_xaxes(range=[min(x_min) - (max(x_max) - min(x_min)) / 50, max(x_max)])
 
     return fig
-
-
-def make_action_table(
-    rotation_obj: Any, action_df: pd.DataFrame
-) -> List[dash_table.DataTable]:
-    """Create a table listing an action name, expected DPS, actual DPS dealt,.
-
-    and the corresponding percentile.
-
-    Parameters:
-        rotation_obj (Any): Rotation object from ffxiv_stats with damage distributions computed.
-        action_df (pd.DataFrame): DataFrame of actions, obtained from the function `create_action_df`, which depends on output from `damage_events`.
-
-    Returns:
-        List[dash_table.DataTable]: A list containing a Dash table with action, expected DPS, actual DPS, and percentile.
-    """
-    action_summary_df = summarize_actions(
-        action_df,
-        rotation_obj.unique_actions_distribution,
-        rotation_obj.active_dps_t,
-        rotation_obj.analysis_t,
-    ).sort_values("actual_dps_dealt", ascending=False)
-    action_summary_df = action_summary_df.rename(
-        columns={
-            "ability_name": "Action",
-            "dps_50th_percentile": "DPS 50th %",
-            "actual_dps_dealt": "Actual DPS",
-            "percentile": "Percentile",
-        }
-    )
-    columns = [
-        dict(
-            id="Action",
-            name="Action",
-        ),
-        dict(
-            id="DPS 50th %",
-            name="DPS 50th %",
-            type="numeric",
-            format=Format(precision=2, scheme=Scheme.decimal_integer),
-        ),
-        dict(
-            id="Actual DPS",
-            name="Actual DPS",
-            type="numeric",
-            format=Format(precision=2, scheme=Scheme.decimal_integer),
-        ),
-        dict(
-            id="Percentile",
-            name="Percentile",
-            type="numeric",
-            format=FormatTemplate.percentage(1),
-        ),
-    ]
-    print(action_summary_df.to_dict("records"))
-    action_summary_table = [
-        dash_table.DataTable(
-            data=action_summary_df.to_dict("records"),
-            columns=columns,
-            cell_selectable=False,
-            style_header={"backgroundColor": "rgb(48, 48, 48)", "color": "white"},
-            style_data={"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
-        )
-    ]
-    return action_summary_table
 
 
 def make_kill_time_graph(

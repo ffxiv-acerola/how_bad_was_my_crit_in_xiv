@@ -1,4 +1,5 @@
 import datetime
+import json
 import pickle
 import traceback
 from typing import Any, Dict, List, Optional, Tuple
@@ -417,9 +418,10 @@ def layout(analysis_id=None):
                     guaranteed_hits_by_buff_table,
                     potency_table,
                     pet_ids,
+                    analysis_details["excluded_enemy_ids"],
                 )
 
-                action_df = rotation_object.actions_df
+                action_df = rotation_object.filtered_actions_df
                 rotation_df = rotation_object.rotation_df
 
                 with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
@@ -1224,6 +1226,7 @@ def process_fflogs_url(n_clicks, url, role):
         encounter_name,
         start_time,
         furthest_phase_index,
+        excluded_enemy_ids,
         r,
     ) = get_encounter_job_info(report_id, int(fight_id))
 
@@ -1274,6 +1277,7 @@ def process_fflogs_url(n_clicks, url, role):
             k["player_server"],
             k["player_id"],
             k["pet_ids"],
+            json.dumps(excluded_enemy_ids),
             k["job"],
             k["role"],
         )
@@ -1609,9 +1613,15 @@ def analyze_and_register_rotation(
     player_id = [x for x in player_id if x is not None][0]
     report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
 
-    player_name, pet_ids, job_no_space, role, encounter_id, encounter_name = (
-        read_player_analysis_info(report_id, fight_id, player_id)
-    )
+    (
+        player_name,
+        pet_ids,
+        excluded_enemy_ids,
+        job_no_space,
+        role,
+        encounter_id,
+        encounter_name,
+    ) = read_player_analysis_info(report_id, fight_id, player_id)
     level = encounter_level[encounter_id]
 
     # Higher level = bigger damage = bigger discretization step size
@@ -1697,6 +1707,7 @@ def analyze_and_register_rotation(
             guaranteed_hits_by_buff_table,
             potency_table,
             pet_ids,
+            excluded_enemy_ids,
         )
 
         rotation_df = rotation.rotation_df
