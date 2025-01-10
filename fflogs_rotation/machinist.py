@@ -1,9 +1,17 @@
+import warnings
 from typing import Dict, Set
 
 import numpy as np
 import pandas as pd
 
 from fflogs_rotation.base import BuffQuery, disjunction
+
+# Suppress the specific FutureWarning from pandas
+warnings.filterwarnings(
+    "ignore",
+    category=FutureWarning,
+    message="The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.",
+)
 
 
 class MachinistActions(BuffQuery):

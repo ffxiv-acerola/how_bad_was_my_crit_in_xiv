@@ -1,4 +1,5 @@
 import json
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -21,6 +22,14 @@ from fflogs_rotation.rotation_jobs import (
 )
 from fflogs_rotation.viper import ViperActions
 from ffxiv_stats import Rate
+
+# Suppress the specific FutureWarning from pandas
+warnings.filterwarnings(
+    "ignore",
+    category=FutureWarning,
+    message="The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.",
+)
+
 
 url = "https://www.fflogs.com/api/v2/client"
 
