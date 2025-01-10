@@ -4,7 +4,6 @@ Monk,66,Demolish,100,,360,direct,,,14,420,,,
 Monk,1000246,Demolish (tick),100,,70,physical-dot,,,,,,,
 Monk,74,Dragon Kick,100,,320,direct,,,,,,,
 Monk,16474,Enlightenment,100,,170,direct,,,,,,,
-Monk,16473,Four-point Fury,100,,120,direct,,,,,,,
 Monk,25769,Phantom Rush,100,,1500,direct,,,,,,,1;0.5
 Monk,25768,Rising Phoenix,100,,900,direct,,,,,,,1;0.3
 Monk,70,Rockbreaker,100,,150,direct,,,,,,,
@@ -22,5 +21,5 @@ Monk,36947,Pouncing Coeurl,100,fury,460,direct,,,11,520,,,
 Monk,36948,Elixir Burst,100,,900,direct,,,,,,,1;0.3
 Monk,36949,Wind's Reply,100,,900,direct,,,,,,,1;0.5
 Monk,36950,Fire's Reply,100,,1200,direct,,,,,,,1;0.5
-Monk,16473,Four-point Fury,100,,140,direct,,,,,,,
+Monk,16473,Four-Point Fury,100,,140,direct,,,,,,,
 Monk,25882,Flint Strike,100,,800,direct,,,,,,,1;0.3

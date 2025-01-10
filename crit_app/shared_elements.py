@@ -430,6 +430,7 @@ def rotation_analysis(
     action_delta: int = 10,
     compute_mgf: bool = False,
     level: int = 100,
+    test_error_log=False,
 ) -> Union[Healer, Tank, MagicalRanged, Melee, PhysicalRanged]:
     """
     Analyze job rotation and compute DPS distributions.
@@ -554,5 +555,6 @@ def rotation_analysis(
     for k, v in job_obj.unique_actions_distribution.items():
         if np.isnan(v["dps_distribution"].sum()):
             raise ValueError(f"NaN values encountered in DPS distribution for {k}")
-
+    if test_error_log:
+        raise ValueError("Raise test error.")
     return job_obj

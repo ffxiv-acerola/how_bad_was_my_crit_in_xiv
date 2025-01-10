@@ -1628,6 +1628,12 @@ class RotationTable(ActionTable):
                 ~actions_df["targetID"].isin(self.excluded_enemy_ids)
             ]
 
+        # Filter out any actions which do no damage.
+        # This is currently only observed for DoT ticks occurring
+        # on a dead, castlocked boss.
+        # E.g, FRU p4 killed before CT will be castlocked for akh morn cast
+        actions_df = actions_df[actions_df["amount"] > 0]
+
         # And you cant value count nans
         actions_df["bonusPercent"] = actions_df["bonusPercent"].fillna(-1)
         rotation_df = (
