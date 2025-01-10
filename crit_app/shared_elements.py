@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import coreapi
 import numpy as np
@@ -155,35 +155,44 @@ def validate_main_stat(
 
 
 def validate_meldable_stat(
-    stat_name: str, stat_value: int, lower: int = 380, upper: int = 6000
+    stat_name: str, stat_value: Any, lower: int = 380, upper: int = 6000
 ) -> tuple[bool, str | None]:
     """
-    Validate that a meldable stat value falls within acceptable range.
+    Validate that a meldable stat value falls within an acceptable range.
 
     Args:
-        stat_name: Name of stat being validated
-        stat_value: Stat value to check
-        lower: Minimum acceptable value (default: 380)
-        upper: Maximum acceptable value (default: 6000)
+        stat_name (str): Name of the stat being validated.
+        stat_value (Any): Stat value to check.
+        lower (int, optional): Minimum acceptable value. Defaults to 380.
+        upper (int, optional): Maximum acceptable value. Defaults to 6000.
 
     Returns:
-        Tuple containing:
-            - Boolean indicating if value is valid
-            - Error message if invalid, None if valid
+        tuple:
+            - bool: True if valid, False otherwise.
+            - str | None: Error message if invalid, None if valid.
 
     Example:
         >>> valid, error = validate_meldable_stat("Critical Hit", 2000)
         >>> assert valid and error is None
     """
-    if (stat_value >= lower) and (stat_value < upper):
+    # Check if stat_value is a numeric type
+    if not isinstance(stat_value, (int, float)):
+        try:
+            # Attempt to cast stat_value to int
+            stat_value = int(stat_value)
+        except (ValueError, TypeError):
+            error_message = f"Invalid input: stat_value for '{stat_name}' must be a number, got {type(stat_value).__name__}."
+            print(error_message)
+            return False, error_message
+
+    # Perform the comparison
+    if lower <= stat_value < upper:
         return True, None
     else:
         return False, f"{stat_name} must be between {lower}-{upper}."
 
 
-def validate_secondary_stat(
-    role: str, stat_value: str | float | int
-) -> tuple[bool, str | None]:
+def validate_secondary_stat(role: str, stat_value: Any) -> Tuple[bool, str | None]:
     """
     Validate secondary stat values based on role.
 
@@ -191,13 +200,13 @@ def validate_secondary_stat(
     Other roles always return valid.
 
     Args:
-        role: Player role ("Tank", "Healer", etc)
-        stat_value: Stat value to validate
+        role (str): Player role ("Tank", "Healer", etc).
+        stat_value (Any): Stat value to validate.
 
     Returns:
-        Tuple containing:
-            - Boolean indicating if value is valid
-            - Error message if invalid, None if valid
+        Tuple[bool, str | None]:
+            - bool: True if valid, False otherwise.
+            - str | None: Error message if invalid, None if valid.
 
     Example:
         >>> valid, error = validate_secondary_stat("Tank", 400)
@@ -207,30 +216,49 @@ def validate_secondary_stat(
         >>> assert not valid
         >>> print(error)
         'Tenacity must be between 380-4500.'
+
+        >>> valid, error = validate_secondary_stat("Healer", [500])
+        >>> assert not valid
+        >>> print(error)
+        'Invalid input: stat_value for Tenacity must be a number, got list.'
     """
-    if isinstance(stat_value, str):
-        stat_value = float(stat_value)
+    stat_name = "Tenacity"
+
+    # Check if stat_value is a numeric type
+    if not isinstance(stat_value, (int, float)):
+        try:
+            # Attempt to cast stat_value to float
+            stat_value = float(stat_value)
+        except (ValueError, TypeError):
+            error_message = (
+                f"Invalid input: stat_value for '{stat_name}' must be a number, "
+                f"got {type(stat_value).__name__}."
+            )
+            print(error_message)
+            return False, error_message
 
     if role == "Tank":
-        if (stat_value >= 380) & (stat_value < 4500):
+        if 380 <= stat_value < 4500:
             return True, None
         else:
-            return False, "Tenacity must be between 380-4500."
+            error_message = f"{stat_name} must be between 380-4500."
+            print(error_message)
+            return False, error_message
     else:
         return True, None
 
 
-def validate_speed_stat(speed_stat: int | float | str) -> tuple[bool, str | None]:
+def validate_speed_stat(speed_stat: Any) -> Tuple[bool, str | None]:
     """
-    Validate that input is actual speed stat and not GCD value.
+    Validate that input is an actual speed stat and not a GCD value.
 
     Args:
-        speed_stat: Speed stat value to validate
+        speed_stat (Any): Speed stat value to validate.
 
     Returns:
-        Tuple containing:
-            - Boolean indicating if value is valid
-            - Error message if invalid, None if valid
+        Tuple[bool, str | None]:
+            - bool: True if valid, False otherwise.
+            - str | None: Error message if invalid, None if valid.
 
     Example:
         >>> valid, error = validate_speed_stat(2000)  # Valid speed stat
@@ -238,23 +266,76 @@ def validate_speed_stat(speed_stat: int | float | str) -> tuple[bool, str | None
 
         >>> valid, error = validate_speed_stat(2.5)   # Invalid - GCD value
         >>> assert not valid
+        >>> print(error)
+        'Enter the speed stat, not the GCD.'
+
+        >>> valid, error = validate_speed_stat("fast")   # Invalid input type
+        >>> assert not valid
+        >>> print(error)
+        'Invalid input: speed_stat must be a number, got str.'
     """
     MIN_SPEED = 380
 
-    if isinstance(speed_stat, str):
-        speed_stat = float(speed_stat)
+    # Check if speed_stat is a numeric type
+    if not isinstance(speed_stat, (int, float)):
+        try:
+            # Attempt to cast speed_stat to float
+            speed_stat = float(speed_stat)
+        except (ValueError, TypeError):
+            error_message = f"Invalid input: speed_stat must be a number, got {type(speed_stat).__name__}."
+            print(error_message)
+            return False, error_message
 
     if speed_stat >= MIN_SPEED:
         return True, None
     else:
-        return False, "Enter the speed stat, not the GCD."
+        error_message = "Enter the speed stat, not the GCD."
+        print(error_message)
+        return False, error_message
 
 
-def validate_weapon_damage(weapon_damage):
+def validate_weapon_damage(weapon_damage: Any) -> Tuple[bool, str | None]:
+    """
+    Validate weapon damage values.
+
+    Args:
+        weapon_damage (Any): Weapon damage value to validate.
+
+    Returns:
+        Tuple[bool, str | None]:
+            - bool: True if valid, False otherwise.
+            - str | None: Error message if invalid, None if valid.
+
+    Example:
+        >>> valid, error = validate_weapon_damage(350)
+        >>> assert valid and error is None
+
+        >>> valid, error = validate_weapon_damage(400)
+        >>> assert not valid
+        >>> print(error)
+        'Weapon damage must be less than 380.'
+
+        >>> valid, error = validate_weapon_damage("high")
+        >>> assert not valid
+        >>> print(error)
+        'Invalid input: weapon_damage must be a number, got str.'
+    """
+    # Check if weapon_damage is a numeric type
+    if not isinstance(weapon_damage, (int, float)):
+        try:
+            # Attempt to cast weapon_damage to float
+            weapon_damage = float(weapon_damage)
+        except (ValueError, TypeError):
+            error_message = f"Invalid input: weapon_damage must be a number, got {type(weapon_damage).__name__}."
+            print(error_message)
+            return False, error_message
+
     if weapon_damage < 380:
         return True, None
     else:
-        return False, "Weapon damage must be less than 380."
+        error_message = "Weapon damage must be less than 380."
+        print(error_message)
+        return False, error_message
 
 
 def set_secondary_stats(
