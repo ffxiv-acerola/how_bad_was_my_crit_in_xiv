@@ -157,13 +157,14 @@ create table if not exists error_party_analysis(
 ) strict;
 """
 
-con = sqlite3.connect(DB_URI)
-cur = con.cursor()
-cur.execute(create_encounter_table)
-cur.execute(create_report_table)
-cur.execute(create_party_report_table)
-cur.execute(create_access_table)
-cur.execute(create_player_error_table)
-cur.execute(create_party_error_table)
-cur.close()
-con.close()
+if __name__ == "__main__":
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.execute(create_encounter_table)
+    cur.execute(create_report_table)
+    cur.execute(create_party_report_table)
+    cur.execute(create_access_table)
+    cur.execute(create_player_error_table)
+    cur.execute(create_party_error_table)
+    cur.close()
+    con.close()

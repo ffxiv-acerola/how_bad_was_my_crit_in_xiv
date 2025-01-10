@@ -5,8 +5,8 @@ Viper,34619,Bloodied Maw,100,1003650,160,direct,,,,,,,
 Viper,34634,Death Rattle,100,,280,direct,,,,,,,
 Viper,34607,Reaving Fangs,100,,200,direct,,,,,,,
 Viper,34607,Reaving Fangs,100,1003772,300,direct,,,,,,,
-Viper,34627,First Generation,100,,480,direct,,,,,,,
-Viper,34627,First Generation,100,combo,680,direct,,,,,,,
+Viper,34627,First Generation,100,,480,direct,,,,,,,1;0.4
+Viper,34627,First Generation,100,combo,680,direct,,,,,,,1;0.4
 Viper,34640,First Legacy,100,,280,direct,,,,,,,1;0.4
 Viper,34611,Flanksbane Fang,100,,340,direct,40,440,60,400,48,500,
 Viper,34610,Flanksting Strike,100,,340,direct,40,440,60,400,48,500,
