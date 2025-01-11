@@ -214,9 +214,10 @@ class ActionTable(object):
             "Astrologian",
             "WhiteMage",
             "Sage",
+            "Scholar",
         ):
             self.actions_df = self.actions_df[
-                self.actions_df["ability_name"] != "Attack"
+                self.actions_df["ability_name"].str.lower() != "attack"
             ]
 
         # FIXME: I think arm of the destroyer won't get updated but surely no one would use that in savage.

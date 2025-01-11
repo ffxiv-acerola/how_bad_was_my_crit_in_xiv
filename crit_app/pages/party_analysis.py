@@ -1,3 +1,4 @@
+import json
 import pickle
 import time
 import traceback
@@ -360,11 +361,11 @@ def toggle_party_list(n_clicks: Optional[int]) -> Tuple[bool, str]:
 
 @callback(
     Output({"type": "etro-input", "index": ALL}, "value"),
-    Input("quick-build-fill-button", "n_clicks"),
-    State("quick-build-table", "data"),
+    # Input("quick-build-fill-button", "n_clicks"),
+    Input("quick-build-table", "data"),
     prevent_initial_call=True,
 )
-def quick_fill_job_build(n_clicks, etro_links):
+def quick_fill_job_build(etro_links):
     return [e["etro_link"] for e in etro_links]
 
 
@@ -423,6 +424,7 @@ def party_fflogs_process(n_clicks, url):
         encounter_name,
         report_start_time,
         furthest_index_phase,
+        excluded_enemy_ids,
         r,
     ) = get_encounter_job_info(report_id, int(fight_id))
 
@@ -457,8 +459,9 @@ def party_fflogs_process(n_clicks, url):
                 kill_time,
                 k["player_name"],
                 k["player_server"],
-                k["player_id"],
+                int(k["player_id"]),
                 k["pet_ids"],
+                json.dumps(excluded_enemy_ids),
                 k["job"],
                 k["role"],
             )
@@ -524,7 +527,7 @@ def hide_non_tank_tenactiy(main_stat_label) -> bool:
     State({"type": "CRT", "index": MATCH}, "value"),
     State({"type": "DH", "index": MATCH}, "value"),
     State({"type": "WD", "index": MATCH}, "value"),
-    prevent_initial_call="initial_duplicate",
+    prevent_initial_call=True,
 )
 def etro_process(
     n_clicks,
@@ -1524,6 +1527,7 @@ def player_analysis_loop(
                 )
             )
 
+            # FIXME: should probably move to option in the class
             actions_df = job_rotation_analyses_list[a].actions_df
             if role in ("Healer", "Magical Ranged"):
                 actions_df = actions_df[actions_df["ability_name"] != "attack"]
@@ -1626,6 +1630,7 @@ def create_rotation_clippings(
             for idx, t in enumerate(t_clips):
                 # t += t_clip_offset
                 # print(t)
+                # FIXME: can remove
                 actions_df = job_rotation_analyses_list[a].actions_df
                 if role in ("Healer", "Magical Ranged"):
                     actions_df = actions_df[actions_df["ability_name"] != "attack"]

@@ -225,14 +225,14 @@ def create_fflogs_card(
         [
             html.H4("Quick build input"),
             html.P(
-                'Quickly input all Etro links by pasting them into the "Etro link" '
-                "column below like you would a spreadsheet and then clicking the "
-                '"Fill in Etro links" button. Otherwise, enter the build information '
-                "one-by-one and then click the validate builds button."
+                'Paste etro links into the "Etro link" below like a spreadsheet to'
+                "auto-fill each item and pull in the job builds by clicking the"
+                '"Fetch Etro builds" button. Otherwise, enter the build information '
+                "one-by-one."
             ),
             quick_build_table,
             html.Br(),
-            dbc.Button("Fill in and apply Etro links", id="quick-build-fill-button"),
+            dbc.Button("Fetch Etro builds", id="quick-build-fill-button"),
         ],
         style={"padding-top": "15px", "padding-bottom": "15px"},
     )
@@ -605,6 +605,8 @@ def create_quick_build_table_data(
 
     # Create and sort dataframe
     quick_build = pd.DataFrame(job_information)
+    if "etro_id" not in quick_build.columns:
+        quick_build["etro_id"] = None
     # TODO: Verify this is correct
     # quick_build["role_order"] = quick_build["role"].map(ROLE_ORDER)
     quick_build["role_order"] = 1
@@ -639,10 +641,10 @@ def create_quick_build_div(quick_build_table: Any) -> html.Div:
         [
             html.H4("Quick build input"),
             html.P(
-                'Quickly input all Etro links by pasting them into the "Etro link" '
-                "column below like you would a spreadsheet and then clicking the "
+                'Paste etro links into the "Etro link" below like a spreadsheet to'
+                "auto-fill each item and pull in the job builds by clicking the"
                 '"Fill in Etro links" button. Otherwise, enter the build information '
-                "one-by-one and then click the validate builds button."
+                "one-by-one."
             ),
             quick_build_table,
             html.Br(),

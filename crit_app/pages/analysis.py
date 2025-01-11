@@ -465,7 +465,16 @@ def layout(analysis_id=None):
                     BLOB_URI / f"rotation-object-{analysis_id}.pkl", "rb"
                 ) as outp:
                     rotation_object = pickle.load(outp)
-                action_df = rotation_object.actions_df
+                if "filtered_actions_df" in rotation_object.__dict__.keys():
+                    action_df = rotation_object.filtered_actions_df
+                else:
+                    action_df = rotation_object.actions_df
+                    action_df = action_df[
+                        ~action_df["targetID"].isin(
+                            analysis_details["excluded_enemy_ids"]
+                        )
+                    ]
+
                 rotation_df = rotation_object.rotation_df
 
             except Exception as e:
