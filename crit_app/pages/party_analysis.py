@@ -174,7 +174,6 @@ def layout(party_analysis_id=None):
         ### FFLogs Card Elements ###
         ############################
 
-        perform_kill_time_analysis = party_analysis_obj.perform_kill_time_analysis
         kill_time_str = format_kill_time_str(kill_time)
 
         phase_selector_options, phase_select_hidden = get_phase_selector_options(
@@ -202,10 +201,8 @@ def layout(party_analysis_id=None):
                 quick_build_data,
                 party_accordion_children,
                 hide_fflogs_div=False,
-                analysis_progress_children=[],
-                analysis_progress_value=0,
-                analyze_button_text="Update required. Click here to re-analyze.",
-                wrap_collapse=False,
+                force_update=True,
+                wrap_collapse=True,
             )
             return html.Div([fflogs_card])
 
@@ -231,6 +228,7 @@ def layout(party_analysis_id=None):
         analysis_url = (
             f"https://howbadwasmycritinxiv.com/party_analysis/{party_analysis_id}"
         )
+        perform_kill_time_analysis = party_analysis_obj.perform_kill_time_analysis
 
         party_dps_figure = make_party_rotation_pdf_figure(party_analysis_obj)
         kill_time_figure = (
@@ -879,7 +877,8 @@ def validate_tenacity_wildcard(ten_value, main_stat_label):
 
 
 @callback(
-    Output("party-compute-div", "hidden"),
+    Output("party-compute", "disabled"),
+    Output("party-compute", "children"),
     Input({"type": "main-stat", "index": ALL}, "valid"),
     Input({"type": "main-stat", "index": ALL}, "invalid"),
     Input({"type": "TEN", "index": ALL}, "valid"),
@@ -894,6 +893,7 @@ def validate_tenacity_wildcard(ten_value, main_stat_label):
     Input({"type": "DH", "index": ALL}, "invalid"),
     Input({"type": "WD", "index": ALL}, "valid"),
     Input({"type": "WD", "index": ALL}, "invalid"),
+    Input("party-compute", "children"),
 )
 def validate_job_builds(
     main_stat_valid_list,
@@ -910,6 +910,7 @@ def validate_job_builds(
     dh_invalid_list,
     wd_valid_list,
     wd_invalid_list,
+    party_compute_button_text,
 ):
     """
     Hide the 'party-compute-div' if any required stats are invalid or if.
@@ -937,9 +938,15 @@ def validate_job_builds(
         and all(wd_valid_list)
     )
 
-    # If any stat is invalid or not all valid => hide = True
-    hide_div = any_invalid or not_all_valid
-    return hide_div
+    # If any stat is invalid or not all valid => disable button
+    disabled_compute_button = any_invalid or not_all_valid
+
+    append_text = " [invalid job build(s), check inputs]"
+    party_compute_button_text = party_compute_button_text.removesuffix(append_text)
+
+    if disabled_compute_button:
+        party_compute_button_text += append_text
+    return disabled_compute_button, party_compute_button_text
 
 
 def job_progress(job_list, active_job):
@@ -1035,7 +1042,7 @@ def analyze_party_rotation(
     """
     updated_url = dash.no_update
     if n_clicks is None:
-        raise PreventUpdate
+        return updated_url, []
 
     if isinstance(fight_phase, list):
         fight_phase = fight_phase[0]

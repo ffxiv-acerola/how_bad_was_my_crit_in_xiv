@@ -79,11 +79,9 @@ def create_fflogs_card(
     medication_amount: int = 392,
     quick_build_table_data: list = [],
     party_accordion_items: list = [],
-    analysis_progress_children="Analysis progress: Done!",
-    analysis_progress_value: int = 100,
     hide_fflogs_div: bool = True,
-    analyze_button_text: str = "Analyze party rotation",
     wrap_collapse: bool = False,
+    force_update: bool = False,
 ) -> dbc.Card:
     """
     Create card component for FFLogs URL input and encounter info.
@@ -95,6 +93,27 @@ def create_fflogs_card(
     Returns:
         Bootstrap card containing URL input and encounter info
     """
+
+    if force_update:
+        disable_collapse = True
+        disable_log_url = True
+        disable_log_process = True
+        disable_phase_select = True
+        button_color = "danger"
+        analyze_button_text = "Update required. Click here to re-analyze."
+        analysis_progress_children = []
+        analysis_progress_value = 0
+
+    else:
+        disable_collapse = False
+        disable_log_url = False
+        disable_log_process = False
+        disable_phase_select = False
+        button_color = "primary"
+        analyze_button_text = "Analyze party rotation"
+        analysis_progress_children = "Analysis progress: Done!"
+        analysis_progress_value = 100
+
     # URL input row
     url_input = dbc.Row(
         [
@@ -106,6 +125,7 @@ def create_fflogs_card(
                         type="text",
                         placeholder="Enter FFLogs URL",
                         id="fflogs-url2",
+                        disabled=disable_log_url,
                     ),
                     dbc.FormFeedback(type="invalid", id="fflogs-url-feedback2"),
                 ],
@@ -116,6 +136,7 @@ def create_fflogs_card(
                     "Submit",
                     color="primary",
                     id="fflogs-url-state2",
+                    disabled=disable_log_process,
                 ),
                 width="auto",
             ),
@@ -146,6 +167,7 @@ def create_fflogs_card(
                         options=phase_selector_options,
                         value=phase_selector_value,
                         id="party-phase-select",
+                        disabled=disable_phase_select,
                     ),
                     width=1,
                     md=5,
@@ -226,11 +248,15 @@ def create_fflogs_card(
             html.Div(
                 [
                     dbc.Button(
-                        analyze_button_text, id="party-compute", class_name="w-100"
+                        analyze_button_text,
+                        id="party-compute",
+                        class_name="w-100",
+                        disabled=True,
+                        color=button_color,
                     )
                 ],
                 id="party-compute-div",
-                hidden=True,
+                hidden=False,
                 className="w-100",
                 style={"padding-top": "15px", "padding-bottom": "15px"},
             ),
@@ -259,6 +285,7 @@ def create_fflogs_card(
                 n_clicks=0,
                 id="party-collapse-button",
                 class_name="w-100",
+                disabled=disable_collapse,
             ),
             dbc.Collapse(
                 [
