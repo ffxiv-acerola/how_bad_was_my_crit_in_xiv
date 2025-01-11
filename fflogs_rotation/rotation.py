@@ -23,14 +23,6 @@ from fflogs_rotation.rotation_jobs import (
 from fflogs_rotation.viper import ViperActions
 from ffxiv_stats import Rate
 
-# Suppress the specific FutureWarning from pandas
-warnings.filterwarnings(
-    "ignore",
-    category=FutureWarning,
-    message="The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.",
-)
-
-
 url = "https://www.fflogs.com/api/v2/client"
 
 
@@ -789,9 +781,11 @@ class ActionTable(object):
             .apply(lambda x: list(map(buff_strengths.get, x)))
             .apply(lambda x: np.prod([y for y in x if y is not None]))
         )
-        multiplier_table = pd.concat(
-            [unique_buff_sets[~unique_buff_sets["multiplier"].isna()], remainder]
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            multiplier_table = pd.concat(
+                [unique_buff_sets[~unique_buff_sets["multiplier"].isna()], remainder]
+            )
 
         # Apply multiplier to ground effect ticks
         ground_ticks_actions = self.actions_df[
@@ -810,21 +804,23 @@ class ActionTable(object):
             columns=["multiplier_y", "multiplier_x"], inplace=True
         )
 
-        # Recombine,
-        # drop temporary scratch columns,
-        # Re sort values
-        self.actions_df = (
-            pd.concat(
-                [
-                    self.actions_df[
-                        self.actions_df["abilityGameID"] != ground_effect_id
-                    ],
-                    ground_ticks_actions,
-                ]
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            # Recombine,
+            # drop temporary scratch columns,
+            # Re sort values
+            self.actions_df = (
+                pd.concat(
+                    [
+                        self.actions_df[
+                            self.actions_df["abilityGameID"] != ground_effect_id
+                        ],
+                        ground_ticks_actions,
+                    ]
+                )
+                .drop(columns=["str_buffs"])
+                .sort_values("elapsed_time")
             )
-            .drop(columns=["str_buffs"])
-            .sort_values("elapsed_time")
-        )
 
         return self.actions_df
 

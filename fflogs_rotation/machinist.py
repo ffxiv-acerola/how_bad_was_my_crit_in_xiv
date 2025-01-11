@@ -6,13 +6,6 @@ import pandas as pd
 
 from fflogs_rotation.base import BuffQuery, disjunction
 
-# Suppress the specific FutureWarning from pandas
-warnings.filterwarnings(
-    "ignore",
-    category=FutureWarning,
-    message="The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.",
-)
-
 
 class MachinistActions(BuffQuery):
     def __init__(
@@ -230,11 +223,15 @@ class MachinistActions(BuffQuery):
         battery_gauge = actions_df[
             actions_df["abilityGameID"].isin(self.battery_gauge_amount.keys())
         ][["timestamp", "ability_name", "abilityGameID"]]
-        battery_gauge = (
-            pd.concat([battery_gauge, self.queen_summons])
-            .sort_values("timestamp")
-            .reset_index(drop=True)
-        )
+
+        # FIXME
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            battery_gauge = (
+                pd.concat([battery_gauge, self.queen_summons])
+                .sort_values("timestamp")
+                .reset_index(drop=True)
+            )
         # Assign battery generating actions to a queen group
         battery_gauge["queen_group"] = battery_gauge["queen_group"].bfill()
 
@@ -254,14 +251,17 @@ class MachinistActions(BuffQuery):
             .reset_index()
         )
 
-        # If queen group 0 not present, assume resource run and assign 100 gauge.
-        if battery_gauge["queen_group"].min() == 1:
-            battery_gauge = pd.concat(
-                [
-                    battery_gauge,
-                    pd.DataFrame({"queen_group": [0], "battery_amount": [100]}),
-                ]
-            )
+        # FIXME
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            # If queen group 0 not present, assume resource run and assign 100 gauge.
+            if battery_gauge["queen_group"].min() == 1:
+                battery_gauge = pd.concat(
+                    [
+                        battery_gauge,
+                        pd.DataFrame({"queen_group": [0], "battery_amount": [100]}),
+                    ]
+                )
 
         # Gauge is capped at 100
         # Also if queen is summoned with < 50 gauge, assume resource run starting with 100 gauge from last phase
