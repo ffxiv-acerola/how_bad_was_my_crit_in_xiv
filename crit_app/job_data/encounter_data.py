@@ -14,7 +14,7 @@ valid_encounters = [
     # 1077,
     1078,
     1079,
-    3009, # Byakko
+    3009,  # Byakko
 ]
 valid_encounter_text = ""
 
@@ -36,7 +36,7 @@ encounter_level = {
     1072: 100,
     1078: 100,
     1079: 100,
-    3009: 100, # Byakko
+    3009: 100,  # Byakko
 }
 
 encounter_phases = {
@@ -56,6 +56,8 @@ encounter_phases = {
     #     6: "P6: Alpha Omega",
     # }
 }
+custom_t_clip_encounter_phases = {1079: [1, 2, 3, 4]}
+skip_kill_time_analysis_phases = {1079: [2, 3]}
 
 # Used for Party analysis
 boss_hp = {
@@ -72,6 +74,9 @@ boss_hp = {
     1070: 40478540,
     1072: 66146024,
 }
+
+# FFlogs periodically excludes damage to certain
+excluded_enemy_game_ids = {1079: [17828]}
 
 patch_times = {
     6.4: {"start": 1684836000000, "end": 1696327199999},

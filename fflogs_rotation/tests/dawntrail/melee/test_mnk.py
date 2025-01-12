@@ -106,7 +106,9 @@ class TestMonkActions:
             .reset_index(drop=True)
         )
 
-    def test_mnk_7_05_action_counts(self, expected_mnk_7_05_action_counts: pd.DataFrame):
+    def test_mnk_7_05_action_counts(
+        self, expected_mnk_7_05_action_counts: pd.DataFrame
+    ):
         """Test that action counts match expected values for Black Cat log."""
         # Arrange
         actual_counts = (
@@ -119,3 +121,113 @@ class TestMonkActions:
 
         # Assert
         assert_frame_equal(actual_counts, expected_mnk_7_05_action_counts)
+
+
+class TestMonkMultiTargetActions:
+    """Tests for Monk job actions and rotations with an emphasis on mutli-target.
+
+    Based off https://www.fflogs.com/reports/ZfnF8AqRaBbzxW3w?fight=5
+    """
+
+    def setup_method(self):
+        """Setup method to initialize common variables and RotationTable."""
+        self.report_id = "ZfnF8AqRaBbzxW3w"
+        self.fight_id = 5
+        self.level = 100
+        self.phase = 4
+        self.player_id = 23
+        self.pet_ids = None
+        self.excluded_enemy_ids = [52]
+
+        self.main_stat = 5129
+        self.pet_attack_power = self.main_stat // 1.05
+        self.det = 3043
+        self.speed = 420
+
+        self.crt = 2922
+        self.dh = 1050
+        self.wd = 146
+
+        self.delay = 3.2
+        self.medication = 392
+
+        self.t = 1
+
+        self.mnk_rotation_7_1_fru_p4 = RotationTable(
+            headers,
+            self.report_id,
+            self.fight_id,
+            "Monk",
+            self.player_id,
+            self.crt,
+            self.dh,
+            self.det,
+            self.medication,
+            self.level,
+            self.phase,
+            damage_buff_table,
+            critical_hit_rate_table,
+            direct_hit_rate_table,
+            guaranteed_hits_by_action_table,
+            guaranteed_hits_by_buff_table,
+            potency_table,
+            pet_ids=self.pet_ids,
+        )
+
+        self.mnk_analysis_7_1_fru_p4 = Melee(
+            self.main_stat,
+            self.det,
+            self.speed,
+            self.crt,
+            self.dh,
+            self.wd,
+            self.delay,
+            "Monk",
+            self.pet_attack_power,
+            level=self.level,
+        )
+
+    @pytest.fixture
+    def expected_mnk_fru_p4_7_1_action_counts(self) -> pd.DataFrame:
+        """Fixture providing expected action count data."""
+        return (
+            pd.DataFrame(
+                [
+                    {"base_action": "Attack", "n": 71},
+                    {"base_action": "Leaping Opo", "n": 13},
+                    {"base_action": "Dragon Kick", "n": 12},
+                    {"base_action": "The Forbidden Chakra", "n": 11},
+                    {"base_action": "Rising Raptor", "n": 6},
+                    {"base_action": "Pouncing Coeurl", "n": 6},
+                    {"base_action": "Twin Snakes", "n": 5},
+                    {"base_action": "Phantom Rush", "n": 4},
+                    {"base_action": "Fire's Reply", "n": 4},
+                    {"base_action": "Demolish", "n": 4},
+                    {"base_action": "Rising Phoenix", "n": 3},
+                    {"base_action": "Elixir Burst", "n": 2},
+                    {"base_action": "Wind's Reply", "n": 2},
+                    {"base_action": "Four-Point Fury", "n": 2},
+                    {"base_action": "Shadow of the Destroyer", "n": 2},
+                    {"base_action": "Rockbreaker", "n": 2},
+                    {"base_action": "Six-Sided Star", "n": 1},
+                ]
+            )
+            .sort_values(["n", "base_action"], ascending=[False, True])
+            .reset_index(drop=True)
+        )
+
+    def test_mnk_fru_p4_action_totals(
+        self, expected_mnk_fru_p4_7_1_action_counts: pd.DataFrame
+    ):
+        """Test that action counts match expected values."""
+        # Arrange
+        actual_counts = (
+            self.mnk_rotation_7_1_fru_p4.rotation_df.groupby("base_action")
+            .sum("n")
+            .reset_index()[["base_action", "n"]]
+            .sort_values(["n", "base_action"], ascending=[False, True])
+            .reset_index(drop=True)
+        )
+
+        # Assert
+        assert_frame_equal(actual_counts, expected_mnk_fru_p4_7_1_action_counts)

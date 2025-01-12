@@ -19,7 +19,6 @@ app = dash.Dash(
         dbc.icons.FONT_AWESOME,
     ],
     long_callback_manager=long_callback_manager,
-    # external_stylesheets=[dbc.themes.BOOTSTRAP],
     suppress_callback_exceptions=not DEBUG,  # needed because some callbacks use dynamically generated id's
 )
 
@@ -82,7 +81,8 @@ header = html.Div(
 # Putting it all together
 app.layout = dbc.Container(
     [
-        dcc.Location(id="url", refresh="callback-nav"),
+        # dcc.Location(id="url", refresh="callback-nav"),
+        dcc.Location(id="url", refresh=True),
         header,
         dash.page_container,
     ],

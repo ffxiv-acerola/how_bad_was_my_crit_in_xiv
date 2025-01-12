@@ -1,5 +1,7 @@
 import datetime
+import json
 import pickle
+import traceback
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -26,7 +28,6 @@ from crit_app.cards import (
 from crit_app.config import BLOB_URI, DEBUG, DRY_RUN
 from crit_app.dmg_distribution import (
     get_dps_dmg_percentile,
-    job_analysis_to_data_class,
 )
 from crit_app.figures import (
     make_action_box_and_whisker_figure,
@@ -36,7 +37,6 @@ from crit_app.figures import (
 )
 from crit_app.job_data.encounter_data import (
     encounter_level,
-    encounter_phases,
     patch_times,
     stat_ranges,
     valid_encounters,
@@ -47,18 +47,29 @@ from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
 from crit_app.shared_elements import (
     etro_build,
     format_kill_time_str,
-    read_encounter_table,
-    read_report_table,
+    get_phase_selector_options,
     rotation_analysis,
     set_secondary_stats,
+    validate_meldable_stat,
+    validate_weapon_damage,
+)
+from crit_app.util.dash_elements import error_alert
+from crit_app.util.db import (
+    check_valid_player_analysis_id,
+    compute_party_bonus,
+    get_player_analysis_job_records,
+    insert_error_player_analysis,
+    player_analysis_meta_info,
+    read_player_analysis_info,
+    retrieve_player_analysis_information,
+    search_prior_player_analyses,
     unflag_redo_rotation,
     unflag_report_recompute,
     update_access_table,
     update_encounter_table,
     update_report_table,
-    validate_meldable_stat,
-    validate_weapon_damage,
 )
+from crit_app.util.player_dps_distribution import job_analysis_to_data_class
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
     damage_buff_table,
@@ -74,25 +85,17 @@ invalid_stat_return = (False, True)
 
 
 def page_title(analysis_id=None):
-    if analysis_id is None:
+    valid_analysis_id = check_valid_player_analysis_id(analysis_id)
+    if not valid_analysis_id:
         return ""
-    encounter_info = read_encounter_table()
-    report = read_report_table()
-    fight_data = (
-        report[report["analysis_id"] == analysis_id]
-        .merge(
-            encounter_info[["report_id", "fight_id", "kill_time"]],
-            on=["report_id", "fight_id"],
-            how="inner",
-        )
-        .iloc[0]
-    )
+
+    player_name, job, encounter_name, kill_time = player_analysis_meta_info(analysis_id)
 
     return "Analysis: {} ({}); {} ({})".format(
-        fight_data.player_name,
-        abbreviated_job_map[fight_data.job].upper(),
-        fight_data.encounter_name,
-        format_kill_time_str(fight_data.kill_time),
+        player_name,
+        abbreviated_job_map[job].upper(),
+        encounter_name,
+        format_kill_time_str(kill_time),
     )
 
 
@@ -106,23 +109,17 @@ def metas(analysis_id: str = None) -> list[dict[str, str]]:
     Returns:
     list[dict[str, str]]: A list of dictionaries containing meta tag properties and content.
     """
-    if analysis_id is not None:
-        encounter_info = read_encounter_table()
-        report = read_report_table()
-        fight_data = (
-            report[report["analysis_id"] == analysis_id]
-            .merge(
-                encounter_info[["report_id", "fight_id", "kill_time"]],
-                on=["report_id", "fight_id"],
-                how="inner",
-            )
-            .iloc[0]
+    valid_analysis_id = check_valid_player_analysis_id(analysis_id)
+    if not valid_analysis_id:
+        player_name, job, encounter_name, kill_time = player_analysis_meta_info(
+            analysis_id
         )
-        app_description = "View analysis for {} ({}) on {} ({})".format(
-            fight_data.player_name,
-            abbreviated_job_map[fight_data.job].upper(),
-            fight_data.encounter_name,
-            format_kill_time_str(fight_data.kill_time),
+
+        app_description = "Analysis: {} ({}); {} ({})".format(
+            player_name,
+            abbreviated_job_map[job].upper(),
+            encounter_name,
+            format_kill_time_str(kill_time),
         )
     else:
         app_description = "Analyze crit RNG for FFXIV!"
@@ -216,7 +213,7 @@ def show_job_options(
     Show which jobs are available to analyze with radio buttons.
 
     Parameters:
-    job_information (List[Dict[str, Any]]): List of job information dictionaries.
+    job_information (List[Dict[str, Any]]): List of job information dictionaries. Must contain keys: `player_name`, `job`, `player_id`, `role`.
     role (str): Role of the job.
     start_time (int): Start time of the log.
 
@@ -298,36 +295,6 @@ def show_job_options(
     )
 
 
-def get_phase_selector_options(
-    furthest_phase_index: int, encounter_id: int
-) -> Tuple[List[Dict[str, int]], bool]:
-    """
-    Create a dictionary of phase select options for an encounter.
-
-    Also create a boolean indicator for whether the phase selector should be visible.
-
-    For encounters without phases, the phase always defaults to 0 and hidden.
-
-    Args:
-        furthest_phase_index (int): Index of the furthest-reached phase for a fight ID.
-        encounter_id (int): ID of the encounter.
-
-    Returns:
-        Tuple[List[Dict[str, int]], bool]:
-        A list of dictionaries for dbc.Select `options` argument and a boolean for whether the selector should be visible or not.
-    """
-    phase_select_options = [{"label": "Entire Fight", "value": 0}]
-    phase_select_hidden = True
-    if encounter_id in encounter_phases.keys():
-        phase_select_options.extend(
-            {"label": encounter_phases[encounter_id][a], "value": a}
-            for a in range(1, furthest_phase_index + 1)
-        )
-        phase_select_hidden = False
-
-    return phase_select_options, phase_select_hidden
-
-
 def layout(analysis_id=None):
     """
     Display a previously-analyzed rotation by its analysis ID.
@@ -352,111 +319,86 @@ def layout(analysis_id=None):
     else:
         analysis_url = f"https://howbadwasmycritinxiv.com/analysis/{analysis_id}"
         # Check if analysis ID exists, 404 if not
-        report_df = read_report_table()
-        report_df = report_df[report_df["analysis_id"] == analysis_id]
+
+        valid_analysis_id = check_valid_player_analysis_id(analysis_id)
 
         # Message to display if something goes wrong.
-        error_children = [
-            html.H2("404 Not Found"),
-            html.P(
-                [
-                    "The link entered does not exist. ",
-                    html.A("Click here", href="/"),
-                    " to return home and analyze a rotation.",
-                ]
-            ),
-        ]
+        error_children = []
 
         # redirect to 404 if no analysis page exists
-        if len(report_df) == 0:
-            return html.Div(error_children)
-        else:
-            # Read in encounter info
-            encounter_df = read_encounter_table()
-
-            # Merge to get all relevant info
-            analysis_details = (
-                report_df.merge(
-                    encounter_df.drop(
-                        columns=["encounter_id", "encounter_name", "job"]
+        if not valid_analysis_id:
+            error_children.extend(
+                [
+                    html.H2("404 Not Found"),
+                    html.P(
+                        [
+                            "The link entered does not exist. ",
+                            html.A("Click here", href="/"),
+                            " to return home and analyze a rotation.",
+                        ]
                     ),
-                    how="inner",
-                    on=["report_id", "fight_id", "player_name"],
-                )
-                .iloc[0]
-                .fillna("")
+                ]
             )
+            return html.Div(error_children)
 
-            # Filter down encounter DF to relevant information
-            encounter_df = encounter_df[
-                (encounter_df["fight_id"] == analysis_details["fight_id"])
-                & (encounter_df["report_id"] == analysis_details["report_id"])
-                & (encounter_df["role"] != "Limit Break")
-            ]
-            #### Job build / Etro card setup ####
-            if (analysis_details["etro_id"] is not None) and (
-                analysis_details["etro_id"] != ""
-            ):
-                etro_url = f"https://etro.gg/gearset/{analysis_details['etro_id']}"
-            else:
-                etro_url = None
+        # Read in encounter info
 
-            #### FFLogs Card Info ####
-            # FFlogs URL
-            report_id = analysis_details["report_id"]
-            fight_id = analysis_details["fight_id"]
-            fflogs_url = f"https://www.fflogs.com/reports/{report_id}#fight={fight_id}"
+        analysis_details = retrieve_player_analysis_information(analysis_id)
+        #### Job build / Etro card setup ####
+        if (analysis_details["etro_id"] is not None) and (
+            analysis_details["etro_id"] != ""
+        ):
+            etro_url = f"https://etro.gg/gearset/{analysis_details['etro_id']}"
+        else:
+            etro_url = None
 
-            # Encounter Info
-            boss_name = analysis_details["encounter_name"]
-            fight_duration = format_kill_time_str(analysis_details["kill_time"])
-            encounter_name_time = f"{boss_name} ({fight_duration})"
-            # Job selection info
+        #### FFLogs Card Info ####
+        # FFlogs URL
+        report_id = analysis_details["report_id"]
+        fight_id = analysis_details["fight_id"]
+        fflogs_url = f"https://www.fflogs.com/reports/{report_id}#fight={fight_id}"
 
-            # Player information
-            # There's a 50% chance the wrong character will be reported
-            # if you have two characters with the same name on the same job
-            character = analysis_details["player_name"]
-            player_id = analysis_details["player_id"]
-            role = analysis_details["role"]
-            encounter_id = encounter_df["encounter_id"].iloc[0]
-            fight_phase = int(report_df["phase_id"].iloc[0])
-            furthest_phase = int(encounter_df["last_phase_index"].iloc[0])
-            level = encounter_level[encounter_id]
+        # Encounter Info
+        boss_name = analysis_details["encounter_name"]
+        fight_duration = format_kill_time_str(analysis_details["kill_time"])
+        encounter_name_time = f"{boss_name} ({fight_duration})"
+        # Job selection info
 
-            redo_rotation = analysis_details["redo_rotation_flag"]
-            recompute_pdf_flag = analysis_details["redo_dps_pdf_flag"]
-            # recompute_flag = 1
+        # Player information
+        # There's a 50% chance the wrong character will be reported
+        # if you have two characters with the same name on the same job
+        character = analysis_details["player_name"]
+        player_id = analysis_details["player_id"]
+        role = analysis_details["role"]
+        encounter_id = analysis_details["encounter_id"]
+        fight_phase = analysis_details["phase_id"]
+        furthest_phase = analysis_details["last_phase_index"]
+        level = encounter_level[encounter_id]
 
-            # Player stat info
-            main_stat = int(analysis_details["main_stat"])
-            main_stat_pre_bonus = analysis_details["main_stat_pre_bonus"]
-            if analysis_details["secondary_stat_pre_bonus"] != "":
-                secondary_stat_pre_bonus = int(
-                    float(analysis_details["secondary_stat_pre_bonus"])
-                )
-            else:
-                secondary_stat_pre_bonus = ""
+        redo_rotation = analysis_details["redo_rotation_flag"]
+        recompute_pdf_flag = analysis_details["redo_dps_pdf_flag"]
 
-            if analysis_details["secondary_stat"] != "":
-                secondary_stat = int(float(analysis_details["secondary_stat"]))
-            else:
-                secondary_stat = ""
-            determination = analysis_details["determination"]
-            speed_stat = analysis_details["speed"]
-            crit = analysis_details["critical_hit"]
-            direct_hit = analysis_details["direct_hit"]
-            weapon_damage = analysis_details["weapon_damage"]
-            delay = analysis_details["delay"]
+        # Player stat info
+        main_stat = int(analysis_details["main_stat"])
+        main_stat_pre_bonus = analysis_details["main_stat_pre_bonus"]
+        secondary_stat_pre_bonus = analysis_details["secondary_stat_pre_bonus"]
+        secondary_stat = analysis_details["secondary_stat"]
+        determination = analysis_details["determination"]
+        speed_stat = analysis_details["speed"]
+        crit = analysis_details["critical_hit"]
+        direct_hit = analysis_details["direct_hit"]
+        weapon_damage = analysis_details["weapon_damage"]
+        delay = analysis_details["delay"]
 
-            party_bonus = analysis_details["party_bonus"]
-            medication_amt = analysis_details["medication_amount"]
-            player_job_no_space = analysis_details["job"]
-            player_id = int(analysis_details["player_id"])
-            pet_ids = analysis_details["pet_ids"]
+        party_bonus = analysis_details["party_bonus"]
+        medication_amt = analysis_details["medication_amount"]
+        player_job_no_space = analysis_details["job"]
+        player_id = int(analysis_details["player_id"])
+        pet_ids = analysis_details["pet_ids"]
 
-            # Get actions and create a rotation again, used if the RotationTable class updates.
-            if redo_rotation:
+        # Get actions and create a rotation again, used if the RotationTable class updates.
+        if redo_rotation:
+            try:
                 rotation_object = RotationTable(
                     headers,
                     analysis_details["report_id"],
@@ -476,33 +418,75 @@ def layout(analysis_id=None):
                     guaranteed_hits_by_buff_table,
                     potency_table,
                     pet_ids,
+                    analysis_details["excluded_enemy_ids"],
                 )
 
-                action_df = rotation_object.actions_df
+                action_df = rotation_object.filtered_actions_df
                 rotation_df = rotation_object.rotation_df
 
                 with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
                     pickle.dump(rotation_object, f)
-
                 unflag_redo_rotation(analysis_id)
-            else:
-                try:
-                    with open(
-                        BLOB_URI / f"rotation-object-{analysis_id}.pkl", "rb"
-                    ) as outp:
-                        rotation_object = pickle.load(outp)
+
+            # Catch any errors and notify user
+            except Exception as e:
+                error_info = (
+                    report_id,
+                    fight_id,
+                    player_id,
+                    encounter_id,
+                    "Unavailable",
+                    fight_phase,
+                    player_job_no_space,
+                    "N/A",
+                    int(main_stat_pre_bonus),
+                    int(main_stat),
+                    "Main",
+                    secondary_stat_pre_bonus,
+                    secondary_stat,
+                    None,
+                    int(determination),
+                    int(speed_stat),
+                    int(crit),
+                    int(direct_hit),
+                    int(weapon_damage),
+                    delay,
+                    medication_amt,
+                    party_bonus,
+                    str(e),
+                    traceback.format_exc(),
+                )
+                insert_error_player_analysis(*error_info)
+                error_children.append(error_alert(str(e)))
+                return error_children
+        else:
+            try:
+                with open(
+                    BLOB_URI / f"rotation-object-{analysis_id}.pkl", "rb"
+                ) as outp:
+                    rotation_object = pickle.load(outp)
+                if "filtered_actions_df" in rotation_object.__dict__.keys():
+                    action_df = rotation_object.filtered_actions_df
+                else:
                     action_df = rotation_object.actions_df
-                    rotation_df = rotation_object.rotation_df
+                    action_df = action_df[
+                        ~action_df["targetID"].isin(
+                            analysis_details["excluded_enemy_ids"]
+                        )
+                    ]
 
-                except Exception as e:
-                    error_children.append(
-                        html.P(f"The following error was encountered: {str(e)}")
-                    )
-                    return html.Div(error_children)
+                rotation_df = rotation_object.rotation_df
 
-            # Recompute DPS distributions if flagged to do so.
-            # Happens if `ffxiv_stats` updates with some sort of correction.
-            if recompute_pdf_flag:
+            except Exception as e:
+                error_children.append(
+                    html.P(f"The following error was encountered: {str(e)}")
+                )
+                return html.Div(error_children)
+
+        # Recompute DPS distributions if flagged to do so.
+        # Happens if `ffxiv_stats` updates with some sort of correction.
+        if recompute_pdf_flag:
+            try:
                 job_analysis_object = rotation_analysis(
                     role,
                     player_job_no_space,
@@ -527,187 +511,219 @@ def layout(analysis_id=None):
                 with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
                     pickle.dump(job_analysis_data, f)
                 unflag_report_recompute(analysis_id)
-
-            else:
-                try:
-                    with open(
-                        BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "rb"
-                    ) as outp:
-                        job_analysis_data = pickle.load(outp)
-
-                except Exception as e:
-                    error_children.append(
-                        html.P(f"The following error was encountered: {str(e)}")
-                    )
-                    return html.Div(error_children)
-
-            # DPS of each action + the entire rotation
-
-            action_dps = (
-                action_df[["ability_name", "amount"]].groupby("ability_name").sum()
-                / job_analysis_data.active_dps_t
-            ).reset_index()
-            rotation_dps = action_dps["amount"].sum()
-            rotation_percentile = (
-                get_dps_dmg_percentile(
-                    rotation_dps
-                    * job_analysis_data.active_dps_t
-                    / job_analysis_data.analysis_t,
-                    job_analysis_data.rotation_dps_distribution,
-                    job_analysis_data.rotation_dps_support,
+            # Catch any errors and notify user
+            except Exception as e:
+                error_info = (
+                    report_id,
+                    fight_id,
+                    player_id,
+                    encounter_id,
+                    "Unavailable",
+                    fight_phase,
+                    player_job_no_space,
+                    "N/A",
+                    int(main_stat_pre_bonus),
+                    int(main_stat),
+                    "Main",
+                    secondary_stat_pre_bonus,
+                    secondary_stat,
+                    None,
+                    int(determination),
+                    int(speed_stat),
+                    int(crit),
+                    int(direct_hit),
+                    int(weapon_damage),
+                    delay,
+                    medication_amt,
+                    party_bonus,
+                    str(e),
+                    traceback.format_exc(),
                 )
-                / 100
-            )
+                insert_error_player_analysis(*error_info)
+                error_children.append(error_alert(str(e)))
+                return error_children
+        else:
+            try:
+                with open(
+                    BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "rb"
+                ) as outp:
+                    job_analysis_data = pickle.load(outp)
 
-            ### make rotation card results
-            rotation_fig = make_rotation_pdf_figure(
-                job_analysis_data,
-                rotation_dps,
-                job_analysis_data.active_dps_t,
-                job_analysis_data.analysis_t,
-            )
-            rotation_graph = (
-                dcc.Graph(
-                    figure=rotation_fig,
-                    id="rotation-pdf-fig",
-                ),
-            )
-
-            rotation_percentile_table = make_rotation_percentile_table(
-                job_analysis_data, rotation_percentile
-            )
-
-            ### make action card results
-            action_fig = make_action_pdfs_figure(
-                job_analysis_data,
-                action_dps,
-                job_analysis_data.active_dps_t,
-                job_analysis_data.analysis_t,
-            )
-
-            new_action_fig = make_action_box_and_whisker_figure(
-                job_analysis_data,
-                action_dps,
-                job_analysis_data.active_dps_t,
-                job_analysis_data.analysis_t,
-            )
-
-            action_graph = [dcc.Graph(figure=action_fig, id="action-pdf-fig")]
-            action_graph = [dcc.Graph(figure=new_action_fig, id="action-pdf-fig-new")]
-
-            # action_summary_table = make_action_table(job_analysis_data, action_df)
-
-            rotation_graph = rotation_graph[0]
-            rotation_percentile_table = rotation_percentile_table[0]
-            action_graph = action_graph[0]
-            # action_summary_table = action_summary_table[0]
-
-            # action_options = action_dps["ability_name"].tolist()
-            # action_values = action_dps["ability_name"].tolist()
-
-            # Crit result text
-            crit_text = rotation_percentile_text_map(rotation_percentile)
-            crit_text += f" Your DPS corresponded to the {rotation_percentile:0.1%} percentile of the DPS distribution. Scroll down to see a detailed analysis of your rotation. Please note that DPS is reported and not rDPS (or any of the derived DPS metrics) and that this percentile has no relation to percentiles reported on FFLogs."
-
-            # Give warning if not all variance in a job is supported (AST, BRD, DNC)
-            if player_job_no_space in job_warnings.keys():
-                alert_child = dbc.Alert(
-                    [
-                        html.I(className="bi bi-exclamation-triangle-fill me-2"),
-                        job_warnings[player_job_no_space],
-                    ],
-                    color="warning",
-                    className="d-flex align-items-center",
+            except Exception as e:
+                error_children.append(
+                    html.P(f"The following error was encountered: {str(e)}")
                 )
-            else:
-                alert_child = []
+                return html.Div(error_children)
 
-            xiv_analysis_url = (
-                f"https://xivanalysis.com/fflogs/{report_id}/{fight_id}/{player_id}"
-            )
+        # DPS of each action + the entire rotation
 
-            job_radio_options = show_job_options(
-                encounter_df.to_dict("records"), role, rotation_object.fight_start_time
+        action_dps = (
+            action_df[["ability_name", "amount"]].groupby("ability_name").sum()
+            / job_analysis_data.active_dps_t
+        ).reset_index()
+        rotation_dps = action_dps["amount"].sum()
+        rotation_percentile = (
+            get_dps_dmg_percentile(
+                rotation_dps
+                * job_analysis_data.active_dps_t
+                / job_analysis_data.analysis_t,
+                job_analysis_data.rotation_dps_distribution,
+                job_analysis_data.rotation_dps_support,
             )
-            job_radio_options_dict = {
-                "Tank": job_radio_options[0],
-                "Healer": job_radio_options[1],
-                "Melee": job_radio_options[2],
-                "Physical Ranged": job_radio_options[3],
-                "Magical Ranged": job_radio_options[4],
-            }
-            job_radio_value_dict = {
-                "Tank": None,
-                "Healer": None,
-                "Melee": None,
-                "Physical Ranged": None,
-                "Magical Ranged": None,
-            }
+            / 100
+        )
 
-            job_radio_value_dict[role] = player_id
+        ### make rotation card results
+        rotation_fig = make_rotation_pdf_figure(
+            job_analysis_data,
+            rotation_dps,
+            job_analysis_data.active_dps_t,
+            job_analysis_data.analysis_t,
+        )
+        rotation_graph = (
+            dcc.Graph(
+                figure=rotation_fig,
+                id="rotation-pdf-fig",
+            ),
+        )
 
-            ### Make all the divs
-            job_build = initialize_job_build(
-                etro_url,
-                role,
-                main_stat_pre_bonus,
-                secondary_stat_pre_bonus,
-                determination,
-                speed_stat,
-                crit,
-                direct_hit,
-                weapon_damage,
-                delay,
-                party_bonus,
-                medication_amt,
-            )
+        rotation_percentile_table = make_rotation_percentile_table(
+            job_analysis_data, rotation_percentile
+        )
 
-            phase_select_options, phase_select_hidden = get_phase_selector_options(
-                furthest_phase, encounter_id
-            )
-            fflogs_card = initialize_fflogs_card(
-                fflogs_url,
-                encounter_name_time,
-                phase_select_options,
-                fight_phase,
-                phase_select_hidden,
-                job_radio_options_dict,
-                job_radio_value_dict,
-                False,
-                False,
-            )
-            rotation_card = initialize_rotation_card(
-                rotation_graph, rotation_percentile_table
-            )
-            # action_card = initialize_action_card(
-            #     action_graph, action_summary_table, action_options, action_values
-            # )
-            action_card = initialize_new_action_card(action_graph)
-            result_card = initialize_results(
-                character,
-                crit_text,
-                alert_child,
-                rotation_card,
-                action_card,
-                analysis_url,
-                xiv_analysis_url,
-                False,
-            )
+        ### make action card results
+        action_fig = make_action_pdfs_figure(
+            job_analysis_data,
+            action_dps,
+            job_analysis_data.active_dps_t,
+            job_analysis_data.analysis_t,
+        )
 
-            access_db_row = (analysis_id, datetime.datetime.now())
-            # update access table
-            if not DRY_RUN:
-                update_access_table(access_db_row)
+        new_action_fig = make_action_box_and_whisker_figure(
+            job_analysis_data,
+            action_dps,
+            job_analysis_data.active_dps_t,
+            job_analysis_data.analysis_t,
+        )
 
-            return dash.html.Div(
+        action_graph = [dcc.Graph(figure=action_fig, id="action-pdf-fig")]
+        action_graph = [dcc.Graph(figure=new_action_fig, id="action-pdf-fig-new")]
+
+        # action_summary_table = make_action_table(job_analysis_data, action_df)
+
+        rotation_graph = rotation_graph[0]
+        rotation_percentile_table = rotation_percentile_table[0]
+        action_graph = action_graph[0]
+        # action_summary_table = action_summary_table[0]
+
+        # action_options = action_dps["ability_name"].tolist()
+        # action_values = action_dps["ability_name"].tolist()
+
+        # Crit result text
+        crit_text = rotation_percentile_text_map(rotation_percentile)
+        crit_text += f" Your DPS corresponded to the {rotation_percentile:0.1%} percentile of the DPS distribution. Scroll down to see a detailed analysis of your rotation. Please note that DPS is reported and not rDPS (or any of the derived DPS metrics) and that this percentile has no relation to percentiles reported on FFLogs."
+
+        # Give warning if not all variance in a job is supported (AST, BRD, DNC)
+        if player_job_no_space in job_warnings.keys():
+            alert_child = dbc.Alert(
                 [
-                    job_build,
-                    html.Br(),
-                    fflogs_card,
-                    html.Br(),
-                    result_card,
-                ]
+                    html.I(className="bi bi-exclamation-triangle-fill me-2"),
+                    job_warnings[player_job_no_space],
+                ],
+                color="warning",
+                className="d-flex align-items-center",
             )
+        else:
+            alert_child = []
+
+        xiv_analysis_url = (
+            f"https://xivanalysis.com/fflogs/{report_id}/{fight_id}/{player_id}"
+        )
+
+        job_radio_options = show_job_options(
+            get_player_analysis_job_records(report_id, fight_id),
+            role,
+            rotation_object.fight_start_time,
+        )
+        job_radio_options_dict = {
+            "Tank": job_radio_options[0],
+            "Healer": job_radio_options[1],
+            "Melee": job_radio_options[2],
+            "Physical Ranged": job_radio_options[3],
+            "Magical Ranged": job_radio_options[4],
+        }
+        job_radio_value_dict = {
+            "Tank": None,
+            "Healer": None,
+            "Melee": None,
+            "Physical Ranged": None,
+            "Magical Ranged": None,
+        }
+
+        job_radio_value_dict[role] = player_id
+
+        ### Make all the divs
+        job_build = initialize_job_build(
+            etro_url,
+            role,
+            main_stat_pre_bonus,
+            secondary_stat_pre_bonus,
+            determination,
+            speed_stat,
+            crit,
+            direct_hit,
+            weapon_damage,
+            delay,
+            party_bonus,
+            medication_amt,
+        )
+
+        phase_select_options, phase_select_hidden = get_phase_selector_options(
+            furthest_phase, encounter_id
+        )
+        fflogs_card = initialize_fflogs_card(
+            fflogs_url,
+            encounter_name_time,
+            phase_select_options,
+            fight_phase,
+            phase_select_hidden,
+            job_radio_options_dict,
+            job_radio_value_dict,
+            False,
+            False,
+        )
+        rotation_card = initialize_rotation_card(
+            rotation_graph, rotation_percentile_table
+        )
+        # action_card = initialize_action_card(
+        #     action_graph, action_summary_table, action_options, action_values
+        # )
+        action_card = initialize_new_action_card(action_graph)
+        result_card = initialize_results(
+            character,
+            crit_text,
+            alert_child,
+            rotation_card,
+            action_card,
+            analysis_url,
+            xiv_analysis_url,
+            False,
+        )
+
+        access_db_row = (analysis_id, datetime.datetime.now())
+        # update access table
+        if not DRY_RUN:
+            update_access_table(access_db_row)
+
+        return dash.html.Div(
+            [
+                job_build,
+                html.Br(),
+                fflogs_card,
+                html.Br(),
+                result_card,
+            ]
+        )
 
 
 @callback(
@@ -1219,6 +1235,7 @@ def process_fflogs_url(n_clicks, url, role):
         encounter_name,
         start_time,
         furthest_phase_index,
+        excluded_enemy_ids,
         r,
     ) = get_encounter_job_info(report_id, int(fight_id))
 
@@ -1269,6 +1286,7 @@ def process_fflogs_url(n_clicks, url, role):
             k["player_server"],
             k["player_id"],
             k["pet_ids"],
+            json.dumps(excluded_enemy_ids),
             k["job"],
             k["role"],
         )
@@ -1296,6 +1314,112 @@ def process_fflogs_url(n_clicks, url, role):
         True,
         False,
         False,
+    )
+
+
+@callback(
+    Output("tank-jobs", "options", allow_duplicate=True),
+    Output("tank-jobs", "value", allow_duplicate=True),
+    Output("healer-jobs", "options", allow_duplicate=True),
+    Output("healer-jobs", "value", allow_duplicate=True),
+    Output("melee-jobs", "options", allow_duplicate=True),
+    Output("melee-jobs", "value", allow_duplicate=True),
+    Output("physical-ranged-jobs", "options", allow_duplicate=True),
+    Output("physical-ranged-jobs", "value", allow_duplicate=True),
+    Output("magical-ranged-jobs", "options", allow_duplicate=True),
+    Output("magical-ranged-jobs", "value", allow_duplicate=True),
+    Input("role-select", "value"),
+    State("tank-jobs", "options"),
+    State("tank-jobs", "value"),
+    State("healer-jobs", "options"),
+    State("healer-jobs", "value"),
+    State("melee-jobs", "options"),
+    State("melee-jobs", "value"),
+    State("physical-ranged-jobs", "options"),
+    State("physical-ranged-jobs", "value"),
+    State("magical-ranged-jobs", "options"),
+    State("magical-ranged-jobs", "value"),
+    prevent_initial_call=True,
+)
+def update_player_job_selector(
+    selected_role: str,
+    tank_jobs: list,
+    tank_values: list,
+    healer_jobs: list,
+    healer_values: list,
+    melee_jobs: list,
+    melee_values: list,
+    phys_ranged_jobs: list,
+    phys_ranged_values: list,
+    caster_jobs: list,
+    caster_values: list,
+) -> tuple:
+    """
+    Update job selectors by enabling the jobs of the selected role and disabling others.
+
+    Additionally, preserve the value list for the selected role and set others to None.
+
+    Args:
+        selected_role (str): The currently selected job role (e.g., "Tank", "Healer").
+        tank_jobs (list): List of Tank job dictionaries.
+        tank_values (list): Selected values for Tank jobs.
+        healer_jobs (list): List of Healer job dictionaries.
+        healer_values (list): Selected values for Healer jobs.
+        melee_jobs (list): List of Melee job dictionaries.
+        melee_values (list): Selected values for Melee jobs.
+        phys_ranged_jobs (list): List of Physical Ranged job dictionaries.
+        phys_ranged_values (list): Selected values for Physical Ranged jobs.
+        caster_jobs (list): List of Magical Ranged job dictionaries.
+        caster_values (list): Selected values for Magical Ranged jobs.
+
+    Returns:
+        tuple: Updated job lists and their corresponding values with 'disabled' flags set.
+    """
+    # Define a mapping of roles to their respective job lists
+    role_to_jobs = {
+        "Tank": tank_jobs,
+        "Healer": healer_jobs,
+        "Melee": melee_jobs,
+        "Physical Ranged": phys_ranged_jobs,
+        "Magical Ranged": caster_jobs,
+    }
+
+    role_to_values = {
+        "Tank": tank_values,
+        "Healer": healer_values,
+        "Melee": melee_values,
+        "Physical Ranged": phys_ranged_values,
+        "Magical Ranged": caster_values,
+    }
+
+    # Iterate over each role and its job list
+    for role, jobs in role_to_jobs.items():
+        # Determine if the current role is the selected role
+        is_selected = role == selected_role
+
+        # Update the 'disabled' status for each job in the current role
+        for job in jobs:
+            job["disabled"] = not is_selected
+
+    # Iterate over each role's values to preserve selected role's values and set others to None
+    for role, values in role_to_values.items():
+        if role != selected_role:
+            role_to_values[role] = None
+        # If it's the selected role, keep the values as is
+        # (No action needed)
+
+    # Return the updated job lists and their corresponding value lists in the specified order
+    return (
+        tank_jobs,
+        role_to_values["Tank"],
+        healer_jobs,
+        role_to_values["Healer"],
+        melee_jobs,
+        role_to_values["Melee"],
+        phys_ranged_jobs,
+        role_to_values["Physical Ranged"],
+        caster_jobs,
+        role_to_values["Magical Ranged"],
     )
 
 
@@ -1358,7 +1482,8 @@ def display_compute_button(
         if x is not None
     ]
     if job_list is None or (selected_job == []) or (job_list == []):
-        raise PreventUpdate
+        hide_button = True
+        return hide_button
 
     # Get just the job names
     job_list = [x["value"] for x in job_list]
@@ -1485,7 +1610,7 @@ def analyze_and_register_rotation(
     """
     updated_url = dash.no_update
 
-    job_player = [healer_jobs, tank_jobs, melee_jobs, phys_ranged_jobs, magical_jobs]
+    player_id = [healer_jobs, tank_jobs, melee_jobs, phys_ranged_jobs, magical_jobs]
 
     if n_clicks is None:
         raise PreventUpdate
@@ -1494,37 +1619,30 @@ def analyze_and_register_rotation(
         fight_phase = fight_phase[0]
     else:
         fight_phase = int(fight_phase)
-    job_player = [x for x in job_player if x is not None][0]
+    player_id = [x for x in player_id if x is not None][0]
     report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
-    encounter_df = read_encounter_table()
-    encounter_comparison_columns = ["report_id", "fight_id", "player_id"]
 
-    player_info = encounter_df.loc[
-        (
-            encounter_df[encounter_comparison_columns]
-            == (report_id, fight_id, job_player)
-        ).all(axis=1)
-    ].iloc[0]
-
-    player = player_info["player_name"]
-    job_no_space = player_info["job"]
-    role = player_info["role"]
-    encounter_id = player_info["encounter_id"]
+    (
+        player_name,
+        pet_ids,
+        excluded_enemy_ids,
+        job_no_space,
+        role,
+        encounter_id,
+        encounter_name,
+    ) = read_player_analysis_info(report_id, fight_id, player_id)
     level = encounter_level[encounter_id]
 
     # Higher level = bigger damage = bigger discretization step size
     delta_map = {90: 4, 100: 9}
 
-    main_stat_multiplier = (
-        1 + len(set(encounter_df[encounter_df["role"] != "Limit Break"]["role"])) / 100
-    )
+    main_stat_multiplier = compute_party_bonus(report_id, fight_id)
     main_stat_type = role_stat_dict[role]["main_stat"]["placeholder"].lower()
     main_stat = int(main_stat_pre_bonus * main_stat_multiplier)
 
     secondary_stat_type, secondary_stat_pre_bonus, secondary_stat = set_secondary_stats(
         role, abbreviated_job_map[job_no_space].upper(), main_stat_multiplier, tenacity
     )
-
     delay = weapon_delays[abbreviated_job_map[job_no_space].upper()]
 
     medication_amt = int(medication_amt)
@@ -1551,33 +1669,14 @@ def analyze_and_register_rotation(
             gearset_id = None
 
         # Check if the rotation has been analyzed before
-
-        prior_reports = read_report_table()
-        comparison_columns = [
-            "report_id",
-            "fight_id",
-            "phase_id",
-            "job",
-            "player_name",
-            "main_stat",
-            "secondary_stat",
-            "determination",
-            "speed",
-            "critical_hit",
-            "direct_hit",
-            "weapon_damage",
-            "delay",
-            "medication_amount",
-        ]
-
-        db_check = (
+        prior_analysis_id, redo_analysis = search_prior_player_analyses(
             report_id,
             fight_id,
             fight_phase,
             job_no_space,
-            player,
-            main_stat,
-            secondary_stat,
+            player_name,
+            main_stat_pre_bonus,
+            secondary_stat_pre_bonus,
             determination,
             speed_stat,
             ch,
@@ -1587,134 +1686,121 @@ def analyze_and_register_rotation(
             medication_amt,
         )
 
-        if len(prior_reports) > 0:
-            prior_analysis = prior_reports.loc[
-                (prior_reports[comparison_columns] == db_check).all(axis=1)
-            ]
-        else:
-            prior_analysis = []
-
-        if len(prior_analysis) >= 1:
-            # redirect instead
-            analysis_id = prior_analysis["analysis_id"].iloc[0]
-            updated_url = f"/analysis/{analysis_id}"
+        # redirect if it has and doesn't need to be redone
+        if (prior_analysis_id is not None) and (not redo_analysis):
             return (
-                updated_url,
+                f"/analysis/{prior_analysis_id}",
                 ["Analyze rotation"],
                 False,
                 [],
                 False,
             )
 
-        if len(prior_analysis) == 0:
-            pet_ids = player_info["pet_ids"]
-            rotation = RotationTable(
-                headers,
+        # if n_prior_reports == 0:
+        rotation = RotationTable(
+            headers,
+            report_id,
+            fight_id,
+            job_no_space,
+            player_id,
+            ch,
+            dh,
+            determination,
+            medication_amt,
+            level,
+            fight_phase,
+            damage_buff_table,
+            critical_hit_rate_table,
+            direct_hit_rate_table,
+            guaranteed_hits_by_action_table,
+            guaranteed_hits_by_buff_table,
+            potency_table,
+            pet_ids,
+            excluded_enemy_ids,
+        )
+
+        rotation_df = rotation.rotation_df
+        t = rotation.fight_time
+        encounter_name = rotation.fight_name
+
+        job_analysis_object = rotation_analysis(
+            role,
+            job_no_space,
+            rotation_df,
+            t,
+            main_stat,
+            secondary_stat,
+            determination,
+            speed_stat,
+            ch,
+            dh,
+            wd,
+            delay,
+            main_stat_pre_bonus,
+            action_delta=delta_map[level],
+            level=level,
+        )
+
+        job_analysis_data = job_analysis_to_data_class(job_analysis_object, t)
+        job_analysis_data.interpolate_distributions()
+
+        analysis_id = str(uuid4())
+        redo_rotation_flag = 0
+        redo_dps_pdf_flag = 0
+
+        if not DRY_RUN:
+            with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
+                pickle.dump(rotation, f)
+            with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
+                pickle.dump(job_analysis_data, f)
+
+            db_row = (
+                analysis_id,
                 report_id,
                 fight_id,
-                job_no_space,
-                int(player_info["player_id"]),
-                ch,
-                dh,
-                determination,
-                medication_amt,
-                level,
                 fight_phase,
-                damage_buff_table,
-                critical_hit_rate_table,
-                direct_hit_rate_table,
-                guaranteed_hits_by_action_table,
-                guaranteed_hits_by_buff_table,
-                potency_table,
-                pet_ids,
-            )
-
-            rotation_df = rotation.rotation_df
-            t = rotation.fight_time
-            encounter_name = rotation.fight_name
-
-            job_analysis_object = rotation_analysis(
-                role,
-                job_no_space,
-                rotation_df,
+                encounter_name,
                 t,
-                main_stat,
+                job_no_space,
+                player_name,
+                int(main_stat_pre_bonus),
+                int(main_stat),
+                main_stat_type,
+                secondary_stat_pre_bonus,
                 secondary_stat,
-                determination,
-                speed_stat,
-                ch,
-                dh,
-                wd,
+                secondary_stat_type,
+                int(determination),
+                int(speed_stat),
+                int(ch),
+                int(dh),
+                int(wd),
                 delay,
-                main_stat_pre_bonus,
-                action_delta=delta_map[level],
-                level=level,
+                medication_amt,
+                main_stat_multiplier,
+                gearset_id,
+                redo_dps_pdf_flag,
+                redo_rotation_flag,
             )
+            update_report_table(db_row)
 
-            job_analysis_data = job_analysis_to_data_class(job_analysis_object, t)
-            job_analysis_data.interpolate_distributions()
-
-            analysis_id = str(uuid4())
-            redo_rotation_flag = 0
-            redo_dps_pdf_flag = 0
-
-            if not DRY_RUN:
-                with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
-                    pickle.dump(rotation, f)
-                with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
-                    pickle.dump(job_analysis_data, f)
-
-                db_row = (
-                    analysis_id,
-                    report_id,
-                    fight_id,
-                    fight_phase,
-                    encounter_name,
-                    t,
-                    job_no_space,
-                    player,
-                    int(main_stat_pre_bonus),
-                    int(main_stat),
-                    main_stat_type,
-                    None
-                    if role in ("Melee", "Physical Ranged")
-                    else int(secondary_stat_pre_bonus),
-                    None
-                    if role in ("Melee", "Physical Ranged")
-                    else int(secondary_stat),
-                    secondary_stat_type,
-                    int(determination),
-                    int(speed_stat),
-                    int(ch),
-                    int(dh),
-                    int(wd),
-                    delay,
-                    medication_amt,
-                    main_stat_multiplier,
-                    gearset_id,
-                    redo_dps_pdf_flag,
-                    redo_rotation_flag,
-                )
-                update_report_table(db_row)
-
-            del job_analysis_object
+        del job_analysis_object
 
     # Catch any error and display it, then reset the button/prompt
     except Exception as e:
-        info = (
+        error_info = (
             report_id,
             fight_id,
+            player_id,
             encounter_id,
+            encounter_name,
             fight_phase,
             job_no_space,
-            player,
+            player_name,
             int(main_stat_pre_bonus),
             int(main_stat),
             main_stat_type,
-            None
-            if role in ("Melee", "Physical Ranged")
-            else int(secondary_stat_pre_bonus),
-            None if role in ("Melee", "Physical Ranged") else int(secondary_stat),
+            secondary_stat_pre_bonus,
+            secondary_stat,
             secondary_stat_type,
             int(determination),
             int(speed_stat),
@@ -1724,33 +1810,17 @@ def analyze_and_register_rotation(
             delay,
             medication_amt,
             main_stat_multiplier,
+            str(e),
+            traceback.format_exc(),
         )
 
-        error_information = {"inputted_info": info, "exception": e}
-
-        with open(
-            BLOB_URI / "error-logs" / f"{datetime.datetime.now()}-error.pkl", "wb"
-        ) as f:
-            pickle.dump(error_information, f)
+        insert_error_player_analysis(*error_info)
 
         return (
             updated_url,
             ["Analyze rotation"],
             False,
-            [
-                dbc.Alert(
-                    [
-                        html.P(
-                            "Oops, the following error was encountered while creating and analyzing your rotation:"
-                        ),
-                        str(e),
-                        html.P(
-                            "This error has been logged and will be fixed when possible. No further action is required."
-                        ),
-                    ],
-                    color="danger",
-                )
-            ],
+            [error_alert(str(e))],
             False,
         )
     updated_url = f"/analysis/{analysis_id}"

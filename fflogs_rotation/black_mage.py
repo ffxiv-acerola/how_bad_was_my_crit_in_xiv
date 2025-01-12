@@ -1,3 +1,4 @@
+import warnings
 from typing import Dict
 
 import numpy as np
@@ -156,7 +157,9 @@ class BlackMageActions(BuffQuery):
             umbral_soul = pd.DataFrame(umbral_soul)
             umbral_soul["ability_name"] = "Umbral Soul"
             umbral_soul = umbral_soul[["timestamp", "ability_name"]]
-            self.transpose_umbral_soul = pd.concat([transpose, umbral_soul])
+            with warnings.catch_warnings():
+                warnings.simplefilter(action="ignore", category=FutureWarning)
+                self.transpose_umbral_soul = pd.concat([transpose, umbral_soul])
 
         # Otherwise just keep the transpose instances
         else:
@@ -188,19 +191,23 @@ class BlackMageActions(BuffQuery):
         """
         no_dot_actions_df = actions_df[actions_df["tick"] != True]
 
-        # Concatenate umbral souls and transpose casts
-        no_dot_actions_df = (
-            pd.concat(
-                [
-                    no_dot_actions_df[["timestamp", "elapsed_time", "ability_name"]],
-                    self.transpose_umbral_soul[
-                        ["timestamp", "elapsed_time", "ability_name"]
-                    ],
-                ]
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            # Concatenate umbral souls and transpose casts
+            no_dot_actions_df = (
+                pd.concat(
+                    [
+                        no_dot_actions_df[
+                            ["timestamp", "elapsed_time", "ability_name"]
+                        ],
+                        self.transpose_umbral_soul[
+                            ["timestamp", "elapsed_time", "ability_name"]
+                        ],
+                    ]
+                )
+                .sort_values("timestamp")
+                .reset_index(drop=True)
             )
-            .sort_values("timestamp")
-            .reset_index(drop=True)
-        )
 
         # Get elapsed time
         no_dot_actions_df["elapsed_time"] = (
@@ -336,14 +343,18 @@ class BlackMageActions(BuffQuery):
             actions_df["ability_name"].isin(self.thunder_tick_names)
         ][["elapsed_time", "ability_name"]]
 
-        thunder_3_all = pd.concat(
-            [
-                elemental_df[
-                    elemental_df["ability_name"].isin(self.thunder_application_names)
-                ],
-                thunder_3_ticks,
-            ]
-        ).sort_values("elapsed_time")
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            thunder_3_all = pd.concat(
+                [
+                    elemental_df[
+                        elemental_df["ability_name"].isin(
+                            self.thunder_application_names
+                        )
+                    ],
+                    thunder_3_ticks,
+                ]
+            ).sort_values("elapsed_time")
 
         # Group each set of thunder applications and tick sets
         thunder_3_all["thunder_group"] = 0
@@ -360,21 +371,23 @@ class BlackMageActions(BuffQuery):
         )
         thunder_3_all.drop(columns=["thunder_group"], inplace=True)
 
-        # Now combine everything
-        self.elemental_status = (
-            pd.concat(
-                [
-                    elemental_df[
-                        ~elemental_df["ability_name"].isin(
-                            self.thunder_application_names
-                        )
-                    ],
-                    thunder_3_all,
-                ]
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            # Now combine everything
+            self.elemental_status = (
+                pd.concat(
+                    [
+                        elemental_df[
+                            ~elemental_df["ability_name"].isin(
+                                self.thunder_application_names
+                            )
+                        ],
+                        thunder_3_all,
+                    ]
+                )
+                .sort_values("elapsed_time")
+                .reset_index(drop=True)
             )
-            .sort_values("elapsed_time")
-            .reset_index(drop=True)
-        )
         self.elemental_status["n_stacks"] = self.elemental_status["n_stacks"].astype(
             int
         )

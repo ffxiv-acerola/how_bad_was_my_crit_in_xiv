@@ -1,4 +1,5 @@
 import json
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -213,9 +214,10 @@ class ActionTable(object):
             "Astrologian",
             "WhiteMage",
             "Sage",
+            "Scholar",
         ):
             self.actions_df = self.actions_df[
-                self.actions_df["ability_name"] != "Attack"
+                self.actions_df["ability_name"].str.lower() != "attack"
             ]
 
         # FIXME: I think arm of the destroyer won't get updated but surely no one would use that in savage.
@@ -439,6 +441,9 @@ class ActionTable(object):
                 headers, phase_start_time, phase_end_time
             )
             downtime = self.get_downtime(phase_response)
+
+            self.phase_start_time = phase_start_time
+            self.phase_end_time = phase_end_time
 
             self.fight_start_time = self.report_start_time + phase_start_time
             self.fight_end_time = self.report_start_time + phase_end_time
@@ -777,9 +782,11 @@ class ActionTable(object):
             .apply(lambda x: list(map(buff_strengths.get, x)))
             .apply(lambda x: np.prod([y for y in x if y is not None]))
         )
-        multiplier_table = pd.concat(
-            [unique_buff_sets[~unique_buff_sets["multiplier"].isna()], remainder]
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            multiplier_table = pd.concat(
+                [unique_buff_sets[~unique_buff_sets["multiplier"].isna()], remainder]
+            )
 
         # Apply multiplier to ground effect ticks
         ground_ticks_actions = self.actions_df[
@@ -798,21 +805,23 @@ class ActionTable(object):
             columns=["multiplier_y", "multiplier_x"], inplace=True
         )
 
-        # Recombine,
-        # drop temporary scratch columns,
-        # Re sort values
-        self.actions_df = (
-            pd.concat(
-                [
-                    self.actions_df[
-                        self.actions_df["abilityGameID"] != ground_effect_id
-                    ],
-                    ground_ticks_actions,
-                ]
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            # Recombine,
+            # drop temporary scratch columns,
+            # Re sort values
+            self.actions_df = (
+                pd.concat(
+                    [
+                        self.actions_df[
+                            self.actions_df["abilityGameID"] != ground_effect_id
+                        ],
+                        ground_ticks_actions,
+                    ]
+                )
+                .drop(columns=["str_buffs"])
+                .sort_values("elapsed_time")
             )
-            .drop(columns=["str_buffs"])
-            .sort_values("elapsed_time")
-        )
 
         return self.actions_df
 
@@ -1200,6 +1209,7 @@ class RotationTable(ActionTable):
         guaranteed_hits_by_buff_table: pd.DataFrame,
         potency_table: pd.DataFrame,
         pet_ids: Optional[List[int]] = None,
+        excluded_enemy_ids: Optional[List[int]] = None,
         debug: bool = False,
     ) -> None:
         """
@@ -1224,6 +1234,7 @@ class RotationTable(ActionTable):
             guaranteed_hits_by_buff_table: DataFrame mapping buffs to hit types
             potency_table: DataFrame mapping actions to potencies
             pet_ids: Optional list of pet actor IDs
+            excluded_enemy_ids: Target IDs of enemies to exclude from rotation_df.
             debug: Enable debug logging
 
         Example:
@@ -1271,6 +1282,7 @@ class RotationTable(ActionTable):
             pet_ids,
             debug,
         )
+        self.excluded_enemy_ids = excluded_enemy_ids
 
         self.potency_table = potency_table[
             (potency_table["valid_start"] <= self.fight_start_time)
@@ -1287,6 +1299,20 @@ class RotationTable(ActionTable):
         ].apply(lambda x: x.split(";"))
         self.rotation_df = self.make_rotation_df(self.actions_df)
 
+        if excluded_enemy_ids is None:
+            self.filtered_actions_df = self.actions_df.copy()
+        else:
+            self.filtered_actions_df = self.actions_df.copy()[
+                ~self.actions_df["targetID"].isin(self.excluded_enemy_ids)
+            ]
+
+        mismatched_actions = set(self.rotation_df.base_action) - set(
+            self.actions_df.ability_name
+        )
+        if len(mismatched_actions) > 0:
+            raise IndexError(
+                f"Error matching the following actions with rotation: {', '.join(mismatched_actions)}"
+            )
         pass
 
     def normalize_hit_types(self, actions_df: pd.DataFrame) -> pd.DataFrame:
@@ -1600,6 +1626,19 @@ class RotationTable(ActionTable):
         )
         # Need to add potency falloff so counting is correctly done later.
         actions_df["buff_str"] += "." + actions_df["matched_falloff"].astype(str)
+
+        # Exclude any enemies in excluded_enemy_ids
+        # ex: crystals of darkness in FRU
+        if self.excluded_enemy_ids is not None:
+            actions_df = actions_df[
+                ~actions_df["targetID"].isin(self.excluded_enemy_ids)
+            ]
+
+        # Filter out any actions which do no damage.
+        # This is currently only observed for DoT ticks occurring
+        # on a dead, castlocked boss.
+        # E.g, FRU p4 killed before CT will be castlocked for akh morn cast
+        actions_df = actions_df[actions_df["amount"] > 0]
 
         # And you cant value count nans
         actions_df["bonusPercent"] = actions_df["bonusPercent"].fillna(-1)

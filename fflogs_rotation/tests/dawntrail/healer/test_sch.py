@@ -73,7 +73,7 @@ class TestScholarActions:
             self.dh,
             self.wd,
             self.delay,
-            self.pet_attack_power,            
+            self.pet_attack_power,
             level=self.level,
         )
         # self.black_cat_sch.attach_rotation(self.black_cat_rotation.rotation_df, self.t)
@@ -91,7 +91,9 @@ class TestScholarActions:
             ]
         )
 
-    def test_sch_7_05_action_counts(self, expected_sch_7_05_action_counts: pd.DataFrame):
+    def test_sch_7_05_action_counts(
+        self, expected_sch_7_05_action_counts: pd.DataFrame
+    ):
         """Test that action counts match expected values for 7.05 Black Cat (Savage) log."""
         # Arrange
         actual_counts = (
