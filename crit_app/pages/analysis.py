@@ -1239,6 +1239,8 @@ def process_fflogs_url(n_clicks, url, role):
         r,
     ) = get_encounter_job_info(report_id, int(fight_id))
 
+    if excluded_enemy_ids is not None:
+        excluded_enemy_ids = json.dumps(excluded_enemy_ids)
     print(kill_time)
     fight_time_str = format_kill_time_str(kill_time)
 
@@ -1286,7 +1288,7 @@ def process_fflogs_url(n_clicks, url, role):
             k["player_server"],
             k["player_id"],
             k["pet_ids"],
-            json.dumps(excluded_enemy_ids),
+            excluded_enemy_ids,
             k["job"],
             k["role"],
         )

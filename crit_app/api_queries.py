@@ -313,7 +313,7 @@ def limit_break_damage_events(
     r = requests.post(url=url, json=json_payload, headers=headers)
     r = json.loads(r.text)
 
-    start_time = lb_data = r["data"]["reportData"]["report"]["startTime"]
+    start_time = r["data"]["reportData"]["report"]["startTime"]
     lb_data = r["data"]["reportData"]["report"]["events"]["data"]
 
     if len(lb_data) == 0:

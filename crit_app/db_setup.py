@@ -20,7 +20,7 @@ if not (BLOB_URI / "error-logs").exists():
     (BLOB_URI / "error-logs").resolve().mkdir(parents=True)
 
 create_encounter_table = """
-CREATE TABLE
+CREATE TABLE if not exists
     encounter (
         report_id TEXT NOT NULL,
         fight_id INTEGER NOT NULL,

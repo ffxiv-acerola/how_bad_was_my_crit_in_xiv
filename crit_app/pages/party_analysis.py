@@ -428,6 +428,9 @@ def party_fflogs_process(n_clicks, url):
         r,
     ) = get_encounter_job_info(report_id, int(fight_id))
 
+    if excluded_enemy_ids is not None:
+        excluded_enemy_ids = json.dumps(excluded_enemy_ids)
+
     if encounter_id not in valid_encounters:
         return tuple(
             [f"Sorry, {encounter_name} is currently not supported."] + invalid_return
@@ -461,7 +464,7 @@ def party_fflogs_process(n_clicks, url):
                 k["player_server"],
                 int(k["player_id"]),
                 k["pet_ids"],
-                json.dumps(excluded_enemy_ids),
+                excluded_enemy_ids,
                 k["job"],
                 k["role"],
             )

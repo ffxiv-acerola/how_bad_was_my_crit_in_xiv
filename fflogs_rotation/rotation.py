@@ -426,7 +426,9 @@ class ActionTable(object):
             # End of phase
             encounter_id = r["data"]["reportData"]["report"]["fights"][0]["encounterID"]
             # End time is beginning of next phase
-            if self.phase < max(encounter_phases[encounter_id].keys()):
+            if (self.phase < max(encounter_phases[encounter_id].keys())) & (
+                len(self.phase_information) > self.phase
+            ):
                 phase_end_time = [
                     p["startTime"]
                     for p in self.phase_information
