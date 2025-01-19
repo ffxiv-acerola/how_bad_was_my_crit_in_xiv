@@ -19,47 +19,52 @@ dash.register_page(
 def layout():
     # Always default to the latest patch
     default_patch_idx = max(patch_values.keys())
-
+    default_patch = patch_values[default_patch_idx]
     analytics_df = analytics_query()
 
     # Group by start-of-week
-    weekly_counts = analytics_df.groupby("week_start").size().reset_index(name="count")
+    weekly_counts = (
+        analytics_df.groupby("week_start")
+        .size()
+        .reset_index(name="count")
+        .rename(columns={"week_start": "Date", "count": "Analysis Count"})
+    )
 
     analysis_run_chart = dcc.Graph(
         figure=px.bar(
             weekly_counts,
-            x="week_start",
-            y="count",
-            title="Weekly Analysis Counts",
+            x="Date",
+            y="Analysis Count",
+            title=f"Weekly Analysis Counts, N = {len(analytics_df)}",
             template="plotly_dark",
         ),
     )
 
-    encounter_counts = compute_encounter_counts(analytics_df, default_patch_idx)
+    encounter_counts = compute_encounter_counts(analytics_df, default_patch)
     encounter_count_table = dbc.Table.from_dataframe(
         encounter_counts, striped=True, bordered=True, hover=True
     )
 
     #### By job
-    role_job_counts = compute_role_job_counts(analytics_df, default_patch_idx)
+    role_job_counts = compute_role_job_counts(analytics_df, default_patch)
 
     role_job_graph = dcc.Graph(
         figure=px.bar(
             role_job_counts,
-            x="role",
+            x="Role",
             y="Analysis Count",
             color="job",
             text="job",
             barmode="stack",
             template="plotly_dark",
-        )
+        ).update_layout(showlegend=False)
     )
 
-    region_counts = compute_region_counts(analytics_df, default_patch_idx)
+    region_counts = compute_region_counts(analytics_df, default_patch)
 
     region_graph = dcc.Graph(
         figure=px.bar(
-            region_counts, x="region", y="Analysis Count", template="plotly_dark"
+            region_counts, x="Region", y="Analysis Count", template="plotly_dark"
         )
     )
     analytic_row = dbc.Row(
@@ -110,14 +115,13 @@ def layout():
     Input("patch-selector", "value"),
 )
 def update_charts(patch_idx):
-    if isinstance(patch_idx, str):
-        try:
-            patch_idx = int(patch_idx)
-        except Exception:
-            dash.exceptions.PreventUpdate()
+    try:
+        patch_idx = int(patch_idx)
+    except (TypeError, ValueError):
+        raise dash.exceptions.PreventUpdate()
 
-    if patch_idx is None or patch_idx < 0:
-        dash.exceptions.PreventUpdate()
+    if (not patch_idx) or (patch_idx not in patch_values):
+        raise dash.exceptions.PreventUpdate()
     selected_patch_str = patch_values[patch_idx]
 
     # 2. Retrieve or reprocess your main DataFrame
@@ -135,7 +139,7 @@ def update_charts(patch_idx):
     region_counts = compute_region_counts(analytics_df, selected_patch_str)
     fig_region = px.bar(
         region_counts,
-        x="region",
+        x="Region",
         y="Analysis Count",
         template="plotly_dark",
         title="Region Counts",
@@ -146,14 +150,14 @@ def update_charts(patch_idx):
 
     fig_role_job = px.bar(
         role_job_counts,
-        x="role",
+        x="Role",
         y="Analysis Count",
         color="job",
         text="job",
         barmode="stack",
         template="plotly_dark",
         title="Role-Job Counts",
-    )
+    ).update_layout(showlegend=False)
 
     # Return all three outputs in order
     return encounter_table, fig_region, fig_role_job
@@ -241,7 +245,10 @@ def compute_role_job_counts(
     else:
         filtered_df = df
     return (
-        filtered_df.groupby(["role", "job"]).size().reset_index(name="Analysis Count")
+        filtered_df.groupby(["role", "job"])
+        .size()
+        .reset_index(name="Analysis Count")
+        .rename(columns={"role": "Role"})
     )
 
 
@@ -262,7 +269,12 @@ def compute_region_counts(
         filtered_df = df[df["relevant_patch"] == patch_filter]
     else:
         filtered_df = df
-    return filtered_df.groupby(["region"]).size().reset_index(name="Analysis Count")
+    return (
+        filtered_df.groupby(["region"])
+        .size()
+        .reset_index(name="Analysis Count")
+        .rename(columns={"region": "Region"})
+    )
 
 
 encounter_information = [
