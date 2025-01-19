@@ -1,15 +1,162 @@
 import sqlite3
 from typing import Optional
+
 import dash
 import dash_bootstrap_components as dbc
+import numpy as np
 import pandas as pd
 import plotly.express as px
 from dash import Input, Output, callback, dcc, html
+
+from crit_app.config import DB_URI
 
 dash.register_page(
     __name__,
     path="/analytics",
 )
+
+
+def layout():
+    # Always default to the latest patch
+    default_patch_idx = max(patch_values.keys())
+
+    analytics_df = analytics_query()
+
+    # Group by start-of-week
+    weekly_counts = analytics_df.groupby("week_start").size().reset_index(name="count")
+
+    analysis_run_chart = dcc.Graph(
+        figure=px.bar(
+            weekly_counts,
+            x="week_start",
+            y="count",
+            title="Weekly Analysis Counts",
+            template="plotly_dark",
+        ),
+    )
+
+    encounter_counts = compute_encounter_counts(analytics_df, default_patch_idx)
+    encounter_count_table = dbc.Table.from_dataframe(
+        encounter_counts, striped=True, bordered=True, hover=True
+    )
+
+    #### By job
+    role_job_counts = compute_role_job_counts(analytics_df, default_patch_idx)
+
+    role_job_graph = dcc.Graph(
+        figure=px.bar(
+            role_job_counts,
+            x="role",
+            y="Analysis Count",
+            color="job",
+            text="job",
+            barmode="stack",
+            template="plotly_dark",
+        )
+    )
+
+    region_counts = compute_region_counts(analytics_df, default_patch_idx)
+
+    region_graph = dcc.Graph(
+        figure=px.bar(
+            region_counts, x="region", y="Analysis Count", template="plotly_dark"
+        )
+    )
+    analytic_row = dbc.Row(
+        [
+            dbc.Col(html.Div(role_job_graph), md=8, width=12),
+            dbc.Col(html.Div(region_graph), md=4, width=12),
+        ]
+    )
+    select_label = dbc.Label("Patch filter:")
+    selector = dbc.Select(
+        id="patch-selector", options=selector_options, value=default_patch_idx
+    )
+
+    # Encounter table placeholder
+    encounter_count_table = html.Div(id="encounter-table")
+
+    # Region graph placeholder
+    region_graph = dcc.Graph(id="region-graph")
+
+    # Role-job graph placeholder
+    role_job_graph = dcc.Graph(id="role-job-graph")
+
+    run_chart_row = dbc.Row(
+        [
+            dbc.Col(html.Div(analysis_run_chart), md=8, width=12),
+            dbc.Col(
+                html.Div([select_label, selector, encounter_count_table]),
+                md=4,
+                width=12,
+            ),
+        ]
+    )
+
+    analytic_row = dbc.Row(
+        [
+            dbc.Col(html.Div(role_job_graph), md=8, width=12),
+            dbc.Col(html.Div(region_graph), md=4, width=12),
+        ]
+    )
+
+    return [run_chart_row, html.Br(), analytic_row]
+
+
+@callback(
+    Output("encounter-table", "children"),
+    Output("region-graph", "figure"),
+    Output("role-job-graph", "figure"),
+    Input("patch-selector", "value"),
+)
+def update_charts(patch_idx):
+    if isinstance(patch_idx, str):
+        try:
+            patch_idx = int(patch_idx)
+        except Exception:
+            dash.exceptions.PreventUpdate()
+
+    if patch_idx is None or patch_idx < 0:
+        dash.exceptions.PreventUpdate()
+    selected_patch_str = patch_values[patch_idx]
+
+    # 2. Retrieve or reprocess your main DataFrame
+    analytics_df = analytics_query()
+
+    # 3. Encounter counts
+    encounter_counts = compute_encounter_counts(analytics_df, selected_patch_str)
+
+    # Build a new HTML table
+    encounter_table = dbc.Table.from_dataframe(
+        encounter_counts, striped=True, bordered=True, hover=True
+    )
+
+    # 4. Region counts
+    region_counts = compute_region_counts(analytics_df, selected_patch_str)
+    fig_region = px.bar(
+        region_counts,
+        x="region",
+        y="Analysis Count",
+        template="plotly_dark",
+        title="Region Counts",
+    )
+
+    # 5. Role-job counts
+    role_job_counts = compute_role_job_counts(analytics_df, selected_patch_str)
+
+    fig_role_job = px.bar(
+        role_job_counts,
+        x="role",
+        y="Analysis Count",
+        color="job",
+        text="job",
+        barmode="stack",
+        template="plotly_dark",
+        title="Role-Job Counts",
+    )
+
+    # Return all three outputs in order
+    return encounter_table, fig_region, fig_role_job
 
 
 def analytics_query() -> pd.DataFrame:
@@ -19,7 +166,7 @@ def analytics_query() -> pd.DataFrame:
     Returns:
         pd.DataFrame: Combined analytics data.
     """
-    conn = sqlite3.connect("reports.db")
+    conn = sqlite3.connect(DB_URI)
 
     query = """
     SELECT
@@ -118,147 +265,6 @@ def compute_region_counts(
     return filtered_df.groupby(["region"]).size().reset_index(name="Analysis Count")
 
 
-def layout():
-    # Always default to the latest patch
-    default_patch_idx = max(patch_values.keys())
-
-    analytics_df = analytics_query()
-
-    # Group by start-of-week
-    weekly_counts = analytics_df.groupby("week_start").size().reset_index(name="count")
-
-    analysis_run_chart = dcc.Graph(
-        figure=px.bar(
-            weekly_counts,
-            x="week_start",
-            y="count",
-            title="Weekly Analysis Counts",
-            template="plotly_dark",
-        ),
-    )
-
-    encounter_counts = compute_encounter_counts(analytics_df, default_patch_idx)
-    encounter_count_table = dbc.Table.from_dataframe(
-        encounter_counts, striped=True, bordered=True, hover=True
-    )
-
-    #### By job
-    role_job_counts = compute_role_job_counts(analytics_df, default_patch_idx)
-
-    role_job_graph = dcc.Graph(
-        figure=px.bar(
-            role_job_counts,
-            x="role",
-            y="Analysis Count",
-            color="job",
-            text="job",
-            barmode="stack",
-            template="plotly_dark",
-        )
-    )
-
-    region_counts = compute_region_counts(analytics_df, default_patch_idx)
-
-    region_graph = dcc.Graph(
-        figure=px.bar(
-            region_counts, x="region", y="Analysis Count", template="plotly_dark"
-        )
-    )
-    analytic_row = dbc.Row(
-        [
-            dbc.Col(html.Div(role_job_graph), md=8, width=12),
-            dbc.Col(html.Div(region_graph), md=4, width=12),
-        ]
-    )
-    select_label = dbc.Label("Patch filter:")
-    selector = dbc.Select(id="patch-selector", options=selector_options, value=1)
-
-    # Encounter table placeholder
-    encounter_count_table = html.Div(id="encounter-table")
-
-    # Region graph placeholder
-    region_graph = dcc.Graph(id="region-graph")
-
-    # Role-job graph placeholder
-    role_job_graph = dcc.Graph(id="role-job-graph")
-
-    run_chart_row = dbc.Row(
-        [
-            dbc.Col(html.Div(analysis_run_chart), md=8, width=12),
-            dbc.Col(
-                html.Div([select_label, selector, encounter_count_table]),
-                md=4,
-                width=12,
-            ),
-        ]
-    )
-
-    analytic_row = dbc.Row(
-        [
-            dbc.Col(html.Div(role_job_graph), md=8, width=12),
-            dbc.Col(html.Div(region_graph), md=4, width=12),
-        ]
-    )
-
-    return [run_chart_row, html.Br(), analytic_row]
-
-
-@callback(
-    Output("encounter-table", "children"),
-    Output("region-graph", "figure"),
-    Output("role-job-graph", "figure"),
-    Input("patch-selector", "value"),
-)
-def update_charts(patch_idx):
-    if isinstance(patch_idx, str):
-        try:
-            patch_idx = int(patch_idx)
-        except Exception:
-            dash.exceptions.PreventUpdate()
-
-    if patch_idx is None or patch_idx < 0:
-        dash.exceptions.PreventUpdate()
-    selected_patch_str = patch_values[patch_idx]
-
-    # 2. Retrieve or reprocess your main DataFrame
-    analytics_df = analytics_query()
-
-    # 3. Encounter counts
-    encounter_counts = compute_encounter_counts(analytics_df, selected_patch_str)
-
-    # Build a new HTML table
-    encounter_table = dbc.Table.from_dataframe(
-        encounter_counts, striped=True, bordered=True, hover=True
-    )
-
-    # 4. Region counts
-    region_counts = compute_region_counts(analytics_df, selected_patch_str)
-    fig_region = px.bar(
-        region_counts,
-        x="region",
-        y="Analysis Count",
-        template="plotly_dark",
-        title="Region Counts",
-    )
-
-    # 5. Role-job counts
-    role_job_counts = compute_role_job_counts(analytics_df, selected_patch_str)
-
-    fig_role_job = px.bar(
-        role_job_counts,
-        x="role",
-        y="Analysis Count",
-        color="job",
-        text="job",
-        barmode="stack",
-        template="plotly_dark",
-        title="Role-Job Counts",
-    )
-
-    # Return all three outputs in order
-    return encounter_table, fig_region, fig_role_job
-
-
 encounter_information = [
     {
         "encounter_id": 88,
@@ -353,7 +359,10 @@ encounter_information = [
 ]
 encounter_information_df = pd.DataFrame(encounter_information)
 patch_values = {
-    idx: a for idx, a in enumerate(set(encounter_information_df["relevant_patch"]))
+    idx: a
+    for idx, a in enumerate(
+        np.sort(encounter_information_df["relevant_patch"].unique()).tolist()
+    )
 }
 patch_values[-1] = None
 selector_options = [

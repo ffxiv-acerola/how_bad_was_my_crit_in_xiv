@@ -2,6 +2,7 @@ import json
 import pickle
 import time
 import traceback
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 
@@ -76,11 +77,11 @@ from crit_app.util.db import (
     insert_error_party_analysis,
     insert_error_player_analysis,
     search_prior_player_analyses,
-    # unflag_party_report_recompute,
     unflag_redo_rotation,
     unflag_report_recompute,
     update_encounter_table,
     update_party_report_table,
+    update_player_analysis_creation_table,
     update_report_table,
 )
 from crit_app.util.party_dps_distribution import (
@@ -1270,6 +1271,7 @@ def analyze_party_rotation(
         party_analysis_id = str(uuid4())
 
     # Job analyses
+    creation_ts = datetime.now()
     for a in range(len(job_rotation_pdf_list)):
         # Write RotationTable
         with open(
@@ -1296,6 +1298,7 @@ def analyze_party_rotation(
         unflag_redo_rotation(player_analysis_ids[a])
         unflag_report_recompute(player_analysis_ids[a])
         update_report_table(job_db_rows[a])
+        update_player_analysis_creation_table((player_analysis_ids[a], creation_ts))
         pass
 
     # Write party analysis to disk

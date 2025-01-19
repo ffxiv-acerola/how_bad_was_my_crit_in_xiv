@@ -91,6 +91,14 @@ create table if not exists party_report(
 strict
 """
 
+create_player_analysis_creation_table = """
+CREATE TABLE creation_player_analysis (
+    analysis_id	TEXT NOT NULL,
+    creation_ts TEXT,
+    PRIMARY KEY("analysis_id")
+);
+"""
+
 create_access_table = """
 create table if not exists access(
     analysis_id TEXT NOT NULL,
@@ -163,6 +171,7 @@ if __name__ == "__main__":
     cur.execute(create_encounter_table)
     cur.execute(create_report_table)
     cur.execute(create_party_report_table)
+    cur.execute(create_player_analysis_creation_table)
     cur.execute(create_access_table)
     cur.execute(create_player_error_table)
     cur.execute(create_party_error_table)

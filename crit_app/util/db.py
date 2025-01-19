@@ -120,6 +120,28 @@ def update_access_table(db_row):
     pass
 
 
+def update_player_analysis_creation_table(db_row):
+    """
+    Insert or replace a record in the creation_player_analysis table.
+
+    Args:
+        db_row: Tuple containing (analysis_id, creation_ts).
+    """
+    con = sqlite3.connect(DB_URI)
+    cur = con.cursor()
+    cur.execute(
+        """
+    insert or replace into creation_player_analysis
+    values (?, ?)
+    """,
+        db_row,
+    )
+    con.commit()
+    cur.close()
+    con.close()
+    pass
+
+
 def read_player_analysis_info(
     report_id: str, fight_id: int, player_id: int
 ) -> Tuple[str, Optional[List[int]], Optional[List[int]], str, str, int, str]:

@@ -67,6 +67,7 @@ from crit_app.util.db import (
     unflag_report_recompute,
     update_access_table,
     update_encounter_table,
+    update_player_analysis_creation_table,
     update_report_table,
 )
 from crit_app.util.player_dps_distribution import job_analysis_to_data_class
@@ -1784,7 +1785,9 @@ def analyze_and_register_rotation(
                 redo_rotation_flag,
             )
             update_report_table(db_row)
-
+            update_player_analysis_creation_table(
+                (analysis_id, datetime.datetime.now())
+            )
         del job_analysis_object
 
     # Catch any error and display it, then reset the button/prompt
