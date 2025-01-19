@@ -316,11 +316,21 @@ def limit_break_damage_events(
     start_time = r["data"]["reportData"]["report"]["startTime"]
     lb_data = r["data"]["reportData"]["report"]["events"]["data"]
 
+    # No LB events the entire fight
     if len(lb_data) == 0:
         return pd.DataFrame(
             data=[],
             columns=["report_id", "fight_id", "timestamp", "target_id", "amount"],
         )
+
+    # No LB events for the selected phase
+    lb_data = [a for a in lb_data if a["type"] in ("damage", "calculateddamage")]
+    if len(lb_data) == 0:
+        return pd.DataFrame(
+            data=[],
+            columns=["report_id", "fight_id", "timestamp", "target_id", "amount"],
+        )
+
     else:
         lb_df = pd.DataFrame(lb_data).rename(columns={"targetID": "target_id"})
         lb_df = lb_df[lb_df["type"] == "calculateddamage"]
