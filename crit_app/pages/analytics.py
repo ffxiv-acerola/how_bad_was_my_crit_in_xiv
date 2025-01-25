@@ -9,11 +9,26 @@ import plotly.express as px
 from dash import Input, Output, callback, dcc, html
 
 from crit_app.config import DB_URI
+from crit_app.job_data.encounter_data import encounter_information, world_to_region
+from crit_app.job_data.roles import abbreviated_job_map
 
 dash.register_page(
     __name__,
     path="/analytics",
 )
+
+encounter_information_df = pd.DataFrame(encounter_information)
+patch_values = {
+    idx: a
+    for idx, a in enumerate(
+        np.sort(encounter_information_df["relevant_patch"].unique()).tolist()
+    )
+}
+patch_values[-1] = None
+selector_options = [
+    {"label": v if v is not None else "All", "value": k}
+    for k, v in patch_values.items()
+]
 
 
 def layout():
@@ -120,7 +135,7 @@ def update_charts(patch_idx):
     except (TypeError, ValueError):
         raise dash.exceptions.PreventUpdate()
 
-    if (not patch_idx) or (patch_idx not in patch_values):
+    if patch_idx not in patch_values.keys():
         raise dash.exceptions.PreventUpdate()
     selected_patch_str = patch_values[patch_idx]
 
@@ -193,6 +208,7 @@ def analytics_query() -> pd.DataFrame:
     df["region"] = df["region"].replace(world_to_region)
     df["week_start"] = pd.to_datetime(df["week_start"])
     df["creation_ts"] = pd.to_datetime(df["creation_ts"])
+    df["job"] = df["job"].replace(abbreviated_job_map).str.upper()
     # Close the connection
     conn.close()
     return df
@@ -275,201 +291,3 @@ def compute_region_counts(
         .reset_index(name="Analysis Count")
         .rename(columns={"region": "Region"})
     )
-
-
-encounter_information = [
-    {
-        "encounter_id": 88,
-        "encounter_name": "Kokytos",
-        "content_type": "Raid",
-        "relevant_patch": "6.4 - 6.5",
-    },
-    {
-        "encounter_id": 89,
-        "encounter_name": "Pandaemonium",
-        "content_type": "Raid",
-        "relevant_patch": "6.4 - 6.5",
-    },
-    {
-        "encounter_id": 90,
-        "encounter_name": "Themis",
-        "content_type": "Raid",
-        "relevant_patch": "6.4 - 6.5",
-    },
-    {
-        "encounter_id": 91,
-        "encounter_name": "Athena",
-        "content_type": "Raid",
-        "relevant_patch": "6.4 - 6.5",
-    },
-    {
-        "encounter_id": 92,
-        "encounter_name": "Pallas Athena",
-        "content_type": "Raid",
-        "relevant_patch": "6.4 - 6.5",
-    },
-    {
-        "encounter_id": 93,
-        "encounter_name": "Black Cat",
-        "content_type": "Raid",
-        "relevant_patch": "7.0 - 7.2",
-    },
-    {
-        "encounter_id": 94,
-        "encounter_name": "Honey B. Lovely",
-        "content_type": "Raid",
-        "relevant_patch": "7.0 - 7.2",
-    },
-    {
-        "encounter_id": 95,
-        "encounter_name": "Brute Bomber",
-        "content_type": "Raid",
-        "relevant_patch": "7.0 - 7.2",
-    },
-    {
-        "encounter_id": 96,
-        "encounter_name": "Wicked Thunder",
-        "content_type": "Raid",
-        "relevant_patch": "7.0 - 7.2",
-    },
-    {
-        "encounter_id": 1069,
-        "encounter_name": "Golbez",
-        "content_type": "Extreme",
-        "relevant_patch": "6.4 - 6.5",
-    },
-    {
-        "encounter_id": 1070,
-        "encounter_name": "Zeromus",
-        "content_type": "Extreme",
-        "relevant_patch": "6.4 - 6.5",
-    },
-    {
-        "encounter_id": 1072,
-        "encounter_name": "Zoraal Ja",
-        "content_type": "Extreme",
-        "relevant_patch": "7.0 - 7.2",
-    },
-    {
-        "encounter_id": 1078,
-        "encounter_name": "Queen Eternal",
-        "content_type": "Extreme",
-        "relevant_patch": "7.0 - 7.2",
-    },
-    {
-        "encounter_id": 1079,
-        "encounter_name": "Futures Rewritten",
-        "content_type": "Ultimate",
-        "relevant_patch": "7.0 - 7.2",
-    },
-    {
-        "encounter_id": 3009,
-        "encounter_name": "Byakko",
-        "content_type": "Unreal",
-        "relevant_patch": "7.0 - 7.2",
-    },
-]
-encounter_information_df = pd.DataFrame(encounter_information)
-patch_values = {
-    idx: a
-    for idx, a in enumerate(
-        np.sort(encounter_information_df["relevant_patch"].unique()).tolist()
-    )
-}
-patch_values[-1] = None
-selector_options = [
-    {"label": v if v is not None else "All", "value": k}
-    for k, v in patch_values.items()
-]
-
-world_to_region = {
-    # North America
-    "Adamantoise": "North America",
-    "Cactuar": "North America",
-    "Faerie": "North America",
-    "Gilgamesh": "North America",
-    "Jenova": "North America",
-    "Midgardsormr": "North America",
-    "Sargatanas": "North America",
-    "Siren": "North America",
-    "Balmung": "North America",
-    "Brynhildr": "North America",
-    "Coeurl": "North America",
-    "Diabolos": "North America",
-    "Goblin": "North America",
-    "Malboro": "North America",
-    "Mateus": "North America",
-    "Zalera": "North America",
-    "Cuchulainn": "North America",
-    "Golem": "North America",
-    "Halicarnassus": "North America",
-    "Kraken": "North America",
-    "Maduin": "North America",
-    "Marilith": "North America",
-    "Rafflesia": "North America",
-    "Seraph": "North America",
-    "Behemoth": "North America",
-    "Excalibur": "North America",
-    "Exodus": "North America",
-    "Famfrit": "North America",
-    "Hyperion": "North America",
-    "Lamia": "North America",
-    "Leviathan": "North America",
-    "Ultros": "North America",
-    # Europe
-    "Cerberus": "Europe",
-    "Louisoix": "Europe",
-    "Moogle": "Europe",
-    "Omega": "Europe",
-    "Phantom": "Europe",
-    "Ragnarok": "Europe",
-    "Sagittarius": "Europe",
-    "Spriggan": "Europe",
-    "Alpha": "Europe",
-    "Lich": "Europe",
-    "Odin": "Europe",
-    "Phoenix": "Europe",
-    "Raiden": "Europe",
-    "Shiva": "Europe",
-    "Twintania": "Europe",
-    "Zodiark": "Europe",
-    # Oceania
-    "Bismarck": "Oceania",
-    "Ravana": "Oceania",
-    "Sephirot": "Oceania",
-    "Sophia": "Oceania",
-    "Zurvan": "Oceania",
-    # Japan
-    "Aegis": "Japan",
-    "Atomos": "Japan",
-    "Carbuncle": "Japan",
-    "Garuda": "Japan",
-    "Gungnir": "Japan",
-    "Kujata": "Japan",
-    "Ramuh": "Japan",
-    "Tonberry": "Japan",
-    "Typhon": "Japan",
-    "Unicorn": "Japan",
-    "Alexander": "Japan",
-    "Bahamut": "Japan",
-    "Durandal": "Japan",
-    "Fenrir": "Japan",
-    "Ifrit": "Japan",
-    "Ridill": "Japan",
-    "Tiamat": "Japan",
-    "Ultima": "Japan",
-    "Valefor": "Japan",
-    "Yojimbo": "Japan",
-    "Zeromus": "Japan",
-    "Anima": "Japan",
-    "Asura": "Japan",
-    "Chocobo": "Japan",
-    "Hades": "Japan",
-    "Ixion": "Japan",
-    "Masamune": "Japan",
-    "Pandaemonium": "Japan",
-    "Shinryu": "Japan",
-    "Titan": "Japan",
-    "Belias": "Japan",
-    "Kaguya": "Japan",
-}

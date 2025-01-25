@@ -110,6 +110,7 @@ strict
 create_player_error_table = """
 create table
     if not exists error_player_analysis (
+        error_id TEXT NOT NULL,
         report_id TEXT NOT NULL,
         fight_id INTEGER NOT NULL,
         player_id INTEGER NOT NULL,
@@ -135,12 +136,14 @@ create table
         error_message TEXT NOT NULL,
         traceback TEXT NOT NULL,
         error_ts TEXT NOT NULL,
-        primary key (report_id, fight_id, player_id)
+        error_active INTEGER NOT NULL,
+        primary key (error_id)
     ) strict
 """
 
 create_party_error_table = """
 create table if not exists error_party_analysis(
+    error_id,
     report_id TEXT NOT NULL,
     fight_id INTEGER NOT NULL,
     fight_phase INTEGER NOT NULL,
@@ -161,7 +164,8 @@ create table if not exists error_party_analysis(
     error_message TEXT NOT NULL,
     traceback TEXT NOT NULL,
     error_ts TEXT NOT NULL,
-    primary key (report_id, fight_id, fight_phase, player_id)
+    error_active INTEGER NOT NULL,
+    primary key (error_id)
 ) strict;
 """
 

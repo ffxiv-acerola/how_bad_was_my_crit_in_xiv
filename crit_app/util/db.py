@@ -653,6 +653,7 @@ def insert_error_player_analysis(
         error_message,
         traceback,
         datetime.datetime.now(),
+        1,
     )
 
     con = sqlite3.connect(DB_URI)
@@ -1102,6 +1103,7 @@ def insert_error_party_analysis(
                 error_message,
                 error_traceback,
                 error_ts,
+                1,
             )
         )
     con = sqlite3.connect(DB_URI)
