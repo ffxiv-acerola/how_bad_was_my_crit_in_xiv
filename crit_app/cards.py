@@ -431,7 +431,7 @@ def initialize_fflogs_card(
                         value=[phase_select_value],
                         id="phase-select",
                     ),
-                    width=1,
+                    width=12,
                     md=5,
                 ),
             ],

@@ -169,7 +169,7 @@ def create_fflogs_card(
                         id="party-phase-select",
                         disabled=disable_phase_select,
                     ),
-                    width=1,
+                    width=12,
                     md=5,
                 ),
             ],
