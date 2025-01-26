@@ -21,6 +21,7 @@ scipy = "^1.14.1"
 coreapi = "^2.3.3"
 gunicorn = "^23.0.0"
 pyarrow = "^17.0.0"
+dash-auth = "^2.3.0"
 
 
 [tool.poetry.group.dev.dependencies]
