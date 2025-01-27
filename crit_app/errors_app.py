@@ -30,4 +30,4 @@ errors_app.layout = dbc.Container(
 )
 
 if __name__ == "__main__":
-    errors_app.run_server(debug=True)
+    errors_app.run(debug=True, port="8051")

@@ -623,11 +623,12 @@ def insert_error_player_analysis(
     """
     sql_query = """
     INSERT OR REPLACE INTO error_player_analysis VALUES (
-        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
     )
     """
 
     params = (
+        f"pl-{report_id}-{fight_id}.{phase_id}.{player_id}",
         report_id,
         fight_id,
         player_id,
@@ -1070,7 +1071,7 @@ def insert_error_party_analysis(
     """
     sql_query = """
     INSERT OR REPLACE INTO error_party_analysis VALUES (
-        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
     )
     """
 
@@ -1081,6 +1082,7 @@ def insert_error_party_analysis(
     for a in range(len(player_name)):
         rows_to_insert.append(
             (
+                f"pa-{report_id}-{fight_id}.{fight_phase}.{player_id[a]}",
                 report_id,
                 fight_id,
                 fight_phase,
