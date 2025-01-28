@@ -545,6 +545,25 @@ diskcache = ["diskcache (>=5.2.1)", "multiprocess (>=0.70.12)", "psutil (>=5.8.0
 testing = ["beautifulsoup4 (>=4.8.2)", "cryptography", "dash-testing-stub (>=0.0.2)", "lxml (>=4.6.2)", "multiprocess (>=0.70.12)", "percy (>=2.0.2)", "psutil (>=5.8.0)", "pytest (>=6.0.2)", "requests[security] (>=2.21.0)", "selenium (>=3.141.0,<=4.2.0)", "waitress (>=1.4.4)"]
 
 [[package]]
+name = "dash-auth"
+version = "2.3.0"
+description = "Dash Authorization Package."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "dash_auth-2.3.0-py3-none-any.whl", hash = "sha256:2fa72d4ee128b4f9cf0c958157a986ffcd0b93d43b54d64e3cef5976ab7e0abe"},
+    {file = "dash_auth-2.3.0.tar.gz", hash = "sha256:72df43248c15e121f8d5d710981e880deb2df546b564f2951a10ca50d7d92f6d"},
+]
+
+[package.dependencies]
+dash = ">=1.1.1"
+flask = "*"
+werkzeug = "*"
+
+[package.extras]
+oidc = ["authlib"]
+
+[[package]]
 name = "dash-bootstrap-components"
 version = "1.6.0"
 description = "Bootstrap themed components for use in Plotly Dash"
@@ -2733,4 +2752,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "d721cc60c29993b6dc0f0a3065ade333c1a45697764782332f5de98ee0f06f59"
+content-hash = "6b2e73e70b25a7ac8768c39abe08cd8dac2e8ddc42d6ebf0728fb1988d6c6425"

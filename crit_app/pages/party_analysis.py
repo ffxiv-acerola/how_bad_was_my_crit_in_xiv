@@ -128,7 +128,9 @@ LEVEL_STEP_MAP = {
 
 def layout(party_analysis_id=None):
     if party_analysis_id is None:
-        fflogs_card = create_fflogs_card()
+        fflogs_card = create_fflogs_card(
+            analysis_progress_children=[], analysis_progress_value=0
+        )
         return dash.html.Div([fflogs_card])
 
     else:
@@ -221,6 +223,8 @@ def layout(party_analysis_id=None):
             party_accordion_children,
             wrap_collapse=True,
             hide_fflogs_div=False,
+            analysis_progress_children="Analysis progress: Done!",
+            analysis_progress_value=100,
         )
 
         #############################
@@ -1671,6 +1675,7 @@ def create_rotation_clippings(
                             rotation_delta=rotation_delta,
                             action_delta=action_delta,
                             compute_mgf=True,
+                            # test_error_log=True
                         )
                     )
                     job_rotation_clipping_pdf_list[t].append(

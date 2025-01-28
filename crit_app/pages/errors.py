@@ -10,11 +10,6 @@ from crit_app.config import DB_URI
 from crit_app.job_data.encounter_data import encounter_information
 from crit_app.job_data.roles import abbreviated_job_map
 
-dash.register_page(
-    __name__,
-    path="/errors",
-)
-
 encounter_df = pd.DataFrame(encounter_information)
 
 

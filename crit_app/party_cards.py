@@ -82,6 +82,8 @@ def create_fflogs_card(
     hide_fflogs_div: bool = True,
     wrap_collapse: bool = False,
     force_update: bool = False,
+    analysis_progress_children=[],
+    analysis_progress_value=0,
 ) -> dbc.Card:
     """
     Create card component for FFLogs URL input and encounter info.
@@ -111,8 +113,6 @@ def create_fflogs_card(
         disable_phase_select = False
         button_color = "primary"
         analyze_button_text = "Analyze party rotation"
-        analysis_progress_children = "Analysis progress: Done!"
-        analysis_progress_value = 100
 
     # URL input row
     url_input = dbc.Row(
