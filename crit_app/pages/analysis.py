@@ -492,7 +492,7 @@ def layout(analysis_id=None):
                     role,
                     player_job_no_space,
                     rotation_df,
-                    rotation_object.fight_time,
+                    rotation_object.fight_dps_time,
                     main_stat,
                     secondary_stat,
                     determination,
@@ -1723,7 +1723,7 @@ def analyze_and_register_rotation(
         )
 
         rotation_df = rotation.rotation_df
-        t = rotation.fight_time
+        t = rotation.fight_dps_time
         encounter_name = rotation.fight_name
 
         job_analysis_object = rotation_analysis(

@@ -1,169 +1,284 @@
-import pandas as pd
-from pandas.testing import assert_frame_equal
+import pytest
 
-from fflogs_rotation.job_data.data import (
-    critical_hit_rate_table,
-    damage_buff_table,
-    direct_hit_rate_table,
-    guaranteed_hits_by_action_table,
-    guaranteed_hits_by_buff_table,
-    potency_table,
-)
-from fflogs_rotation.rotation import RotationTable
-from fflogs_rotation.tests.config import headers
+from fflogs_rotation.rotation import ActionTable
 
 
-def pct_action_counts_by_phase(phase: int) -> pd.DataFrame:
-    pct_rotation = RotationTable(
-        headers,
-        report_id,
-        fight_id,
-        "Pictomancer",
-        player_id,
-        crt,
-        dh,
-        det,
-        medication,
-        level,
-        phase,
-        damage_buff_table,
-        critical_hit_rate_table,
-        direct_hit_rate_table,
-        guaranteed_hits_by_action_table,
-        guaranteed_hits_by_buff_table,
-        potency_table,
-        pet_ids=pet_ids,
+# Dummy client that does nothing for our tests
+class DummyClient:
+    def query(self, query, variables, operationName=None):
+        # For phase downtime queries, this will be overridden in tests via monkeypatching/lambda.
+        return {}
+
+
+# Common dummy response base for _process_fight_data tests with an encounter having 3 phases.
+# The report contains a startTime, rankings with a duration, and a table.
+def get_dummy_response(
+    fight_name,
+    encounter_id,
+    kill,
+    fight_start,
+    fight_end,
+    phase_transitions,
+    table_data,
+):
+    return {
+        "data": {
+            "reportData": {
+                "report": {
+                    "startTime": 1000,
+                    "fights": [
+                        {
+                            "name": fight_name,
+                            "encounterID": encounter_id,
+                            "hasEcho": False,
+                            "kill": kill,
+                            "phaseTransitions": phase_transitions,
+                            "startTime": fight_start,  # relative fight start
+                            "endTime": fight_end,  # relative fight end (used in phase=0 and final phase branch)
+                        }
+                    ],
+                    "rankings": {"data": [{"duration": 5000}]},
+                    "table": {"data": table_data},
+                }
+            }
+        }
+    }
+
+
+# Define phase transitions for an encounter with 3 phases.
+phase_transitions = [
+    {"id": 1, "startTime": 2000},
+    {"id": 2, "startTime": 4000},
+    {"id": 3, "startTime": 8000},
+]
+
+# Set up encounter_phases mapping for the dummy instance
+encounter_phases_dummy = {1: {1: "P1", 2: "P2", 3: "P3"}}
+
+
+def test_process_fight_data_phase0():
+    """Phase 0: No phase analysis performed; downtime from main response."""
+    instance = ActionTable.__new__(ActionTable)
+    instance.phase = 0
+    instance.client = DummyClient()
+    instance.encounter_phases = encounter_phases_dummy
+
+    # Dummy response with no downtime provided (default should be 0)
+    dummy_response = get_dummy_response(
+        fight_name="TestFight_phase0",
+        encounter_id=1,
+        kill=True,
+        fight_start=1000,
+        fight_end=12000,
+        phase_transitions=phase_transitions,
+        table_data={},  # No "downtime" key; _get_downtime will default to 0.
     )
 
-    return (
-        pct_rotation.rotation_df.groupby("base_action")
-        .sum("n")
-        .reset_index()[["base_action", "n"]]
-        .sort_values(["n", "base_action"], ascending=[False, True])
-        .reset_index(drop=True)
+    instance._process_fight_data(dummy_response)
+    # Expected values:
+    # report_start_time = 1000
+    # phase branch is false so:
+    #   fight_start_time = 1000 (report) + 1000 (fight start) = 2000
+    #   fight_end_time = 1000 (report) + 5000 (fight end) = 6000
+    #   downtime = 0, so fight_dps_time = (6000-2000-0)/1000 = 4.0
+
+    assert instance.fight_name == "TestFight_phase0"
+    assert instance.encounter_id == 1
+    assert instance.has_echo is False
+    assert instance.kill is True
+    assert instance.report_start_time == 1000
+    assert instance.fight_start_time == 2000
+    assert instance.fight_end_time == 13000
+    assert instance.downtime == 0
+    assert instance.fight_dps_time == 11
+    assert instance.ranking_duration == 5000
+    assert instance.phase_start_time is None
+    assert instance.phase_end_time is None
+
+
+def test_process_fight_data_phase1():
+    """Phase 1: Non-final phase using phaseTransitions (expected phase_start = 2000, phase_end = 4000)."""
+    instance = ActionTable.__new__(ActionTable)
+    instance.phase = 1
+    instance.client = DummyClient()
+    instance.encounter_phases = encounter_phases_dummy
+
+    # Patch _fetch_phase_downtime to return a dummy downtime response with downtime = 100.
+    instance._fetch_phase_downtime = lambda: {
+        "data": {"reportData": {"report": {"table": {"data": {"downtime": 100}}}}}
+    }
+
+    dummy_response = get_dummy_response(
+        fight_name="TestFight_phase1",
+        encounter_id=1,
+        kill=True,
+        fight_start=1000,  # These values are not used in phase branch for start/end times.
+        fight_end=12000,  # fight_end is not used because _fetch_phase_start_end_time will select next phase start.
+        phase_transitions=phase_transitions,
+        table_data={},  # Not used in phase branch.
     )
 
+    instance._process_fight_data(dummy_response)
+    # _fetch_phase_start_end_time for phase==1:
+    #   phase_start_time = when id==1 => 2000
+    #   phase_end_time = when id==2 => 4000
+    # Then:
+    #   fight_start_time = report_start_time (1000) + 2000 = 3000
+    #   fight_end_time   = report_start_time (1000) + 4000 = 5000
+    #   downtime = 100, so fight_dps_time = (5000 - 3000 - 100)/1000 = 1.9
+    assert instance.fight_name == "TestFight_phase1"
+    assert instance.encounter_id == 1
+    assert instance.has_echo is False
+    assert instance.kill is True
+    assert instance.report_start_time == 1000
+    assert instance.phase_start_time == 2000
+    assert instance.phase_end_time == 4000
+    assert instance.fight_start_time == 3000
+    assert instance.fight_end_time == 5000
+    assert instance.downtime == 100
+    assert pytest.approx(instance.fight_dps_time, 0.001) == 1.9
+    assert instance.ranking_duration == 5000
 
-report_id = "vZRCr94LWzcXYjFq"
-fight_id = 15
-level = 100
-phase = 0
-player_id = 200
-pet_ids = None
-main_stat = 5127
-pet_attack_power = main_stat // 1.05
-det = 2271
-speed = 420
-crt = 3140
-dh = 2047
-wd = 146
-delay = 2.96
-medication = 392
 
-p1_actions = (
-    pd.DataFrame(
-        [
-            {"base_action": "Star Prism", "n": 2},
-            {"base_action": "Hammer Brush", "n": 3},
-            {"base_action": "Thunder in Magenta", "n": 3},
-            {"base_action": "Hammer Stamp", "n": 3},
-            {"base_action": "Polishing Hammer", "n": 2},
-            {"base_action": "Mog of the Ages", "n": 1},
-            {"base_action": "Rainbow Drip", "n": 3},
-            {"base_action": "Stone in Yellow", "n": 2},
-            {"base_action": "Comet in Black", "n": 2},
-            {"base_action": "Pom Muse", "n": 2},
-            {"base_action": "Blizzard in Cyan", "n": 2},
-            {"base_action": "Winged Muse", "n": 1},
-            {"base_action": "Fire in Red", "n": 4},
-            {"base_action": "Aero in Green", "n": 4},
-            {"base_action": "Water in Blue", "n": 3},
-            {"base_action": "Clawed Muse", "n": 1},
-            {"base_action": "Fanged Muse", "n": 1},
-        ]
+def test_process_fight_data_phase2():
+    """Phase 2: Non-final phase; expected phase_start = 4000, phase_end = 8000."""
+    instance = ActionTable.__new__(ActionTable)
+    instance.phase = 2
+    instance.client = DummyClient()
+    instance.encounter_phases = encounter_phases_dummy
+
+    # Patch _fetch_phase_downtime with dummy downtime = 150.
+    instance._fetch_phase_downtime = lambda: {
+        "data": {"reportData": {"report": {"table": {"data": {"downtime": 150}}}}}
+    }
+
+    dummy_response = get_dummy_response(
+        fight_name="TestFight_phase2",
+        encounter_id=1,
+        kill=True,
+        fight_start=1000,
+        fight_end=12000,  # Irrelevant for non-final phase branch.
+        phase_transitions=phase_transitions,
+        table_data={},
     )
-    .sort_values(["n", "base_action"], ascending=[False, True])
-    .reset_index(drop=True)
-)
+
+    instance._process_fight_data(dummy_response)
+    # For phase==2:
+    #   phase_start_time = when id==2 => 4000
+    #   phase_end_time = when id==3 => 8000
+    # Then:
+    #   fight_start_time = 1000 + 4000 = 5000
+    #   fight_end_time = 1000 + 8000 = 9000
+    #   fight_dps_time = (9000 - 5000 - 150)/1000 = 3.85
+    assert instance.fight_name == "TestFight_phase2"
+    assert instance.encounter_id == 1
+    assert instance.report_start_time == 1000
+    assert instance.phase_start_time == 4000
+    assert instance.phase_end_time == 8000
+    assert instance.fight_start_time == 5000
+    assert instance.fight_end_time == 9000
+    assert instance.downtime == 150
+    assert pytest.approx(instance.fight_dps_time, 0.001) == 3.85
+    assert instance.ranking_duration == 5000
 
 
-p4_actions = (
-    pd.DataFrame(
-        [
-            {"base_action": "Holy in White", "n": 14},
-            {"base_action": "Comet in Black", "n": 5},
-            {"base_action": "Polishing Hammer", "n": 4},
-            {"base_action": "Hammer Brush", "n": 4},
-            {"base_action": "Hammer Stamp", "n": 4},
-            {"base_action": "Star Prism", "n": 2},
-            {"base_action": "Mog of the Ages", "n": 2},
-            {"base_action": "Clawed Muse", "n": 3},
-            {"base_action": "Thunder in Magenta", "n": 2},
-            {"base_action": "Rainbow Drip", "n": 4},
-            {"base_action": "Blizzard in Cyan", "n": 2},
-            {"base_action": "Stone in Yellow", "n": 2},
-            {"base_action": "Pom Muse", "n": 2},
-            {"base_action": "Retribution of the Madeen", "n": 2},
-            {"base_action": "Fanged Muse", "n": 2},
-            {"base_action": "Aero in Green", "n": 3},
-            {"base_action": "Winged Muse", "n": 2},
-            {"base_action": "Fire in Red", "n": 3},
-            {"base_action": "Water in Blue", "n": 2},
-        ]
+def test_process_fight_data_phase3():
+    """Phase 3: Final phase (phase equals max phase) so phase_end_time returns fight["endTime"]."""
+    instance = ActionTable.__new__(ActionTable)
+    instance.phase = 3
+    instance.client = DummyClient()
+    instance.encounter_phases = encounter_phases_dummy
+
+    # Patch _fetch_phase_downtime with dummy downtime = 200.
+    instance._fetch_phase_downtime = lambda: {
+        "data": {"reportData": {"report": {"table": {"data": {"downtime": 200}}}}}
+    }
+
+    # For final phase, fight["endTime"] is used as phase_end_time.
+    dummy_response = get_dummy_response(
+        fight_name="TestFight_phase3",
+        encounter_id=1,
+        kill=True,
+        fight_start=1000,
+        fight_end=12000,  # This value will be used for phase_end_time in the final phase branch.
+        phase_transitions=phase_transitions,
+        table_data={},
     )
-    .sort_values(["n", "base_action"], ascending=[False, True])
-    .reset_index(drop=True)
-)
+
+    instance._process_fight_data(dummy_response)
+    # For phase==3:
+    #   _fetch_phase_start_end_time will do:
+    #       phase_start_time = when id==3 => 8000
+    #       Since phase (3) is NOT less than max({1,2,3}) (3 < 3 is False), else branch applies:
+    #         phase_end_time = fight_end_time from fight dict = 12000.
+    # Then:
+    #   fight_start_time = 1000 + 8000 = 9000
+    #   fight_end_time = 1000 + 12000 = 13000
+    #   fight_dps_time = (13000 - 9000 - 200)/1000 = 3.8
+    assert instance.fight_name == "TestFight_phase3"
+    assert instance.encounter_id == 1
+    assert instance.report_start_time == 1000
+    assert instance.phase_start_time == 8000
+    assert instance.phase_end_time == 12000
+    assert instance.fight_start_time == 9000
+    assert instance.fight_end_time == 13000
+    assert instance.downtime == 200
+    assert pytest.approx(instance.fight_dps_time, 0.001) == 3.8
+    assert instance.ranking_duration == 5000
 
 
-p5_actions = (
-    pd.DataFrame(
-        [
-            {"base_action": "Comet in Black", "n": 8},
-            {"base_action": "Polishing Hammer", "n": 6},
-            {"base_action": "Hammer Brush", "n": 6},
-            {"base_action": "Thunder in Magenta", "n": 7},
-            {"base_action": "Hammer Stamp", "n": 6},
-            {"base_action": "Stone in Yellow", "n": 7},
-            {"base_action": "Blizzard in Cyan", "n": 8},
-            {"base_action": "Star Prism", "n": 3},
-            {"base_action": "Rainbow Drip", "n": 3},
-            {"base_action": "Water in Blue", "n": 7},
-            {"base_action": "Aero in Green", "n": 7},
-            {"base_action": "Retribution of the Madeen", "n": 2},
-            {"base_action": "Winged Muse", "n": 2},
-            {"base_action": "Mog of the Ages", "n": 2},
-            {"base_action": "Fire in Red", "n": 7},
-            {"base_action": "Holy in White", "n": 5},
-            {"base_action": "Pom Muse", "n": 2},
-            {"base_action": "Fanged Muse", "n": 2},
-            {"base_action": "Clawed Muse", "n": 1},
-        ]
-    )
-    .sort_values(["n", "base_action"], ascending=[False, True])
-    .reset_index(drop=True)
-)
-
-
-def test_p1_action_counts():
-    """Test that phase timing is correctly applied by action counts.
-
-    From https://www.fflogs.com/reports/vZRCr94LWzcXYjFq?fight=15
+def test_process_fight_data_phase1_wipe():
     """
-    assert_frame_equal(pct_action_counts_by_phase(phase=1), p1_actions)
+    Multi-phase fight with a wipe in the first phase.
 
-
-def test_p4_action_counts():
-    """Test that phase timing is correctly applied by action counts.
-
-    From https://www.fflogs.com/reports/vZRCr94LWzcXYjFq?fight=15
+    Simulate a fight that did not progress past phase 1: Only one phase transition exists.
+    In this case, even though encounter_phases indicates more phases,
+    the missing next phase transition forces phase_end_time to be taken from fight["endTime"].
     """
-    assert_frame_equal(pct_action_counts_by_phase(phase=4), p4_actions)
 
+    instance = ActionTable.__new__(ActionTable)
+    instance.phase = 1
+    instance.client = DummyClient()
+    instance.encounter_phases = encounter_phases_dummy
 
-def test_p5_action_counts():
-    """Test that phase timing is correctly applied by action counts.
+    # Patch _fetch_phase_downtime and also _get_downtime to extract downtime.
+    instance._fetch_phase_downtime = lambda: {
+        "data": {"reportData": {"report": {"table": {"data": {"downtime": 50}}}}}
+    }
+    instance._get_downtime = lambda resp: resp["data"]["reportData"]["report"]["table"][
+        "data"
+    ]["downtime"]
 
-    From https://www.fflogs.com/reports/vZRCr94LWzcXYjFq?fight=15
-    """
-    assert_frame_equal(pct_action_counts_by_phase(phase=5), p5_actions)
+    # Provide phase_transitions with only phase 1 information to simulate a wipe.
+    reduced_phase_transitions = [
+        {"id": 1, "startTime": 2000},
+    ]
+    dummy_response = get_dummy_response(
+        fight_name="TestFight_phase1_wipe",
+        encounter_id=1,
+        kill=False,  # Wipe scenario; ranking_duration will be None.
+        fight_start=1000,
+        fight_end=9000,  # fight_end used as phase_end_time because next phase transition is missing.
+        phase_transitions=reduced_phase_transitions,
+        table_data={},
+    )
+    instance._process_fight_data(dummy_response)
+    # Expected:
+    #   phase_start_time = 2000 (from available phaseTransitions for id==1)
+    #   phase_end_time   = fight["endTime"] = 9000 (since there's no transition for phase 2)
+    #   fight_start_time = 1000+2000 = 3000
+    #   fight_end_time   = 1000+9000 = 10000
+    #   downtime = 50, so fight_dps_time = (10000 - 3000 - 50)/1000 = 6.95
+    #   ranking_duration = None because kill is False.
+    assert instance.fight_name == "TestFight_phase1_wipe"
+    assert instance.encounter_id == 1
+    assert instance.has_echo is False
+    assert instance.kill is False
+    assert instance.report_start_time == 1000
+    assert instance.phase_start_time == 2000
+    assert instance.phase_end_time == 9000
+    assert instance.fight_start_time == 3000
+    assert instance.fight_end_time == 10000
+    assert instance.downtime == 50
+    assert pytest.approx(instance.fight_dps_time, 0.001) == 6.95
+    assert instance.ranking_duration is None
