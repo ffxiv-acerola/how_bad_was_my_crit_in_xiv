@@ -1,4 +1,3 @@
-import json
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -6,7 +5,6 @@ import numpy as np
 import pandas as pd
 import requests
 
-from crit_app.job_data.encounter_data import encounter_phases
 from fflogs_rotation.bard import BardActions
 from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.dragoon import DragoonActions
@@ -26,13 +24,15 @@ from ffxiv_stats import Rate
 url = "https://www.fflogs.com/api/v2/client"
 
 
-class FFLogsClient:
+class FFLogsClient(object):
     """Responsible for FFLogs API calls."""
 
     def __init__(self, api_url: str = "https://www.fflogs.com/api/v2/client"):
         self.api_url = api_url
 
-    def query(self, headers, query: str, variables: dict, operation_name: str) -> dict:
+    def gql_query(
+        self, headers, query: str, variables: dict, operation_name: str
+    ) -> dict:
         json_payload = {
             "query": query,
             "variables": variables,
@@ -43,7 +43,7 @@ class FFLogsClient:
         return response.json()
 
 
-class ActionTable(object):
+class ActionTable(FFLogsClient):
     """
     Processes FFXIV combat log data into action tables for damage analysis.
 
@@ -56,8 +56,7 @@ class ActionTable(object):
 
     def __init__(
         self,
-        client,  # instance of FFLogsClient
-        headers,
+        headers: dict,
         report_id: str,
         fight_id: int,
         job: str,
@@ -77,7 +76,6 @@ class ActionTable(object):
         pet_ids: Optional[List[int]] = None,
         debug: bool = False,
     ) -> None:
-        self.client = client
         self.report_id = report_id
         self.fight_id = fight_id
         self.job = job
@@ -91,18 +89,15 @@ class ActionTable(object):
         self.medication_amt = medication_amt
         self.debug = debug
         self.encounter_phases = encounter_phases
+
+        super().__init__(api_url="https://www.fflogs.com/api/v2/client")
+
         # Fetch fight information and set timings
         self._fetch_fight_information(headers)
         # Fetch damage events from FFLogs
         self._fetch_damage_events(headers)
-        print("done")
 
-        # # Map ability names for later use
-        # self.ability_name_mapping_str = {
-        #     str(x): y for x, y in self.ability_name_mapping.items()
-        # }
-        # # Determine fight start time based on report base time and first action
-        # self.fight_start_time = self.report_start_time + self.actions[0]["timestamp"]
+        # Patch (used for echo)
         self.patch_number = self.what_patch_is_it()
 
         # Buff tables filtered based on fight start time
@@ -114,19 +109,29 @@ class ActionTable(object):
             guaranteed_hits_by_action_table,
         )
 
-        print("done")
+        self.ranged_cards = self.damage_buffs[
+            self.damage_buffs["buff_name"].isin(["The Bole", "The Spire", "The Ewer"])
+        ]["buff_id"].tolist()
+        self.melee_cards = self.damage_buffs[
+            self.damage_buffs["buff_name"].isin(
+                ["The Arrow", "The Balance", "The Spear"]
+            )
+        ]["buff_id"].tolist()
 
-        # # Build initial actions DataFrame
-        # self.actions_df = self.create_action_df()
-        # # Apply job-specific mechanics
-        # self._apply_job_specifics()
+        # Build initial actions DataFrame
+        self.actions_df = self.create_action_df()
+        # Apply job-specific mechanics
+        self._apply_job_specifics()
 
-        # # Final cleanup of actions DataFrame
-        # if "unpaired" in self.actions_df.columns:
-        #     self.actions_df = self.actions_df[self.actions_df["unpaired"] != True]
-        # self.actions_df = self.actions_df.reset_index(drop=True)
-        # if self.has_echo:
-        #     self.apply_the_echo()
+        # Final cleanup of actions DataFrame
+        # Remove unpaired actions, which still count towards gauge generation
+        if "unpaired" in self.actions_df.columns:
+            self.actions_df = self.actions_df[self.actions_df["unpaired"] != True]
+        self.actions_df = self.actions_df.reset_index(drop=True)
+
+        # Apply the echo, if present
+        if self.has_echo:
+            self.apply_the_echo()
 
     # def __init__(
     #     self,
@@ -262,136 +267,6 @@ class ActionTable(object):
 
     #     self.actions_df = self.create_action_df()
 
-    #     # Use delegation to handle job-specific mechanics,
-    #     # since exact transformations will depend on the job.
-    #     self.job_specifics = None
-
-    #     if self.job == "DarkKnight":
-    #         self.job_specifics = DarkKnightActions()
-    #         self.actions_df = self.estimate_ground_effect_multiplier(
-    #             self.job_specifics.salted_earth_id,
-    #         )
-    #         self.actions_df = self.job_specifics.apply_drk_things(
-    #             self.actions_df,
-    #             self.player_id,
-    #             self.pet_ids[0],
-    #         )
-
-    #     elif self.job == "Paladin":
-    #         self.job_specifics = PaladinActions(headers, report_id, fight_id, player_id)
-    #         self.actions_df = self.job_specifics.apply_pld_buffs(self.actions_df)
-    #         pass
-
-    #     elif self.job == "BlackMage":
-    #         self.job_specifics = BlackMageActions(
-    #             headers, report_id, fight_id, player_id, self.level, self.patch_number
-    #         )
-    #         self.actions_df = self.job_specifics.apply_elemental_buffs(self.actions_df)
-    #         self.actions_df = self.actions_df[
-    #             self.actions_df["ability_name"] != "Attack"
-    #         ]
-
-    #     elif self.job == "Summoner":
-    #         self.actions_df = self.estimate_ground_effect_multiplier(
-    #             1002706,
-    #         )
-
-    #     elif self.job in (
-    #         "Pictomancer",
-    #         "RedMage",
-    #         "Summoner",
-    #         "Astrologian",
-    #         "WhiteMage",
-    #         "Sage",
-    #         "Scholar",
-    #     ):
-    #         self.actions_df = self.actions_df[
-    #             self.actions_df["ability_name"].str.lower() != "attack"
-    #         ]
-
-    #     # FIXME: I think arm of the destroyer won't get updated but surely no one would use that in savage.
-    #     elif self.job == "Monk":
-    #         self.job_specifics = MonkActions(
-    #             headers, report_id, fight_id, player_id, self.patch_number
-    #         )
-
-    #         if self.patch_number < 7.0:
-    #             self.actions_df = self.job_specifics.apply_endwalker_mnk_buffs(
-    #                 self.actions_df
-    #             )
-    #         else:
-    #             self.actions_df = self.job_specifics.apply_dawntrail_mnk_buffs(
-    #                 self.actions_df
-    #             )
-
-    #         self.actions_df = self.job_specifics.apply_bootshine_autocrit(
-    #             self.actions_df,
-    #             self.critical_hit_stat,
-    #             self.direct_hit_stat,
-    #             self.critical_hit_rate_buffs,
-    #             self.level,
-    #         )
-    #         pass
-
-    #     elif self.job == "Ninja":
-    #         self.job_specifics = NinjaActions(
-    #             headers, report_id, fight_id, player_id, self.patch_number
-    #         )
-    #         self.actions_df = self.job_specifics.apply_ninja_buff(self.actions_df)
-    #         pass
-
-    #     elif self.job == "Dragoon":
-    #         self.job_specifics = DragoonActions(
-    #             headers, report_id, fight_id, player_id, self.patch_number
-    #         )
-    #         # if self.patch_number >= 7.0:
-    #         #     self.actions_df = self.job_specifics.apply_dawntrail_life_of_the_dragon_buffs(
-    #         #         self.actions_df
-    #         #     )
-    #         if self.patch_number < 7.0:
-    #             self.actions_df = (
-    #                 self.job_specifics.apply_endwalker_combo_finisher_potencies(
-    #                     self.actions_df
-    #                 )
-    #             )
-
-    #     elif self.job == "Reaper":
-    #         self.job_specifics = ReaperActions(headers, report_id, fight_id, player_id)
-    #         self.actions_df = self.job_specifics.apply_enhanced_buffs(self.actions_df)
-    #         pass
-
-    #     elif self.job == "Viper":
-    #         self.job_specifics = ViperActions(headers, report_id, fight_id, player_id)
-    #         self.actions_df = self.job_specifics.apply_viper_buffs(self.actions_df)
-
-    #     elif self.job == "Samurai":
-    #         self.job_specifics = SamuraiActions(headers, report_id, fight_id, player_id)
-    #         self.actions_df = self.job_specifics.apply_enhanced_enpi(self.actions_df)
-
-    #     elif self.job == "Machinist":
-    #         # wildfire can't crit...
-    #         self.actions_df.loc[
-    #             self.actions_df["abilityGameID"] == 1000861,
-    #             ["p_n", "p_c", "p_d", "p_cd"],
-    #         ] = [1.0, 0.0, 0.0, 0.0]
-
-    #         self.actions_df = self.estimate_ground_effect_multiplier(
-    #             1000861,
-    #         )
-    #         self.job_specifics = MachinistActions(
-    #             headers, report_id, fight_id, player_id
-    #         )
-    #         self.actions_df = self.job_specifics.apply_mch_potencies(self.actions_df)
-
-    #     elif self.job == "Bard":
-    #         self.job_specifics = BardActions()
-    #         self.actions_df = self.job_specifics.estimate_pitch_perfect_potency(
-    #             self.actions_df
-    #         )
-    #         if self.patch_number >= 7.0:
-    #             self.actions_df = self.job_specifics.estimate_radiant_encore_potency(
-    #                 self.actions_df
-    #             )
     #     # Unpaired didn't have damage go off, filter these out.
     #     # This column wont exist if there aren't any unpaired actions though.
     #     # This is done at the very end because unpaired actions can still give gauge,
@@ -420,7 +295,7 @@ class ActionTable(object):
     def _fetch_fight_information(self, headers) -> None:
         fight_info_variables = {"code": self.report_id, "id": [self.fight_id]}
 
-        response = self.client.query(
+        response = self.gql_query(
             headers,
             self._fight_information_query(),
             fight_info_variables,
@@ -574,9 +449,7 @@ class ActionTable(object):
             "start": self.phase_start_time,
             "end": self.phase_end_time,
         }
-        return self.client.query(
-            self._fight_phase_downtime_query(), variables, "PhaseTime"
-        )
+        return self.query(self._fight_phase_downtime_query(), variables, "PhaseTime")
 
     def _get_downtime(self, response: dict) -> int:
         """Extracts downtime from the response, returning 0 if not present."""
@@ -613,7 +486,10 @@ class ActionTable(object):
         """
         self.actions = []
 
-        source_ids = [self.player_id] + self.pet_ids
+        source_ids = [self.player_id]
+        if self.pet_ids is not None:
+            source_ids += self.pet_ids
+
         for i in source_ids:
             variables = {
                 "code": self.report_id,
@@ -625,14 +501,12 @@ class ActionTable(object):
                 "endTime": self.fight_end_time - self.report_start_time,
             }
 
-            json_payload = {
-                "query": self._damage_events_query(),
-                "variables": variables,
-                "operationName": "DpsActions",
-            }
-            r = requests.post(url=url, json=json_payload, headers=headers)
-            r = json.loads(r.text)
-            self.actions.extend(r["data"]["reportData"]["report"]["events"]["data"])
+            response = self.gql_query(
+                headers, self._damage_events_query(), variables, "DpsActions"
+            )
+            self.actions.extend(
+                response["data"]["reportData"]["report"]["events"]["data"]
+            )
         pass
 
     def _filter_buff_tables(
@@ -692,11 +566,6 @@ class ActionTable(object):
             Tuple containing:
             - str: Standardized card ID ("card3" or "card6")
             - float: Damage multiplier (1.03 or 1.06)
-
-        Example:
-            >>> card_id, mult = ast_card_buff("10003242")  # The Balance on SAM
-            >>> print(card_id, mult)
-            card6 1.06
         """
         ranged_jobs = [
             "WhiteMage",
@@ -732,7 +601,7 @@ class ActionTable(object):
 
     def estimate_radiant_finale_strength(self, elapsed_time):
         """
-        Estimate Radiant Finale buff strength based on fight duration.
+        Estimate Radiant Finale buff strength based on fight duration/phase.
 
         Radiant Finale's buff strength depends on number of Codas collected,
         but this isn't directly available in FFLogs. We estimate it based on
@@ -751,22 +620,80 @@ class ActionTable(object):
 
         Raises:
             ValueError: If elapsed_time < 0
-
-        Example:
-            >>> # Early in fight with 1 Coda
-            >>> estimate_radiant_finale_strength(50)
-            'RadiantFinale1'
-            >>> # Later with 3 Codas
-            >>> estimate_radiant_finale_strength(150)
-            'RadiantFinale3'
         """
         if elapsed_time < 0:
             raise ValueError("elapsed_time must be non-negative")
 
-        if elapsed_time < 100:
+        if (elapsed_time < 100) and (self.phase <= 1):
             return "RadiantFinale1"
         else:
             return "RadiantFinale3"
+
+    def _compute_multiplier_table(
+        self, actions_df: pd.DataFrame, damage_buffs: pd.DataFrame
+    ) -> pd.DataFrame:
+        """Compute the multiplier table for ground effects based on actions_df and damage_buffs."""
+        df = actions_df.copy()
+        df["str_buffs"] = df["buffs"].astype(str)
+
+        unique_buff_sets = df.drop_duplicates(
+            subset=["str_buffs", "multiplier"]
+        ).sort_values(["str_buffs", "multiplier"])[["str_buffs", "buffs", "multiplier"]]
+        unique_buff_sets["multiplier"] = unique_buff_sets.groupby("str_buffs")[
+            "multiplier"
+        ].ffill()
+        unique_buff_sets = unique_buff_sets.drop_duplicates(subset=["str_buffs"])
+
+        buff_strengths = (
+            damage_buffs.drop_duplicates(subset=["buff_id", "buff_strength"])
+            .set_index("buff_id")["buff_strength"]
+            .to_dict()
+        )
+
+        remainder = unique_buff_sets[unique_buff_sets["multiplier"].isna()].copy()
+        remainder.loc[:, "multiplier"] = (
+            remainder["buffs"]
+            .apply(lambda x: list(map(buff_strengths.get, x)))
+            .apply(lambda x: np.prod([y for y in x if y is not None]) if x else None)
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            multiplier_table = pd.concat(
+                [unique_buff_sets[~unique_buff_sets["multiplier"].isna()], remainder]
+            )
+        return multiplier_table
+
+    def _update_actions_with_ground_effect(
+        self,
+        actions_df: pd.DataFrame,
+        multiplier_table: pd.DataFrame,
+        ground_effect_id: str,
+    ) -> pd.DataFrame:
+        """Merge multiplier values for ground effect actions and return an updated actions_df."""
+        df = actions_df.copy()
+        df["str_buffs"] = df["buffs"].astype(str)
+
+        ground_ticks_actions = df[df["abilityGameID"] == ground_effect_id].copy()
+        ground_ticks_actions = ground_ticks_actions.merge(
+            multiplier_table[["str_buffs", "multiplier"]],
+            on="str_buffs",
+            how="left",
+            suffixes=("_x", "_y"),
+        )
+        # If a multiplier already exists (multiplier_x), use that; otherwise fallback to multiplier_y.
+        ground_ticks_actions["multiplier"] = ground_ticks_actions[
+            "multiplier_x"
+        ].combine_first(ground_ticks_actions["multiplier_y"])
+        ground_ticks_actions.drop(
+            columns=["multiplier_x", "multiplier_y"], inplace=True
+        )
+
+        # Combine the updated ground effect rows back into df
+        df_updated = pd.concat(
+            [df[df["abilityGameID"] != ground_effect_id], ground_ticks_actions]
+        ).drop(columns=["str_buffs"])
+        return df_updated.sort_values("elapsed_time")
 
     def estimate_ground_effect_multiplier(self, ground_effect_id: str) -> pd.DataFrame:
         """
@@ -786,91 +713,18 @@ class ActionTable(object):
         Returns:
             pd.DataFrame: Updated actions_df with estimated multipliers for the ground effect
                         Preserves original row order and indexes
-
-        Raises:
-            ValueError: If ground_effect_id not found in actions
-            KeyError: If required columns missing from DataFrame
-
-        Example:
-            ```python
-            # Estimate Salted Earth multipliers
-            actions_df = estimate_ground_effect_multiplier("1000815")
-            print(actions_df.loc[actions_df["abilityGameID"] == "1000815", "multiplier"])
-            ```
         """
         # Check if the multiplier already exists for other actions
         # Unhashable string column of buffs, which allow duplicates to be dropped
         # Buffs are always ordered the same way
-        self.actions_df["str_buffs"] = self.actions_df["buffs"].astype(str)
-
-        # Sort of buff fact table, grouped by buff and associated multiplier
-        unique_buff_sets = self.actions_df.drop_duplicates(
-            subset=["str_buffs", "multiplier"]
-        ).sort_values(["str_buffs", "multiplier"])[["str_buffs", "buffs", "multiplier"]]
-
-        # Ground effects have a null multiplier, but can be imputed if
-        # there exists the same set of buffs for a non ground effect
-        unique_buff_sets["multiplier"] = unique_buff_sets.groupby("str_buffs")[
-            "multiplier"
-        ].ffill()
-        unique_buff_sets = unique_buff_sets.drop_duplicates(subset=["str_buffs"])
-
-        buff_strengths = (
-            self.damage_buffs.drop_duplicates(subset=["buff_id", "buff_strength"])
-            .set_index("buff_id")["buff_strength"]
-            .to_dict()
-        )
-
-        # TODO: Could probably improve this by looking for the closest set of buffs with a multiplier
-        # and then just make a small change to that
-        remainder = unique_buff_sets[unique_buff_sets["multiplier"].isna()]
-        remainder.loc[:, "multiplier"] = (
-            remainder["buffs"]
-            .apply(lambda x: list(map(buff_strengths.get, x)))
-            .apply(lambda x: np.prod([y for y in x if y is not None]))
+        multiplier_table = self._compute_multiplier_table(
+            self.actions_df, self.damage_buffs
         )
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
-            multiplier_table = pd.concat(
-                [unique_buff_sets[~unique_buff_sets["multiplier"].isna()], remainder]
+            self.actions_df = self._update_actions_with_ground_effect(
+                self.actions_df, multiplier_table, ground_effect_id
             )
-
-        # Apply multiplier to ground effect ticks
-        ground_ticks_actions = self.actions_df[
-            self.actions_df["abilityGameID"] == ground_effect_id
-        ]
-        ground_ticks_actions = ground_ticks_actions.merge(
-            multiplier_table[["str_buffs", "multiplier"]], on="str_buffs"
-        )
-        # If for whatever reason a multiplier already existed,
-        # use that first instead of the derived one
-        # combine_first is basically coalesce
-        ground_ticks_actions["multiplier"] = ground_ticks_actions[
-            "multiplier_x"
-        ].combine_first(ground_ticks_actions["multiplier_y"])
-        ground_ticks_actions.drop(
-            columns=["multiplier_y", "multiplier_x"], inplace=True
-        )
-
-        with warnings.catch_warnings():
-            warnings.simplefilter(action="ignore", category=FutureWarning)
-            # Recombine,
-            # drop temporary scratch columns,
-            # Re sort values
-            self.actions_df = (
-                pd.concat(
-                    [
-                        self.actions_df[
-                            self.actions_df["abilityGameID"] != ground_effect_id
-                        ],
-                        ground_ticks_actions,
-                    ]
-                )
-                .drop(columns=["str_buffs"])
-                .sort_values("elapsed_time")
-            )
-
-        return self.actions_df
 
     def guaranteed_hit_type_damage_buff(
         self,
@@ -882,6 +736,8 @@ class ActionTable(object):
     ) -> Tuple[float, int]:
         """
         Calculate damage multiplier and hit type for abilities with guaranteed critical/direct hits.
+
+        acting under hit type buffs.
 
         Hit types:
         0 = Normal
@@ -1027,18 +883,6 @@ class ActionTable(object):
                 - p_n/p_c/p_d/p_cd: Hit type probabilities
                 - main_stat_add: Main stat increases
                 - buffs: List of active buff IDs
-
-        Example:
-            ```python
-            actions_df = action_table.create_action_df()
-            print(f"Found {len(actions_df)} actions")
-            print(actions_df[["ability_name", "multiplier"]].head())
-            ```
-
-        Notes:
-            - Job-specific mechanics are handled later by RotationTable
-            - Ground effects/pets are included if present
-            - Unpaired actions are filtered out
         """
 
         # These columns are almost always here, there can be some additional columns
@@ -1065,6 +909,14 @@ class ActionTable(object):
         # These will be filtered out later, but are included because unpaired
         # actions can still grant job gauge like Darkside
         actions_df = pd.DataFrame(self.actions)
+
+        actions_df["ability_name"] = actions_df["ability"].apply(
+            lambda x: x.get("name") if isinstance(x, dict) else None
+        )
+        actions_df["abilityGameID"] = actions_df["ability"].apply(
+            lambda x: x.get("guid") if isinstance(x, dict) else None
+        )
+        actions_df.drop(columns="ability", inplace=True)
 
         if "unpaired" in actions_df.columns:
             action_df_columns.append("unpaired")
@@ -1100,9 +952,6 @@ class ActionTable(object):
             actions_df["buffs"] = pd.NA
             actions_df["buffs"] = actions_df["buffs"].astype("object")
 
-        actions_df["ability_name"] = actions_df["abilityGameID"].map(
-            self.ability_name_mapping
-        )
         # Time in seconds relative to the first second
         actions_df["elapsed_time"] = (
             actions_df["timestamp"] - actions_df["timestamp"].iloc[0]
@@ -1212,6 +1061,166 @@ class ActionTable(object):
         )
         return actions_df.reset_index(drop=True)
 
+    def _apply_job_specifics(self) -> None:
+        """Delegates job-specific transformations."""
+        self.job_specifics = None
+
+        if self.job == "DarkKnight":
+            self.job_specifics = DarkKnightActions()
+            self.estimate_ground_effect_multiplier(
+                self.job_specifics.salted_earth_id,
+            )
+            self.actions_df = self.job_specifics.apply_drk_things(
+                self.actions_df,
+                self.player_id,
+                self.pet_ids[0],
+            )
+
+        elif self.job == "Paladin":
+            self.job_specifics = PaladinActions(
+                headers, self.report_id, self.fight_id, self.player_id
+            )
+            self.actions_df = self.job_specifics.apply_pld_buffs(self.actions_df)
+            pass
+
+        # FIXME:
+        elif self.job == "BlackMage":
+            self.job_specifics = BlackMageActions(
+                headers,
+                self.report_id,
+                self.fight_id,
+                self.player_id,
+                self.level,
+                self.patch_number,
+            )
+            self.actions_df = self.job_specifics.apply_elemental_buffs(self.actions_df)
+            self.actions_df = self.actions_df[
+                self.actions_df["ability_name"] != "Attack"
+            ]
+
+        elif self.job == "Summoner":
+            self.estimate_ground_effect_multiplier(
+                1002706,
+            )
+
+        # FIXME: I think arm of the destroyer won't get updated but surely no one would use that in savage.
+        elif self.job == "Monk":
+            self.job_specifics = MonkActions(
+                headers,
+                self.report_id,
+                self.fight_id,
+                self.player_id,
+                self.patch_number,
+            )
+
+            if self.patch_number < 7.0:
+                self.actions_df = self.job_specifics.apply_endwalker_mnk_buffs(
+                    self.actions_df
+                )
+            else:
+                self.actions_df = self.job_specifics.apply_dawntrail_mnk_buffs(
+                    self.actions_df
+                )
+
+            self.actions_df = self.job_specifics.apply_bootshine_autocrit(
+                self.actions_df,
+                self.critical_hit_stat,
+                self.direct_hit_stat,
+                self.critical_hit_rate_buffs,
+                self.level,
+            )
+            pass
+
+        elif self.job == "Ninja":
+            self.job_specifics = NinjaActions(
+                headers,
+                self.report_id,
+                self.fight_id,
+                self.player_id,
+                self.patch_number,
+            )
+            self.actions_df = self.job_specifics.apply_ninja_buff(self.actions_df)
+            pass
+
+        elif self.job == "Dragoon":
+            self.job_specifics = DragoonActions(
+                headers,
+                self.report_id,
+                self.fight_id,
+                self.player_id,
+                self.patch_number,
+            )
+            # if self.patch_number >= 7.0:
+            #     self.actions_df = self.job_specifics.apply_dawntrail_life_of_the_dragon_buffs(
+            #         self.actions_df
+            #     )
+            if self.patch_number < 7.0:
+                self.actions_df = (
+                    self.job_specifics.apply_endwalker_combo_finisher_potencies(
+                        self.actions_df
+                    )
+                )
+
+        elif self.job == "Reaper":
+            self.job_specifics = ReaperActions(
+                headers, self.report_id, self.fight_id, self.player_id
+            )
+            self.actions_df = self.job_specifics.apply_enhanced_buffs(self.actions_df)
+            pass
+
+        elif self.job == "Viper":
+            self.job_specifics = ViperActions(
+                headers, self.report_id, self.fight_id, self.player_id
+            )
+            self.actions_df = self.job_specifics.apply_viper_buffs(self.actions_df)
+
+        elif self.job == "Samurai":
+            self.job_specifics = SamuraiActions(
+                headers, self.report_id, self.fight_id, self.player_id
+            )
+            self.actions_df = self.job_specifics.apply_enhanced_enpi(self.actions_df)
+
+        elif self.job == "Machinist":
+            # wildfire can't crit...
+            self.actions_df.loc[
+                self.actions_df["abilityGameID"] == 1000861,
+                ["p_n", "p_c", "p_d", "p_cd"],
+            ] = [1.0, 0.0, 0.0, 0.0]
+
+            self.estimate_ground_effect_multiplier(
+                1000861,
+            )
+            self.job_specifics = MachinistActions(
+                headers, self.report_id, self.fight_id, self.player_id
+            )
+            self.actions_df = self.job_specifics.apply_mch_potencies(self.actions_df)
+
+        elif self.job == "Bard":
+            self.job_specifics = BardActions()
+            self.actions_df = self.job_specifics.estimate_pitch_perfect_potency(
+                self.actions_df
+            )
+            if self.patch_number >= 7.0:
+                self.actions_df = self.job_specifics.estimate_radiant_encore_potency(
+                    self.actions_df
+                )
+        else:
+            self.job_specifics = None
+
+        # Filter out Auto Attacks for casters
+        if self.job in (
+            "Pictomancer",
+            "RedMage",
+            "Summoner",
+            "Astrologian",
+            "WhiteMage",
+            "Sage",
+            "Scholar",
+        ):
+            self.actions_df = self.actions_df[
+                self.actions_df["ability_name"].str.lower() != "attack"
+            ]
+
 
 class RotationTable(ActionTable):
     """
@@ -1249,6 +1258,7 @@ class RotationTable(ActionTable):
         guaranteed_hits_by_action_table: pd.DataFrame,
         guaranteed_hits_by_buff_table: pd.DataFrame,
         potency_table: pd.DataFrame,
+        encounter_phases,
         pet_ids: Optional[List[int]] = None,
         excluded_enemy_ids: Optional[List[int]] = None,
         debug: bool = False,
@@ -1320,6 +1330,7 @@ class RotationTable(ActionTable):
             direct_hit_rate_buff_table,
             guaranteed_hits_by_action_table,
             guaranteed_hits_by_buff_table,
+            encounter_phases,
             pet_ids,
             debug,
         )
@@ -1802,6 +1813,7 @@ class RotationTable(ActionTable):
 
 if __name__ == "__main__":
     from crit_app.config import FFLOGS_TOKEN
+    from crit_app.job_data.encounter_data import encounter_phases
     from fflogs_rotation.job_data.data import (
         critical_hit_rate_table,
         damage_buff_table,
@@ -1813,9 +1825,30 @@ if __name__ == "__main__":
 
     api_key = FFLOGS_TOKEN  # or copy/paste your key here
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-    fflogs_client = FFLogsClient()
+    # fflogs_client = FFLogsClient()
+    # ActionTable(
+    #     # fflogs_client,
+    #     headers,
+    #     "2p4VBGN9MDn7ZaC6",
+    #     7,
+    #     "Pictomancer",
+    #     15,
+    #     3090,
+    #     1781,
+    #     2585,
+    #     392,
+    #     100,
+    #     0,
+    #     damage_buff_table,
+    #     critical_hit_rate_table,
+    #     direct_hit_rate_table,
+    #     guaranteed_hits_by_action_table,
+    #     guaranteed_hits_by_buff_table,
+    #     encounter_phases,
+    # )
+
     ActionTable(
-        fflogs_client,
+        # fflogs_client,
         headers,
         "vNg4jJ1KMF9mt23q",
         104,
@@ -1832,5 +1865,6 @@ if __name__ == "__main__":
         direct_hit_rate_table,
         guaranteed_hits_by_action_table,
         guaranteed_hits_by_buff_table,
+        encounter_phases,
         pet_ids=[432],
     )

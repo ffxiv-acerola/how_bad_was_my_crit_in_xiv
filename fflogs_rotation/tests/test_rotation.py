@@ -1,3 +1,5 @@
+import numpy as np
+import pandas as pd
 import pytest
 
 from fflogs_rotation.rotation import ActionTable
@@ -282,3 +284,326 @@ def test_process_fight_data_phase1_wipe():
     assert instance.downtime == 50
     assert pytest.approx(instance.fight_dps_time, 0.001) == 6.95
     assert instance.ranking_duration is None
+
+
+def test_ast_card_buff_ranged_receives_ranged_card():
+    """
+    For a ranged job (e.g., WhiteMage) receiving a ranged card,.
+
+    expect a 6% damage buff.
+    """
+    instance = ActionTable.__new__(ActionTable)
+    instance.job = "WhiteMage"
+    instance.ranged_cards = ["10003242"]
+    instance.melee_cards = []
+    result = instance.ast_card_buff("10003242")
+    assert result == ("card6", 1.06)
+
+
+def test_ast_card_buff_ranged_receives_melee_card():
+    """
+    For a ranged job (e.g., WhiteMage) receiving a melee card,.
+
+    expect a 3% damage buff.
+    """
+    instance = ActionTable.__new__(ActionTable)
+    instance.job = "WhiteMage"
+    instance.ranged_cards = []  # No ranged card present
+    instance.melee_cards = ["10003242"]  # Card provided in melee_cards
+    result = instance.ast_card_buff("10003242")
+    assert result == ("card3", 1.03)
+
+
+def test_ast_card_buff_melee_receives_melee_card():
+    """
+    For a melee job (e.g., Ninja) receiving a melee card,.
+
+    expect a 6% damage buff.
+    """
+    instance = ActionTable.__new__(ActionTable)
+    instance.job = "Ninja"
+    instance.melee_cards = ["11111111"]
+    instance.ranged_cards = []
+    result = instance.ast_card_buff("11111111")
+    assert result == ("card6", 1.06)
+
+
+def test_ast_card_buff_melee_receives_ranged_card():
+    """
+    For a melee job (e.g., Ninja) receiving a ranged card,.
+
+    expect a 3% damage buff.
+    """
+    instance = ActionTable.__new__(ActionTable)
+    instance.job = "Ninja"
+    instance.melee_cards = []  # No melee card present
+    instance.ranged_cards = ["11111111"]  # Card provided in ranged_cards
+    result = instance.ast_card_buff("11111111")
+    assert result == ("card3", 1.03)
+
+
+def test_estimate_radiant_finale_strength_phase0_under100():
+    """For phase 0 and elapsed_time < 100, should return "RadiantFinale1"."""
+    instance = ActionTable.__new__(ActionTable)
+    instance.phase = 0
+    result = instance.estimate_radiant_finale_strength(50)
+    assert result == "RadiantFinale1"
+
+
+def test_estimate_radiant_finale_strength_phase1_under100():
+    """For phase 1 and elapsed_time < 100, should return "RadiantFinale1"."""
+    instance = ActionTable.__new__(ActionTable)
+    instance.phase = 1
+    result = instance.estimate_radiant_finale_strength(75)
+    assert result == "RadiantFinale1"
+
+
+def test_estimate_radiant_finale_strength_phase2_under100():
+    """
+    For phase 2 and elapsed_time < 100, since phase > 1 the condition fails,.
+
+    so it should return "RadiantFinale3".
+    """
+    instance = ActionTable.__new__(ActionTable)
+    instance.phase = 2
+    result = instance.estimate_radiant_finale_strength(50)
+    assert result == "RadiantFinale3"
+
+
+def test_estimate_radiant_finale_strength_phase0_over100():
+    """For phase 0 and elapsed_time > 100, should return "RadiantFinale3"."""
+    instance = ActionTable.__new__(ActionTable)
+    instance.phase = 0
+    result = instance.estimate_radiant_finale_strength(150)
+    assert result == "RadiantFinale3"
+
+
+def test_estimate_radiant_finale_strength_phase1_over100():
+    """For phase 1 and elapsed_time > 100, should return "RadiantFinale3"."""
+    instance = ActionTable.__new__(ActionTable)
+    instance.phase = 1
+    result = instance.estimate_radiant_finale_strength(200)
+    assert result == "RadiantFinale3"
+
+
+def test_estimate_radiant_finale_strength_phase2_over100():
+    """For phase 2 and elapsed_time > 100, should return "RadiantFinale3"."""
+    instance = ActionTable.__new__(ActionTable)
+    instance.phase = 2
+    result = instance.estimate_radiant_finale_strength(150)
+    assert result == "RadiantFinale3"
+
+
+@pytest.fixture
+def damage_buffs_df():
+    # Create a damage_buffs DataFrame with buff_id and buff_strength.
+    return pd.DataFrame(
+        {
+            "buff_id": [1, 2, 10],
+            "buff_strength": [1.1, 1.2, 1.5],
+        }
+    )
+
+
+@pytest.fixture
+def actions_df_unique():
+    """
+    Create an actions DataFrame where one row already has a multiplier.
+
+    This row should be preserved unmodified by _compute_multiplier_table.
+    """
+    data = {
+        "buffs": [[10], [1, 2]],
+        "multiplier": [1.5, np.nan],
+    }
+    return pd.DataFrame(data)
+
+
+def test_compute_multiplier_table_existing_multiplier(
+    actions_df_unique, damage_buffs_df
+):
+    """
+    If a multiplier is already present in the unique buff set,.
+
+    _compute_multiplier_table should keep that multiplier.
+    """
+    instance = ActionTable.__new__(ActionTable)
+    # Call the method.
+    multiplier_table = instance._compute_multiplier_table(
+        actions_df_unique, damage_buffs_df
+    )
+
+    # Convert buffs lists to strings as done within the method.
+    multiplier_table = multiplier_table.reset_index(drop=True)
+
+    # Find row with buffs equal to [10]
+    for idx, row in multiplier_table.iterrows():
+        if row["str_buffs"] == str([10]):
+            # Multiplier is defined, so expect 1.5
+            assert np.isclose(
+                row["multiplier"], 1.5
+            ), f"Expected multiplier 1.5, got {row['multiplier']}"
+            break
+    else:
+        pytest.fail("No row found with buffs [10]")
+
+
+def test_compute_multiplier_table_remainder_calculation(
+    actions_df_unique, damage_buffs_df
+):
+    """
+    For a row without a predefined multiplier, the multiplier should be computed from damage_buffs.
+
+    In this test, for buffs [1,2], multiplier should equal 1.1 * 1.2 = 1.32.
+    """
+    instance = ActionTable.__new__(ActionTable)
+    multiplier_table = instance._compute_multiplier_table(
+        actions_df_unique, damage_buffs_df
+    )
+    multiplier_table = multiplier_table.reset_index(drop=True)
+
+    for idx, row in multiplier_table.iterrows():
+        if row["str_buffs"] == str([1, 2]):
+            # Computed multiplier should be product of 1.1 and 1.2
+            expected = 1.1 * 1.2
+            assert np.isclose(
+                row["multiplier"], expected
+            ), f"Expected multiplier {expected}, got {row['multiplier']}"
+            break
+    else:
+        pytest.fail("No row found with buffs [1, 2]")
+
+
+# Dummy Rate class to control the multiplier factor
+class DummyRate:
+    def __init__(self, crit_stat, dh_stat, level):
+        self.crit_stat = crit_stat
+        self.dh_stat = dh_stat
+        self.level = level
+
+    def get_hit_type_damage_buff(
+        self, hit_type, buff_crit_rate, buff_dh_rate, determination
+    ):
+        # If both rate buffs are zero, return factor 1.0 regardless
+        if buff_crit_rate == 0 and buff_dh_rate == 0:
+            return 1.0
+        # For nonzero hit type (i.e. 1,2,3), return 1.2; else, return 1.0.
+        if hit_type != 0:
+            return 1.2
+        return 1.0
+
+
+@pytest.fixture(autouse=True)
+def patch_rate(monkeypatch):
+    # Monkeypatch the Rate class in rotation to our DummyRate.
+    from fflogs_rotation import rotation
+
+    monkeypatch.setattr(rotation, "Rate", DummyRate)
+
+
+@pytest.fixture
+def dummy_action_instance():
+    # Create an instance of ActionTable with necessary attributes filled.
+    instance = ActionTable.__new__(ActionTable)
+    # Set some dummy stats
+    instance.critical_hit_stat = 100
+    instance.direct_hit_stat = 100
+    instance.level = 80
+    instance.determination = 200  # Determination value used in the multiplier calc
+    # Default empty guaranteed hit type sources.
+    instance.guaranteed_hit_type_via_buff = pd.DataFrame(
+        columns=["buff_id", "affected_action_id", "hit_type"]
+    )
+    instance.guaranteed_hit_type_via_action = {}
+    return instance
+
+
+def test_no_valid_hit_type(dummy_action_instance):
+    """
+    When there is no matching buff or action guarantee,.
+
+    hit type remains 0 and multiplier is unchanged.
+    """
+    ability_id = "A"
+    buff_ids = []  # no buffs are active
+    base_multiplier = 1.5
+    # ch and dh rates are nonzero but no valid trigger exists.
+    new_multiplier, hit_type = dummy_action_instance.guaranteed_hit_type_damage_buff(
+        ability_id, buff_ids, base_multiplier, ch_rate_buff=0.05, dh_rate_buff=0.05
+    )
+    # No valid hit type guarantee means no multiplier adjustment.
+    assert np.isclose(new_multiplier, base_multiplier)
+    assert hit_type == 0
+
+
+def test_hit_type_via_buff(dummy_action_instance):
+    """
+    When a buff provides a guaranteed non-zero hit type,.
+
+    the multiplier should be adjusted according to DummyRate.
+    """
+    ability_id = "A"
+    # Create a dataframe indicating buff "B1" affects ability "A" with hit_type = 1.
+    dummy_action_instance.guaranteed_hit_type_via_buff = pd.DataFrame(
+        {
+            "buff_id": ["B1"],
+            "affected_action_id": [ability_id],
+            "hit_type": [1],
+        }
+    )
+    buff_ids = ["B1"]
+    base_multiplier = 2.0
+    # Provide nonzero rate buffs so DummyRate returns factor 1.2 for nonzero hit type.
+    new_multiplier, hit_type = dummy_action_instance.guaranteed_hit_type_damage_buff(
+        ability_id, buff_ids, base_multiplier, ch_rate_buff=0.1, dh_rate_buff=0.1
+    )
+    assert hit_type == 1
+    assert np.isclose(new_multiplier, base_multiplier * 1.2)
+
+
+def test_hit_type_via_action(dummy_action_instance):
+    """
+    When the action guarantee specifies a hit type via action,.
+
+    the multiplier should be adjusted.
+    """
+    ability_id = "A"
+    # Empty buff guarantee.
+    dummy_action_instance.guaranteed_hit_type_via_buff = pd.DataFrame(
+        columns=["buff_id", "affected_action_id", "hit_type"]
+    )
+    # Set guaranteed hit type via action dict.
+    dummy_action_instance.guaranteed_hit_type_via_action = {ability_id: 2}
+    buff_ids = []  # no buff provided
+    base_multiplier = 3.0
+    new_multiplier, hit_type = dummy_action_instance.guaranteed_hit_type_damage_buff(
+        ability_id, buff_ids, base_multiplier, ch_rate_buff=0.1, dh_rate_buff=0.1
+    )
+    assert hit_type == 2
+    assert np.isclose(new_multiplier, base_multiplier * 1.2)
+
+
+def test_zero_rate_buffs_no_multiplier_change(dummy_action_instance):
+    """
+    When ch_rate and dh_rate are both zero, even if a guaranteed hit type is provided,.
+
+    the multiplier should remain unchanged.
+    """
+    ability_id = "A"
+    # Set up a guaranteed buff with nonzero hit type.
+    dummy_action_instance.guaranteed_hit_type_via_buff = pd.DataFrame(
+        {
+            "buff_id": ["B1"],
+            "affected_action_id": [ability_id],
+            "hit_type": [1],
+        }
+    )
+    buff_ids = ["B1"]
+    base_multiplier = 2.5
+    # Set ch_rate and dh_rate to 0.
+    new_multiplier, hit_type = dummy_action_instance.guaranteed_hit_type_damage_buff(
+        ability_id, buff_ids, base_multiplier, ch_rate_buff=0.0, dh_rate_buff=0.0
+    )
+    # Even though hit type is non-zero, DummyRate returns 1.0 if both rates are zero.
+    assert hit_type == 1
+    assert np.isclose(new_multiplier, base_multiplier * 1.0)
