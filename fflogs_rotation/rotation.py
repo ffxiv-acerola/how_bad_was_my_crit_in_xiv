@@ -121,7 +121,7 @@ class ActionTable(FFLogsClient):
         # Build initial actions DataFrame
         self.actions_df = self.create_action_df()
         # Apply job-specific mechanics
-        self._apply_job_specifics()
+        self._apply_job_specifics(headers)
 
         # Final cleanup of actions DataFrame
         # Remove unpaired actions, which still count towards gauge generation
@@ -952,7 +952,7 @@ class ActionTable(FFLogsClient):
         )
         return actions_df.reset_index(drop=True)
 
-    def _apply_job_specifics(self) -> None:
+    def _apply_job_specifics(self, headers: Dict[str, str]) -> None:
         """Delegates job-specific transformations."""
         self.job_specifics = None
 
@@ -977,14 +977,17 @@ class ActionTable(FFLogsClient):
         # FIXME:
         elif self.job == "BlackMage":
             self.job_specifics = BlackMageActions(
+                self.actions_df,
                 headers,
                 self.report_id,
                 self.fight_id,
                 self.player_id,
                 self.level,
+                self.phase,
                 self.patch_number,
+                self.phase,
             )
-            self.actions_df = self.job_specifics.apply_elemental_buffs(self.actions_df)
+            self.actions_df = self.job_specifics.apply_blm_buffs(self.actions_df)
             self.actions_df = self.actions_df[
                 self.actions_df["ability_name"] != "Attack"
             ]
@@ -1932,10 +1935,10 @@ if __name__ == "__main__":
     RotationTable(
         # fflogs_client,
         headers,
-        "wpRxTtVzjFd9ayAJ",
-        6,
-        "Viper",
+        "HZNndMrBxj6ywL7z",
         7,
+        "BlackMage",
+        4,
         3174,
         1542,
         2310,
