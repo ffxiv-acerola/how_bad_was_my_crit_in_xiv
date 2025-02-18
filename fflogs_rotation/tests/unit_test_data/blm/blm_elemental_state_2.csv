@@ -1,0 +1,200 @@
+﻿timestamp,elapsed_time,ability_name,elemental_status_active,n_stacks_active,remaining_time,elemental_status_granted,n_stacks_granted,time_granted
+0,0,Fire III,,0,0,Astral Fire,3,15
+14169,14.169,Despair,Astral Fire,3,0.831,Astral Fire,3,15
+14971,14.971,Manafont,Astral Fire,3,14.198,Astral Fire,3,15
+26550,26.55,Paradox,Astral Fire,3,3.421,Astral Fire,3,15
+34248,34.248,Despair,Astral Fire,3,7.302,Astral Fire,3,15
+37719,37.719,Transpose,Astral Fire,3,11.529,Umbral Ice,1,15
+38432,38.432,Umbral Soul,Umbral Ice,1,14.287,Umbral Ice,2,15
+40838,40.838,Umbral Soul,Umbral Ice,2,1000,Umbral Ice,3,15
+43326,43.326,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+45774,45.774,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+52480,52.48,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+81470,81.47,Paradox,Umbral Ice,3,1000,Umbral Ice,3,15
+87475,87.475,Fire III,Umbral Ice,3,8.995,Astral Fire,3,15
+99609,99.609,Paradox,Astral Fire,3,2.866,Astral Fire,3,15
+111741,111.741,Despair,Astral Fire,3,2.868,Astral Fire,3,15
+114231,114.231,Fire III,Astral Fire,3,12.51,Astral Fire,3,15
+114986,114.986,Manafont,Astral Fire,3,14.245,Astral Fire,3,15
+127611,127.611,Paradox,Astral Fire,3,2.375,Astral Fire,3,15
+140728,140.728,Despair,Astral Fire,3,1.883,Astral Fire,3,15
+143574,143.574,Transpose,Astral Fire,3,12.154,Umbral Ice,1,15
+145220,145.22,Blizzard III,Umbral Ice,1,13.354,Umbral Ice,3,15
+150157,150.157,Paradox,Umbral Ice,3,10.063,Umbral Ice,3,15
+150913,150.913,Transpose,Umbral Ice,3,14.244,Astral Fire,1,15
+152645,152.645,Fire III,Astral Fire,1,13.268,Astral Fire,3,15
+155046,155.046,Paradox,Astral Fire,3,12.599,Astral Fire,3,15
+160788,160.788,Transpose,Astral Fire,3,9.258,Umbral Ice,1,15
+162342,162.342,Umbral Soul,Umbral Ice,1,13.446,Umbral Ice,2,15
+167553,167.553,Paradox,Umbral Ice,2,1000,Umbral Ice,3,15
+168354,168.354,Transpose,Umbral Ice,3,14.199,Astral Fire,1,15
+170001,170.001,Fire III,Astral Fire,1,13.353,Astral Fire,3,15
+183695,183.695,Paradox,Astral Fire,3,1.306,Astral Fire,3,15
+191793,191.793,Despair,Astral Fire,3,6.902,Astral Fire,3,15
+197575,197.575,Transpose,Astral Fire,3,9.218,Umbral Ice,1,15
+199046,199.046,Paradox,Umbral Ice,1,13.529,Umbral Ice,2,15
+201580,201.58,Umbral Soul,Umbral Ice,2,12.466,Umbral Ice,3,15
+203984,203.984,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+206393,206.393,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+219651,219.651,Transpose,Umbral Ice,3,1000,Astral Fire,1,15
+224642,224.642,Transpose,Astral Fire,1,10.009,Umbral Ice,1,15
+225448,225.448,Umbral Soul,Umbral Ice,1,14.194,Umbral Ice,2,15
+227909,227.909,Umbral Soul,Umbral Ice,2,1000,Umbral Ice,3,15
+239636,239.636,Paradox,Umbral Ice,3,1000,Umbral Ice,3,15
+240486,240.486,Transpose,Umbral Ice,3,14.15,Astral Fire,1,15
+241689,241.689,Paradox,Astral Fire,1,13.797,Astral Fire,2,15
+245835,245.835,Fire III,Astral Fire,2,10.854,Astral Fire,3,15
+258952,258.952,Despair,Astral Fire,3,1.883,Astral Fire,3,15
+266298,266.298,Manafont,Astral Fire,3,7.654,Astral Fire,3,15
+280124,280.124,Paradox,Astral Fire,3,1.174,Astral Fire,3,15
+288244,288.244,Despair,Astral Fire,3,6.88,Astral Fire,3,15
+294051,294.051,Transpose,Astral Fire,3,9.193,Umbral Ice,1,15
+295478,295.478,Paradox,Umbral Ice,1,13.573,Umbral Ice,2,15
+297892,297.892,Umbral Soul,Umbral Ice,2,12.586,Umbral Ice,3,15
+300306,300.306,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+302719,302.719,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+304553,304.553,Transpose,Umbral Ice,3,1000,Astral Fire,1,15
+309557,309.557,Transpose,Astral Fire,1,9.996,Umbral Ice,1,15
+310410,310.41,Umbral Soul,Umbral Ice,1,14.147,Umbral Ice,2,15
+312820,312.82,Umbral Soul,Umbral Ice,2,1000,Umbral Ice,3,15
+315234,315.234,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+333235,333.235,Paradox,Umbral Ice,3,1000,Umbral Ice,3,15
+334038,334.038,Transpose,Umbral Ice,3,14.197,Astral Fire,1,15
+335694,335.694,Paradox,Astral Fire,1,13.344,Astral Fire,2,15
+338107,338.107,Fire III,Astral Fire,2,12.587,Astral Fire,3,15
+348619,348.619,Despair,Astral Fire,3,4.488,Astral Fire,3,15
+349379,349.379,Transpose,Astral Fire,3,14.24,Umbral Ice,1,15
+351033,351.033,Umbral Soul,Umbral Ice,1,13.346,Umbral Ice,2,15
+353448,353.448,Umbral Soul,Umbral Ice,2,1000,Umbral Ice,3,15
+370162,370.162,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+375508,375.508,Paradox,Umbral Ice,3,1000,Umbral Ice,3,15
+376308,376.308,Transpose,Umbral Ice,3,14.2,Astral Fire,1,15
+377598,377.598,Paradox,Astral Fire,1,13.71,Astral Fire,2,15
+385845,385.845,Fire III,Astral Fire,2,6.753,Astral Fire,3,15
+396189,396.189,Despair,Astral Fire,3,4.656,Astral Fire,3,15
+396945,396.945,Manafont,Astral Fire,3,14.244,Astral Fire,3,15
+408487,408.487,Paradox,Astral Fire,3,3.458,Astral Fire,3,15
+413755,413.755,Despair,Astral Fire,3,9.732,Astral Fire,3,15
+419699,419.699,Transpose,Astral Fire,3,9.056,Umbral Ice,1,15
+420415,420.415,Umbral Soul,Umbral Ice,1,14.284,Umbral Ice,2,15
+422829,422.829,Umbral Soul,Umbral Ice,2,1000,Umbral Ice,3,15
+425241,425.241,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+445399,445.399,Paradox,Umbral Ice,3,1000,Umbral Ice,3,15
+448394,448.394,Fire III,Umbral Ice,3,12.005,Astral Fire,3,15
+461624,461.624,Paradox,Astral Fire,3,1.77,Astral Fire,3,15
+467834,467.834,Despair,Astral Fire,3,8.79,Astral Fire,3,15
+468641,468.641,Transpose,Astral Fire,3,14.193,Umbral Ice,1,15
+469939,469.939,Blizzard III,Umbral Ice,1,13.702,Umbral Ice,3,15
+481464,481.464,Paradox,Umbral Ice,3,3.475,Umbral Ice,3,15
+482446,482.446,Transpose,Umbral Ice,3,14.018,Astral Fire,1,15
+483917,483.917,Fire III,Astral Fire,1,13.529,Astral Fire,3,15
+495960,495.96,Paradox,Astral Fire,3,2.957,Astral Fire,3,15
+506189,506.189,Fire III,Astral Fire,3,4.771,Astral Fire,3,15
+515927,515.927,Despair,Astral Fire,3,5.262,Astral Fire,3,15
+520932,520.932,Manafont,Astral Fire,3,9.995,Astral Fire,3,15
+531433,531.433,Paradox,Astral Fire,3,4.499,Astral Fire,3,15
+544181,544.181,Despair,Astral Fire,3,2.252,Astral Fire,3,15
+545749,545.749,Transpose,Astral Fire,3,13.432,Umbral Ice,1,15
+546595,546.595,Blizzard III,Umbral Ice,1,14.154,Umbral Ice,3,15
+551596,551.596,Paradox,Umbral Ice,3,9.999,Umbral Ice,3,15
+554856,554.856,Transpose,Umbral Ice,3,11.74,Astral Fire,1,15
+558872,558.872,Fire III,Astral Fire,1,10.984,Astral Fire,3,15
+568606,568.606,Paradox,Astral Fire,3,5.266,Astral Fire,3,15
+579145,579.145,Fire III,Astral Fire,3,4.461,Astral Fire,3,15
+584331,584.331,Despair,Astral Fire,3,9.814,Astral Fire,3,15
+587632,587.632,Transpose,Astral Fire,3,11.699,Umbral Ice,1,15
+592812,592.812,Transpose,Umbral Ice,1,9.82,Astral Fire,1,15
+594107,594.107,Paradox,Astral Fire,1,13.705,Astral Fire,2,15
+596560,596.56,Fire III,Astral Fire,2,12.547,Astral Fire,3,15
+598975,598.975,Despair,Astral Fire,3,12.585,Astral Fire,3,15
+599781,599.781,Transpose,Astral Fire,3,14.194,Umbral Ice,1,15
+601391,601.391,Paradox,Umbral Ice,1,13.39,Umbral Ice,2,15
+603895,603.895,Umbral Soul,Umbral Ice,2,12.496,Umbral Ice,3,15
+606308,606.308,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+607646,607.646,Transpose,Umbral Ice,3,1000,Astral Fire,1,15
+612248,612.248,Paradox,Astral Fire,1,10.398,Astral Fire,2,15
+614663,614.663,Fire III,Astral Fire,2,12.585,Astral Fire,3,15
+626740,626.74,Despair,Astral Fire,3,2.923,Astral Fire,3,15
+627455,627.455,Manafont,Astral Fire,3,14.285,Astral Fire,3,15
+628841,628.841,Paradox,Astral Fire,3,13.614,Astral Fire,3,15
+630895,630.895,Fire III,Astral Fire,3,12.946,Astral Fire,3,15
+642461,642.461,Flare,Astral Fire,3,3.434,Astral Fire,3,15
+644516,644.516,Flare,Astral Fire,3,12.945,Astral Fire,3,15
+647456,647.456,Transpose,Astral Fire,3,12.06,Umbral Ice,1,15
+657318,657.318,Transpose,Umbral Ice,1,5.138,Astral Fire,1,15
+661289,661.289,Paradox,Astral Fire,1,11.029,Astral Fire,2,15
+663793,663.793,Flare,Astral Fire,2,12.496,Astral Fire,3,15
+666198,666.198,Flare,Astral Fire,3,12.595,Astral Fire,3,15
+669458,669.458,Transpose,Astral Fire,3,11.74,Umbral Ice,1,15
+673523,673.523,Paradox,Umbral Ice,1,10.935,Umbral Ice,2,15
+674550,674.55,Transpose,Umbral Ice,2,13.973,Astral Fire,1,15
+675976,675.976,Fire III,Astral Fire,1,13.574,Astral Fire,3,15
+680803,680.803,Flare,Astral Fire,3,10.173,Astral Fire,3,15
+686160,686.16,Flare,Astral Fire,3,9.643,Astral Fire,3,15
+690674,690.674,Transpose,Astral Fire,3,10.486,Umbral Ice,1,15
+694870,694.87,Paradox,Umbral Ice,1,10.804,Umbral Ice,2,15
+696566,696.566,Transpose,Umbral Ice,2,13.304,Astral Fire,1,15
+697282,697.282,Flare,Astral Fire,1,14.284,Astral Fire,3,15
+702100,702.1,Flare,Astral Fire,3,10.182,Astral Fire,3,15
+706746,706.746,Transpose,Astral Fire,3,10.354,Umbral Ice,1,15
+708174,708.174,Paradox,Umbral Ice,1,13.572,Umbral Ice,2,15
+710675,710.675,Umbral Soul,Umbral Ice,2,12.499,Umbral Ice,3,15
+713089,713.089,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+715499,715.499,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+724293,724.293,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+729203,729.203,Transpose,Umbral Ice,3,1000,Astral Fire,1,15
+734201,734.201,Transpose,Astral Fire,1,10.002,Umbral Ice,1,15
+735002,735.002,Umbral Soul,Umbral Ice,1,14.199,Umbral Ice,2,15
+737412,737.412,Umbral Soul,Umbral Ice,2,1000,Umbral Ice,3,15
+739822,739.822,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+744234,744.234,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+761505,761.505,Transpose,Umbral Ice,3,1000,Astral Fire,1,15
+763246,763.246,Paradox,Astral Fire,1,13.259,Astral Fire,2,15
+765656,765.656,Flare,Astral Fire,2,12.59,Astral Fire,3,15
+768112,768.112,Flare,Astral Fire,3,12.544,Astral Fire,3,15
+777847,777.847,Fire III,Astral Fire,3,5.265,Astral Fire,3,15
+778696,778.696,Transpose,Astral Fire,3,14.151,Umbral Ice,1,15
+784099,784.099,Umbral Soul,Umbral Ice,1,9.597,Umbral Ice,2,15
+786508,786.508,Umbral Soul,Umbral Ice,2,1000,Umbral Ice,3,15
+788920,788.92,Umbral Soul,Umbral Ice,3,1000,Umbral Ice,3,15
+860954,860.954,Paradox,Umbral Ice,3,1000,Umbral Ice,3,15
+863942,863.942,Fire III,Umbral Ice,3,12.012,Astral Fire,3,15
+876400,876.4,Paradox,Astral Fire,3,2.542,Astral Fire,3,15
+889105,889.105,Despair,Astral Fire,3,2.295,Astral Fire,3,15
+889866,889.866,Manafont,Astral Fire,3,14.239,Astral Fire,3,15
+893616,893.616,Fire III,Astral Fire,3,11.25,Astral Fire,3,15
+907245,907.245,Paradox,Astral Fire,3,1.371,Astral Fire,3,15
+915335,915.335,Despair,Astral Fire,3,6.91,Astral Fire,3,15
+921955,921.955,Blizzard III,Astral Fire,3,8.38,Umbral Ice,3,15
+930577,930.577,Paradox,Umbral Ice,3,6.378,Umbral Ice,3,15
+931336,931.336,Transpose,Umbral Ice,3,14.241,Astral Fire,1,15
+932986,932.986,Fire III,Astral Fire,1,13.35,Astral Fire,3,15
+945180,945.18,Paradox,Astral Fire,3,2.806,Astral Fire,3,15
+956875,956.875,Despair,Astral Fire,3,3.305,Astral Fire,3,15
+962460,962.46,Blizzard III,Astral Fire,3,9.415,Umbral Ice,3,15
+965770,965.77,Paradox,Umbral Ice,3,11.69,Umbral Ice,3,15
+966621,966.621,Transpose,Umbral Ice,3,14.149,Astral Fire,1,15
+967831,967.831,Fire III,Astral Fire,1,13.79,Astral Fire,3,15
+981685,981.685,Paradox,Astral Fire,3,1.146,Astral Fire,3,15
+993436,993.436,Fire III,Astral Fire,3,3.249,Astral Fire,3,15
+995713,995.713,Despair,Astral Fire,3,12.723,Astral Fire,3,15
+998745,998.745,Manafont,Astral Fire,3,11.968,Astral Fire,3,15
+1010516,1010.516,Paradox,Astral Fire,3,3.229,Astral Fire,3,15
+1023697,1023.697,Despair,Astral Fire,3,1.819,Astral Fire,3,15
+1027263,1027.263,Blizzard III,Astral Fire,3,11.434,Umbral Ice,3,15
+1033607,1033.607,Paradox,Umbral Ice,3,8.656,Umbral Ice,3,15
+1034458,1034.458,Transpose,Umbral Ice,3,14.149,Astral Fire,1,15
+1036020,1036.02,Fire III,Astral Fire,1,13.438,Astral Fire,3,15
+1049325,1049.325,Paradox,Astral Fire,3,1.695,Astral Fire,3,15
+1063923,1063.923,Despair,Astral Fire,3,0.402,Astral Fire,3,15
+1067492,1067.492,Blizzard III,Astral Fire,3,11.431,Umbral Ice,3,15
+1071202,1071.202,Paradox,Umbral Ice,3,11.29,Umbral Ice,3,15
+1074455,1074.455,Transpose,Umbral Ice,3,11.747,Astral Fire,1,15
+1076065,1076.065,Fire III,Astral Fire,1,13.39,Astral Fire,3,15
+1084155,1084.155,Paradox,Astral Fire,3,6.91,Astral Fire,3,15
+1098767,1098.767,Despair,Astral Fire,3,0.388,Astral Fire,3,15
+1104488,1104.488,Manafont,Astral Fire,3,9.279,Astral Fire,3,15
+1118839,1118.839,Paradox,Astral Fire,3,0.649,Astral Fire,3,15
+1125049,1125.049,Despair,Astral Fire,3,8.79,Astral Fire,3,15
+1125899,1125.899,Transpose,Astral Fire,3,14.15,Umbral Ice,1,15
+1127106,1127.106,Paradox,Umbral Ice,1,13.793,Umbral Ice,2,15

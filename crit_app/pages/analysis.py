@@ -37,6 +37,7 @@ from crit_app.figures import (
 )
 from crit_app.job_data.encounter_data import (
     encounter_level,
+    encounter_phases,
     patch_times,
     stat_ranges,
     valid_encounters,
@@ -1718,6 +1719,7 @@ def analyze_and_register_rotation(
             guaranteed_hits_by_action_table,
             guaranteed_hits_by_buff_table,
             potency_table,
+            encounter_phases,
             pet_ids,
             excluded_enemy_ids,
         )

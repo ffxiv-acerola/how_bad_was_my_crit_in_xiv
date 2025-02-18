@@ -1,0 +1,71 @@
+﻿timestamp,elapsed_time,ability_name,elemental_status_active,n_stacks_active,remaining_time,elemental_status_granted,n_stacks_granted,time_granted
+0,0,Fire III,,0,0,Astral Fire,3,15
+14533,14.533,Despair,Astral Fire,3,0.467,Astral Fire,3,15
+15959,15.959,Manafont,Astral Fire,3,13.574,Astral Fire,3,15
+28442,28.442,Paradox,Astral Fire,3,2.517,Astral Fire,3,15
+37345,37.345,Fire III,Astral Fire,3,6.097,Astral Fire,3,15
+43305,43.305,Blizzard III,Astral Fire,3,9.04,Umbral Ice,3,15
+47798,47.798,Paradox,Umbral Ice,3,10.507,Umbral Ice,3,15
+53761,53.761,Fire III,Umbral Ice,3,9.037,Astral Fire,3,15
+66172,66.172,Paradox,Astral Fire,3,2.589,Astral Fire,3,15
+75381,75.381,Despair,Astral Fire,3,5.791,Astral Fire,3,15
+79970,79.97,Fire III,Astral Fire,3,10.411,Astral Fire,3,15
+84957,84.957,Blizzard III,Astral Fire,3,10.013,Umbral Ice,3,15
+95663,95.663,Paradox,Umbral Ice,3,4.294,Umbral Ice,3,15
+99228,99.228,Fire III,Umbral Ice,3,11.435,Astral Fire,3,15
+110370,110.37,Paradox,Astral Fire,3,3.858,Astral Fire,3,15
+123241,123.241,Despair,Astral Fire,3,2.129,Astral Fire,3,15
+131660,131.66,Fire III,Astral Fire,3,6.581,Astral Fire,3,15
+135310,135.31,Blizzard III,Astral Fire,3,11.35,Umbral Ice,3,15
+139764,139.764,Paradox,Umbral Ice,3,10.546,Umbral Ice,3,15
+155435,155.435,Fire III,,0,0,Astral Fire,3,15
+177874,177.874,Blizzard III,,0,0,Umbral Ice,3,15
+185937,185.937,Fire III,Umbral Ice,3,6.937,Astral Fire,3,15
+196854,196.854,Despair,Astral Fire,3,4.083,Astral Fire,3,15
+197745,197.745,Manafont,Astral Fire,3,14.109,Astral Fire,3,15
+206788,206.788,Paradox,Astral Fire,3,5.957,Astral Fire,3,15
+231735,231.735,Fire III,,0,0,Astral Fire,3,15
+239435,239.435,Blizzard III,Astral Fire,3,7.3,Umbral Ice,3,15
+243177,243.177,Paradox,Umbral Ice,3,11.258,Umbral Ice,3,15
+246737,246.737,Fire III,Umbral Ice,3,11.44,Astral Fire,3,15
+258806,258.806,Paradox,Astral Fire,3,2.931,Astral Fire,3,15
+271859,271.859,Fire III,Astral Fire,3,1.947,Astral Fire,3,15
+279296,279.296,Blizzard III,Astral Fire,3,7.563,Umbral Ice,3,15
+287627,287.627,Paradox,Umbral Ice,3,6.669,Umbral Ice,3,15
+302117,302.117,Fire III,Umbral Ice,3,0.51,Astral Fire,3,15
+314280,314.28,Paradox,Astral Fire,3,2.837,Astral Fire,3,15
+316690,316.69,Despair,Astral Fire,3,12.59,Astral Fire,3,15
+318338,318.338,Manafont,Astral Fire,3,13.352,Astral Fire,3,15
+331213,331.213,Paradox,Astral Fire,3,2.125,Astral Fire,3,15
+348002,348.002,Fire III,,0,0,Astral Fire,3,15
+354105,354.105,Blizzard III,Astral Fire,3,8.897,Umbral Ice,3,15
+358202,358.202,Paradox,Umbral Ice,3,10.903,Umbral Ice,3,15
+361142,361.142,Fire III,Umbral Ice,3,12.06,Astral Fire,3,15
+371789,371.789,Paradox,Astral Fire,3,4.353,Astral Fire,3,15
+376739,376.739,Despair,Astral Fire,3,10.05,Astral Fire,3,15
+382799,382.799,Fire III,Astral Fire,3,8.94,Astral Fire,3,15
+389396,389.396,Blizzard III,Astral Fire,3,8.403,Umbral Ice,3,15
+397060,397.06,Paradox,Umbral Ice,3,7.336,Umbral Ice,3,15
+400578,400.578,Fire III,Umbral Ice,3,11.482,Astral Fire,3,15
+413580,413.58,Paradox,Astral Fire,3,1.998,Astral Fire,3,15
+425522,425.522,Despair,Astral Fire,3,3.058,Astral Fire,3,15
+430470,430.47,Fire III,Astral Fire,3,10.052,Astral Fire,3,15
+432920,432.92,Blizzard III,Astral Fire,3,12.55,Umbral Ice,3,15
+443602,443.602,Paradox,Umbral Ice,3,4.318,Umbral Ice,3,15
+447117,447.117,Fire III,Umbral Ice,3,11.485,Astral Fire,3,15
+459965,459.965,Paradox,Astral Fire,3,2.152,Astral Fire,3,15
+469014,469.014,Despair,Astral Fire,3,5.951,Astral Fire,3,15
+470127,470.127,Manafont,Astral Fire,3,13.887,Astral Fire,3,15
+479447,479.447,Despair,Astral Fire,3,5.68,Astral Fire,3,15
+488725,488.725,Fire III,Astral Fire,3,5.722,Astral Fire,3,15
+498649,498.649,Blizzard III,Astral Fire,3,5.076,Umbral Ice,3,15
+503538,503.538,Paradox,Umbral Ice,3,10.111,Umbral Ice,3,15
+506428,506.428,Fire III,Umbral Ice,3,12.11,Astral Fire,3,15
+525275,525.275,Blizzard III,,0,0,Umbral Ice,3,15
+529554,529.554,Fire III,Umbral Ice,3,10.721,Astral Fire,3,15
+542789,542.789,Paradox,Astral Fire,3,1.765,Astral Fire,3,15
+551558,551.558,Despair,Astral Fire,3,6.231,Astral Fire,3,15
+564378,564.378,Fire III,Astral Fire,3,2.18,Astral Fire,3,15
+570158,570.158,Blizzard III,Astral Fire,3,9.22,Umbral Ice,3,15
+577421,577.421,Paradox,Umbral Ice,3,7.737,Umbral Ice,3,15
+580361,580.361,Fire III,Umbral Ice,3,12.06,Astral Fire,3,15
