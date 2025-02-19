@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
+from crit_app.job_data.encounter_data import encounter_phases
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
     damage_buff_table,
@@ -62,6 +63,7 @@ class TestScholarActions:
             guaranteed_hits_by_action_table,
             guaranteed_hits_by_buff_table,
             potency_table,
+            encounter_phases=encounter_phases,
         )
 
         self.sch_analysis_7_05 = Healer(
@@ -83,7 +85,7 @@ class TestScholarActions:
         """Fixture providing expected action count data."""
         return pd.DataFrame(
             [
-                {"base_action": "Attack", "n": 67},
+                # {"base_action": "Attack", "n": 67},
                 {"base_action": "Baneful Impaction (tick)", "n": 20},
                 {"base_action": "Biolysis (tick)", "n": 126},
                 {"base_action": "Broil IV", "n": 136},

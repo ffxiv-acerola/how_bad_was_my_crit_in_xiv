@@ -76,7 +76,7 @@ def test_process_fight_data_phase0():
         table_data={},  # No "downtime" key; _get_downtime will default to 0.
     )
 
-    instance._process_fight_data(dummy_response)
+    instance._process_fight_data(dummy_response, {})
     # Expected values:
     # report_start_time = 1000
     # phase branch is false so:
@@ -120,7 +120,7 @@ def test_process_fight_data_phase1():
         table_data={},  # Not used in phase branch.
     )
 
-    instance._process_fight_data(dummy_response)
+    instance._process_fight_data(dummy_response, {})
     # _fetch_phase_start_end_time for phase==1:
     #   phase_start_time = when id==1 => 2000
     #   phase_end_time = when id==2 => 4000
@@ -164,7 +164,7 @@ def test_process_fight_data_phase2():
         table_data={},
     )
 
-    instance._process_fight_data(dummy_response)
+    instance._process_fight_data(dummy_response, {})
     # For phase==2:
     #   phase_start_time = when id==2 => 4000
     #   phase_end_time = when id==3 => 8000
@@ -207,7 +207,7 @@ def test_process_fight_data_phase3():
         table_data={},
     )
 
-    instance._process_fight_data(dummy_response)
+    instance._process_fight_data(dummy_response, {})
     # For phase==3:
     #   _fetch_phase_start_end_time will do:
     #       phase_start_time = when id==3 => 8000
@@ -264,7 +264,7 @@ def test_process_fight_data_phase1_wipe():
         phase_transitions=reduced_phase_transitions,
         table_data={},
     )
-    instance._process_fight_data(dummy_response)
+    instance._process_fight_data(dummy_response, {})
     # Expected:
     #   phase_start_time = 2000 (from available phaseTransitions for id==1)
     #   phase_end_time   = fight["endTime"] = 9000 (since there's no transition for phase 2)
