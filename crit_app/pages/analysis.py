@@ -1634,7 +1634,17 @@ def analyze_and_register_rotation(
         role,
         encounter_id,
         encounter_name,
+        last_phase_index,
     ) = read_player_analysis_info(report_id, fight_id, player_id)
+
+    # Edge case example: fight analyzing phase 5 is loaded
+    # user switches log url to a phase where phase 1 was reached
+    # if they don't hit submit, phase 5 can still be selected, which is
+    # impossible. Easy solution:
+    # Just analyze the final phase reached, that's pry what they wanted anw.
+    if fight_phase > last_phase_index:
+        fight_phase = last_phase_index
+
     level = encounter_level[encounter_id]
 
     # Higher level = bigger damage = bigger discretization step size

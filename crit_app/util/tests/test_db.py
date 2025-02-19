@@ -126,6 +126,7 @@ def test_read_player_analysis_info(mock_sqlite_connect):
         role,
         encounter_id,
         encounter_name,
+        last_phase_index,
     ) = read_player_analysis_info("ZfnF8AqRaBbzxW3w", 5, 27)
 
     assert player_name == "Althea Winter"
@@ -135,6 +136,7 @@ def test_read_player_analysis_info(mock_sqlite_connect):
     assert role == "Healer"
     assert encounter_id == 1079
     assert encounter_name == "Futures Rewritten"
+    assert last_phase_index == 5
 
 
 def test_search_prior_player_analyses(mock_sqlite_connect):
