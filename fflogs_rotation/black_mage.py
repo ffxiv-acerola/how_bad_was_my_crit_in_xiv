@@ -255,7 +255,7 @@ class BlackMageActions(BuffQuery):
     ) -> pd.DataFrame:
         """Extracts cast response for an action and makes a DataFrame.
 
-        If the response is empty, an empty DataFrame with the correct columns is adde
+        If the response is empty, an empty DataFrame with the correct columns is added.
         ""
         """
         df_cols = [

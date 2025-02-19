@@ -1084,6 +1084,7 @@ class ActionTable(FFLogsClient):
             self.estimate_ground_effect_multiplier(
                 1000861,
             )
+            self.actions_df = self.actions_df.reset_index(drop=True)
             self.job_specifics = MachinistActions(
                 headers, self.report_id, self.fight_id, self.player_id
             )
@@ -1935,16 +1936,16 @@ if __name__ == "__main__":
     RotationTable(
         # fflogs_client,
         headers,
-        "HZNndMrBxj6ywL7z",
-        7,
-        "BlackMage",
-        4,
+        "ZfnF8AqRaBbzxW3w",
+        5,
+        "Machinist",
+        20,
         3174,
         1542,
         2310,
         392,
         100,
-        0,
+        5,
         damage_buff_table,
         critical_hit_rate_table,
         direct_hit_rate_table,
@@ -1952,4 +1953,5 @@ if __name__ == "__main__":
         guaranteed_hits_by_buff_table,
         potency_table,
         encounter_phases,
+        [33],
     )
