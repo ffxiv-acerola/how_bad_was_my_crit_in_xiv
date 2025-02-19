@@ -93,9 +93,10 @@ class ActionTable(FFLogsClient):
         super().__init__(api_url="https://www.fflogs.com/api/v2/client")
 
         # Fetch fight information and set timings
-        self._fetch_fight_information(headers)
+        self.fight_info_response = self._query_fight_information(headers)
+        self._set_fight_information(headers)
         # Fetch damage events from FFLogs
-        self._fetch_damage_events(headers)
+        self.actions = self._query_damage_events(headers)
 
         # Patch (used for echo)
         self.patch_number = self.what_patch_is_it()
@@ -112,6 +113,7 @@ class ActionTable(FFLogsClient):
         self.ranged_cards = self.damage_buffs[
             self.damage_buffs["buff_name"].isin(["The Bole", "The Spire", "The Ewer"])
         ]["buff_id"].tolist()
+
         self.melee_cards = self.damage_buffs[
             self.damage_buffs["buff_name"].isin(
                 ["The Arrow", "The Balance", "The Spear"]
@@ -145,7 +147,7 @@ class ActionTable(FFLogsClient):
                 return k
         return 0.0
 
-    def _fetch_fight_information(self, headers: Dict[str, str]) -> None:
+    def _query_fight_information(self, headers: Dict[str, str]) -> None:
         """
         Retrieves fight information from the FFLogs GraphQL API for the specified.
 
@@ -164,7 +166,9 @@ class ActionTable(FFLogsClient):
             fight_info_variables,
             "FightInformation",
         )
-        self._process_fight_data(response, headers)
+
+        # TODO: check for valid response
+        return response["data"]["reportData"]["report"]
 
     def _fight_information_query(self) -> str:
         """Fight information GQL query string."""
@@ -236,7 +240,48 @@ class ActionTable(FFLogsClient):
         }
         """
 
-    def _process_fight_data(self, response: dict, headers: Dict[str, str]) -> None:
+    def _set_fight_information(self, headers: Dict[str, str]) -> None:
+        self.report_start_time = self._get_report_start_time()
+        self.fight_name = self._get_fight_name()
+        self.encounter_id = self._get_encounter_id()
+        self.has_echo = self._get_has_echo()
+        self.kill = self._get_was_kill()
+        self.phase_information = self._get_phase_transitions()
+        self.ranking_duration = self._get_ranking_duration()
+        (
+            self.fight_start_time,
+            self.fight_end_time,
+            self.phase_start_time,
+            self.phase_end_time,
+            self.downtime,
+            self.fight_dps_time,
+        ) = self._process_fight_data(headers)
+        pass
+
+    def _get_report_start_time(self) -> str:
+        return self.fight_info_response["startTime"]
+
+    def _get_fight_name(self) -> str:
+        return self.fight_info_response["fights"][0]["name"]
+
+    def _get_encounter_id(self) -> int:
+        return self.fight_info_response["fights"][0]["encounterID"]
+
+    def _get_has_echo(self) -> bool:
+        return self.fight_info_response["fights"][0]["hasEcho"]
+
+    def _get_was_kill(self) -> bool:
+        return self.fight_info_response["fights"][0]["kill"]
+
+    def _get_phase_transitions(self):
+        return self.fight_info_response["fights"][0]["phaseTransitions"]
+
+    def _get_ranking_duration(self) -> str:
+        if len(self.fight_info_response["rankings"]["data"]) > 0:
+            return self.fight_info_response["rankings"]["data"][0]["duration"]
+        return None
+
+    def _process_fight_data(self, headers: Dict[str, str]) -> None:
         """
         Parses the fight data from the FFLogs API response, setting core attributes.
 
@@ -252,45 +297,38 @@ class ActionTable(FFLogsClient):
                 HTTP headers used for further GraphQL queries, if needed
                 for phase/downtime details.
         """
-        report = response["data"]["reportData"]["report"]
-        fight = report["fights"][0]
-        self.fight_name = fight["name"]
-        self.encounter_id = fight["encounterID"]
-        self.has_echo = fight["hasEcho"]
-        self.kill = fight["kill"]
+        fight = self.fight_info_response["fights"][0]
 
-        # Fight time variables
-        self.report_start_time = report["startTime"]
-        self.fight_start_time = self.report_start_time
-        self.fight_end_time = self.report_start_time
-        if self.kill and len(report["rankings"]) > 0:
-            self.ranking_duration = report["rankings"]["data"][0]["duration"]
-        else:
-            self.ranking_duration = None
-
-        # Phase info
-        self.phase_information = fight["phaseTransitions"]
+        fight_start_time = self.report_start_time
+        fight_end_time = self.report_start_time
 
         # If user requested a specific phase, adjust start/end times
         if self.phase > 0:
-            self.phase_start_time, self.phase_end_time = (
-                self._fetch_phase_start_end_time(fight["endTime"])
+            phase_start_time, phase_end_time = self._fetch_phase_start_end_time(
+                fight["endTime"]
             )
             phase_response = self._fetch_phase_downtime(headers)
-            self.downtime = self._get_downtime(phase_response)
+            downtime = self._get_downtime(phase_response)
 
-            self.fight_start_time += self.phase_start_time
-            self.fight_end_time += self.phase_end_time
+            fight_start_time += phase_start_time
+            fight_end_time += phase_end_time
         else:
-            self.downtime = self._get_downtime(response)
-            self.phase_start_time = None
-            self.phase_end_time = None
-            self.fight_start_time += fight["startTime"]
-            self.fight_end_time += fight["endTime"]
+            downtime = self._get_downtime(self.fight_info_response)
+            phase_start_time = None
+            phase_end_time = None
+            fight_start_time += fight["startTime"]
+            fight_end_time += fight["endTime"]
 
-        self.fight_dps_time = (
-            self.fight_end_time - self.fight_start_time - self.downtime
-        ) / 1000
+        fight_dps_time = (fight_end_time - fight_start_time - downtime) / 1000
+
+        return (
+            fight_start_time,
+            fight_end_time,
+            phase_start_time,
+            phase_end_time,
+            downtime,
+            fight_dps_time,
+        )
 
     def _fetch_phase_start_end_time(self, fight_end_time: int):
         """
@@ -328,25 +366,25 @@ class ActionTable(FFLogsClient):
 
         return phase_start_time, phase_end_time
 
-    def _fetch_phase_downtime(self, headers: Dict[str, str]) -> dict:
+    def _fetch_phase_downtime(
+        self, headers: Dict[str, str], phase_start_time: int, phase_end_time: int
+    ) -> dict:
         """Retrieves phase-specific timing data."""
         variables = {
             "code": self.report_id,
             "id": [self.fight_id],
-            "start": self.phase_start_time,
-            "end": self.phase_end_time,
+            "start": phase_start_time,
+            "end": phase_end_time,
         }
         return self.gql_query(
             headers, self._fight_phase_downtime_query(), variables, "PhaseTime"
-        )
+        )["data"]["reportData"]["report"]
 
     def _get_downtime(self, response: dict) -> int:
         """Extracts downtime from the response, returning 0 if not present."""
-        return response["data"]["reportData"]["report"]["table"]["data"].get(
-            "downtime", 0
-        )
+        return response["table"]["data"].get("downtime", 0)
 
-    def _fetch_damage_events(self, headers: Dict[str, str]) -> None:
+    def _query_damage_events(self, headers: Dict[str, str]) -> None:
         """
         Query FFLogs API for damage events from a specific fight.
 
@@ -377,27 +415,25 @@ class ActionTable(FFLogsClient):
         """
         # Querying by playerID also includes pets
         # neat...
-        self.actions = []
-        source_ids = [self.player_id]
+        actions = []
+        # source_ids = [self.player_id]
 
-        for i in source_ids:
-            variables = {
-                "code": self.report_id,
-                "id": [self.fight_id],
-                "sourceID": i,
-                # Need to switch back to relative timestamp
-                # Time filtering is needed to ensure the correct phase
-                "startTime": self.fight_start_time - self.report_start_time,
-                "endTime": self.fight_end_time - self.report_start_time,
-            }
+        # for i in source_ids:
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+            "sourceID": self.player_id,
+            # Need to switch back to relative timestamp
+            # Time filtering is needed to ensure the correct phase
+            "startTime": self.fight_start_time - self.report_start_time,
+            "endTime": self.fight_end_time - self.report_start_time,
+        }
 
-            response = self.gql_query(
-                headers, self._damage_events_query(), variables, "DpsActions"
-            )
-            self.actions.extend(
-                response["data"]["reportData"]["report"]["events"]["data"]
-            )
-        pass
+        response = self.gql_query(
+            headers, self._damage_events_query(), variables, "DpsActions"
+        )
+        actions.extend(response["data"]["reportData"]["report"]["events"]["data"])
+        return actions
 
     def _filter_buff_tables(
         self,

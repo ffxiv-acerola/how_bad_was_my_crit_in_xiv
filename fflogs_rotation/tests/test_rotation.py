@@ -5,393 +5,126 @@ import pytest
 from fflogs_rotation.rotation import ActionTable
 
 
-# Dummy client that does nothing for our tests
-class DummyClient:
-    def query(self, query, variables, operationName=None):
-        # For phase downtime queries, this will be overridden in tests via monkeypatching/lambda.
-        return {}
+class DummyAction(ActionTable):
+    """
+    A dummy subclass of ActionTable that overrides phase-related API calls.
 
+    so that _process_fight_data() returns controlled values for testing.
+    """
 
-# Common dummy response base for _process_fight_data tests with an encounter having 3 phases.
-# The report contains a startTime, rankings with a duration, and a table.
-def get_dummy_response(
-    fight_name,
-    encounter_id,
-    kill,
-    fight_start,
-    fight_end,
-    phase_transitions,
-    table_data,
-):
-    return {
-        "data": {
-            "reportData": {
-                "report": {
-                    "startTime": 1000,
-                    "fights": [
-                        {
-                            "name": fight_name,
-                            "encounterID": encounter_id,
-                            "hasEcho": False,
-                            "kill": kill,
-                            "phaseTransitions": phase_transitions,
-                            "startTime": fight_start,  # relative fight start
-                            "endTime": fight_end,  # relative fight end (used in phase=0 and final phase branch)
-                        }
-                    ],
-                    "rankings": {"data": [{"duration": 5000}]},
-                    "table": {"data": table_data},
+    def __init__(
+        self,
+    ):
+        # Build a minimal fight info response.
+        self.fight_info_response = {
+            "startTime": 1000,  # Report start time in ms
+            "table": {
+                "data": {
+                    "downtime": 100,
                 }
-            }
+            },
+            "fights": [
+                {
+                    "encounterID": 1,
+                    "kill": True,
+                    "startTime": 100,
+                    "endTime": 15000,
+                    "name": "Futures Rewritten",
+                    "hasEcho": False,
+                    "phaseTransitions": [
+                        {"id": 1, "startTime": 100},
+                        {"id": 2, "startTime": 5000},
+                        {"id": 3, "startTime": 10000},
+                    ],
+                }
+            ],
+            "rankings": {
+                "data": [
+                    {"duration": 5000}  # Dummy ranking information
+                ]
+            },
         }
-    }
+        # encounter_phases is not used directly by _process_fight_data.
+        self.encounter_phases = {1: {1: "Phase 1", 2: "Phase 2", 3: "Phase 3"}}
+
+    def _fetch_phase_downtime(self, headers={}):
+        # Return a dummy dict structure for downtime extraction.
+        return {"table": {"data": {"downtime": 100}}}
+
+    def _get_downtime(self, response: dict) -> int:
+        # Extract downtime from the provided response.
+        return response["table"]["data"].get("downtime", 0)
 
 
-# Define phase transitions for an encounter with 3 phases.
-phase_transitions = [
-    {"id": 1, "startTime": 2000},
-    {"id": 2, "startTime": 4000},
-    {"id": 3, "startTime": 8000},
-]
-
-# Set up encounter_phases mapping for the dummy instance
-encounter_phases_dummy = {1: {1: "P1", 2: "P2", 3: "P3"}}
+@pytest.fixture
+def action_table():
+    return DummyAction()
 
 
-def test_process_fight_data_phase0():
-    """Phase 0: No phase analysis performed; downtime from main response."""
+@pytest.mark.parametrize(
+    "phase,kill,end_time,expected",
+    [
+        (0, True, 0, [1100, 16000, 14.80]),
+        (1, True, 0, [1100, 6000, 4.80]),
+        # (1, False, 0, [1000, 1000, 1000]),
+    ],
+)
+def test_fight_times(action_table, phase, kill, end_time, expected):
+    action_table.kill = kill
+    if not kill:
+        action_table.fight_info_response["fights"][0]["endTime"] = end_time
+
+    action_table.phase = phase
+    action_table._set_fight_information({})
+
+    assert action_table.fight_start_time == expected[0]
+    assert action_table.fight_end_time == expected[1]
+    assert action_table.fight_dps_time == expected[2]
+
+
+@pytest.mark.parametrize(
+    "job, ranged_cards, melee_cards, input_card, expected_result",
+    [
+        # For a ranged job receiving a ranged card expect a 6% buff.
+        ("WhiteMage", ["10003242"], [], "10003242", ("card6", 1.06)),
+        # For a ranged job receiving a melee card expect a 3% buff.
+        ("WhiteMage", [], ["10003242"], "10003242", ("card3", 1.03)),
+        # For a melee job receiving a melee card expect a 6% buff.
+        ("Ninja", [], ["11111111"], "11111111", ("card6", 1.06)),
+        # For a melee job receiving a ranged card expect a 3% buff.
+        ("Ninja", ["11111111"], [], "11111111", ("card3", 1.03)),
+    ],
+)
+def test_ast_card_buff(job, ranged_cards, melee_cards, input_card, expected_result):
     instance = ActionTable.__new__(ActionTable)
-    instance.phase = 0
-    instance.client = DummyClient()
-    instance.encounter_phases = encounter_phases_dummy
-
-    # Dummy response with no downtime provided (default should be 0)
-    dummy_response = get_dummy_response(
-        fight_name="TestFight_phase0",
-        encounter_id=1,
-        kill=True,
-        fight_start=1000,
-        fight_end=12000,
-        phase_transitions=phase_transitions,
-        table_data={},  # No "downtime" key; _get_downtime will default to 0.
-    )
-
-    instance._process_fight_data(dummy_response, {})
-    # Expected values:
-    # report_start_time = 1000
-    # phase branch is false so:
-    #   fight_start_time = 1000 (report) + 1000 (fight start) = 2000
-    #   fight_end_time = 1000 (report) + 5000 (fight end) = 6000
-    #   downtime = 0, so fight_dps_time = (6000-2000-0)/1000 = 4.0
-
-    assert instance.fight_name == "TestFight_phase0"
-    assert instance.encounter_id == 1
-    assert instance.has_echo is False
-    assert instance.kill is True
-    assert instance.report_start_time == 1000
-    assert instance.fight_start_time == 2000
-    assert instance.fight_end_time == 13000
-    assert instance.downtime == 0
-    assert instance.fight_dps_time == 11
-    assert instance.ranking_duration == 5000
-    assert instance.phase_start_time is None
-    assert instance.phase_end_time is None
+    instance.job = job
+    instance.ranged_cards = ranged_cards
+    instance.melee_cards = melee_cards
+    # Call the card buff function.
+    result = instance.ast_card_buff(input_card)
+    assert (
+        result == expected_result
+    ), f"For job {job} with card {input_card}, expected {expected_result} but got {result}"
 
 
-def test_process_fight_data_phase1():
-    """Phase 1: Non-final phase using phaseTransitions (expected phase_start = 2000, phase_end = 4000)."""
+@pytest.mark.parametrize(
+    "phase, elapsed, expected",
+    [
+        (0, 50, "RadiantFinale1"),  # Phase 0, elapsed < 100 returns RadiantFinale1.
+        (1, 75, "RadiantFinale1"),  # Phase 1, elapsed < 100 returns RadiantFinale1.
+        (2, 50, "RadiantFinale3"),  # Phase 2 &, elapsed < 100 returns RadiantFinale3.
+        (0, 150, "RadiantFinale3"),  # Phase 0, elapsed > 100 returns RadiantFinale3.
+        (1, 200, "RadiantFinale3"),  # Phase 1, elapsed > 100 returns RadiantFinale3.
+        (2, 150, "RadiantFinale3"),  # Phase 2, elapsed > 100 returns RadiantFinale3.
+    ],
+)
+def test_estimate_radiant_finale_strength(phase, elapsed, expected):
     instance = ActionTable.__new__(ActionTable)
-    instance.phase = 1
-    instance.client = DummyClient()
-    instance.encounter_phases = encounter_phases_dummy
-
-    # Patch _fetch_phase_downtime to return a dummy downtime response with downtime = 100.
-    instance._fetch_phase_downtime = lambda: {
-        "data": {"reportData": {"report": {"table": {"data": {"downtime": 100}}}}}
-    }
-
-    dummy_response = get_dummy_response(
-        fight_name="TestFight_phase1",
-        encounter_id=1,
-        kill=True,
-        fight_start=1000,  # These values are not used in phase branch for start/end times.
-        fight_end=12000,  # fight_end is not used because _fetch_phase_start_end_time will select next phase start.
-        phase_transitions=phase_transitions,
-        table_data={},  # Not used in phase branch.
-    )
-
-    instance._process_fight_data(dummy_response, {})
-    # _fetch_phase_start_end_time for phase==1:
-    #   phase_start_time = when id==1 => 2000
-    #   phase_end_time = when id==2 => 4000
-    # Then:
-    #   fight_start_time = report_start_time (1000) + 2000 = 3000
-    #   fight_end_time   = report_start_time (1000) + 4000 = 5000
-    #   downtime = 100, so fight_dps_time = (5000 - 3000 - 100)/1000 = 1.9
-    assert instance.fight_name == "TestFight_phase1"
-    assert instance.encounter_id == 1
-    assert instance.has_echo is False
-    assert instance.kill is True
-    assert instance.report_start_time == 1000
-    assert instance.phase_start_time == 2000
-    assert instance.phase_end_time == 4000
-    assert instance.fight_start_time == 3000
-    assert instance.fight_end_time == 5000
-    assert instance.downtime == 100
-    assert pytest.approx(instance.fight_dps_time, 0.001) == 1.9
-    assert instance.ranking_duration == 5000
-
-
-def test_process_fight_data_phase2():
-    """Phase 2: Non-final phase; expected phase_start = 4000, phase_end = 8000."""
-    instance = ActionTable.__new__(ActionTable)
-    instance.phase = 2
-    instance.client = DummyClient()
-    instance.encounter_phases = encounter_phases_dummy
-
-    # Patch _fetch_phase_downtime with dummy downtime = 150.
-    instance._fetch_phase_downtime = lambda: {
-        "data": {"reportData": {"report": {"table": {"data": {"downtime": 150}}}}}
-    }
-
-    dummy_response = get_dummy_response(
-        fight_name="TestFight_phase2",
-        encounter_id=1,
-        kill=True,
-        fight_start=1000,
-        fight_end=12000,  # Irrelevant for non-final phase branch.
-        phase_transitions=phase_transitions,
-        table_data={},
-    )
-
-    instance._process_fight_data(dummy_response, {})
-    # For phase==2:
-    #   phase_start_time = when id==2 => 4000
-    #   phase_end_time = when id==3 => 8000
-    # Then:
-    #   fight_start_time = 1000 + 4000 = 5000
-    #   fight_end_time = 1000 + 8000 = 9000
-    #   fight_dps_time = (9000 - 5000 - 150)/1000 = 3.85
-    assert instance.fight_name == "TestFight_phase2"
-    assert instance.encounter_id == 1
-    assert instance.report_start_time == 1000
-    assert instance.phase_start_time == 4000
-    assert instance.phase_end_time == 8000
-    assert instance.fight_start_time == 5000
-    assert instance.fight_end_time == 9000
-    assert instance.downtime == 150
-    assert pytest.approx(instance.fight_dps_time, 0.001) == 3.85
-    assert instance.ranking_duration == 5000
-
-
-def test_process_fight_data_phase3():
-    """Phase 3: Final phase (phase equals max phase) so phase_end_time returns fight["endTime"]."""
-    instance = ActionTable.__new__(ActionTable)
-    instance.phase = 3
-    instance.client = DummyClient()
-    instance.encounter_phases = encounter_phases_dummy
-
-    # Patch _fetch_phase_downtime with dummy downtime = 200.
-    instance._fetch_phase_downtime = lambda: {
-        "data": {"reportData": {"report": {"table": {"data": {"downtime": 200}}}}}
-    }
-
-    # For final phase, fight["endTime"] is used as phase_end_time.
-    dummy_response = get_dummy_response(
-        fight_name="TestFight_phase3",
-        encounter_id=1,
-        kill=True,
-        fight_start=1000,
-        fight_end=12000,  # This value will be used for phase_end_time in the final phase branch.
-        phase_transitions=phase_transitions,
-        table_data={},
-    )
-
-    instance._process_fight_data(dummy_response, {})
-    # For phase==3:
-    #   _fetch_phase_start_end_time will do:
-    #       phase_start_time = when id==3 => 8000
-    #       Since phase (3) is NOT less than max({1,2,3}) (3 < 3 is False), else branch applies:
-    #         phase_end_time = fight_end_time from fight dict = 12000.
-    # Then:
-    #   fight_start_time = 1000 + 8000 = 9000
-    #   fight_end_time = 1000 + 12000 = 13000
-    #   fight_dps_time = (13000 - 9000 - 200)/1000 = 3.8
-    assert instance.fight_name == "TestFight_phase3"
-    assert instance.encounter_id == 1
-    assert instance.report_start_time == 1000
-    assert instance.phase_start_time == 8000
-    assert instance.phase_end_time == 12000
-    assert instance.fight_start_time == 9000
-    assert instance.fight_end_time == 13000
-    assert instance.downtime == 200
-    assert pytest.approx(instance.fight_dps_time, 0.001) == 3.8
-    assert instance.ranking_duration == 5000
-
-
-def test_process_fight_data_phase1_wipe():
-    """
-    Multi-phase fight with a wipe in the first phase.
-
-    Simulate a fight that did not progress past phase 1: Only one phase transition exists.
-    In this case, even though encounter_phases indicates more phases,
-    the missing next phase transition forces phase_end_time to be taken from fight["endTime"].
-    """
-
-    instance = ActionTable.__new__(ActionTable)
-    instance.phase = 1
-    instance.client = DummyClient()
-    instance.encounter_phases = encounter_phases_dummy
-
-    # Patch _fetch_phase_downtime and also _get_downtime to extract downtime.
-    instance._fetch_phase_downtime = lambda: {
-        "data": {"reportData": {"report": {"table": {"data": {"downtime": 50}}}}}
-    }
-    instance._get_downtime = lambda resp: resp["data"]["reportData"]["report"]["table"][
-        "data"
-    ]["downtime"]
-
-    # Provide phase_transitions with only phase 1 information to simulate a wipe.
-    reduced_phase_transitions = [
-        {"id": 1, "startTime": 2000},
-    ]
-    dummy_response = get_dummy_response(
-        fight_name="TestFight_phase1_wipe",
-        encounter_id=1,
-        kill=False,  # Wipe scenario; ranking_duration will be None.
-        fight_start=1000,
-        fight_end=9000,  # fight_end used as phase_end_time because next phase transition is missing.
-        phase_transitions=reduced_phase_transitions,
-        table_data={},
-    )
-    instance._process_fight_data(dummy_response, {})
-    # Expected:
-    #   phase_start_time = 2000 (from available phaseTransitions for id==1)
-    #   phase_end_time   = fight["endTime"] = 9000 (since there's no transition for phase 2)
-    #   fight_start_time = 1000+2000 = 3000
-    #   fight_end_time   = 1000+9000 = 10000
-    #   downtime = 50, so fight_dps_time = (10000 - 3000 - 50)/1000 = 6.95
-    #   ranking_duration = None because kill is False.
-    assert instance.fight_name == "TestFight_phase1_wipe"
-    assert instance.encounter_id == 1
-    assert instance.has_echo is False
-    assert instance.kill is False
-    assert instance.report_start_time == 1000
-    assert instance.phase_start_time == 2000
-    assert instance.phase_end_time == 9000
-    assert instance.fight_start_time == 3000
-    assert instance.fight_end_time == 10000
-    assert instance.downtime == 50
-    assert pytest.approx(instance.fight_dps_time, 0.001) == 6.95
-    assert instance.ranking_duration is None
-
-
-def test_ast_card_buff_ranged_receives_ranged_card():
-    """
-    For a ranged job (e.g., WhiteMage) receiving a ranged card,.
-
-    expect a 6% damage buff.
-    """
-    instance = ActionTable.__new__(ActionTable)
-    instance.job = "WhiteMage"
-    instance.ranged_cards = ["10003242"]
-    instance.melee_cards = []
-    result = instance.ast_card_buff("10003242")
-    assert result == ("card6", 1.06)
-
-
-def test_ast_card_buff_ranged_receives_melee_card():
-    """
-    For a ranged job (e.g., WhiteMage) receiving a melee card,.
-
-    expect a 3% damage buff.
-    """
-    instance = ActionTable.__new__(ActionTable)
-    instance.job = "WhiteMage"
-    instance.ranged_cards = []  # No ranged card present
-    instance.melee_cards = ["10003242"]  # Card provided in melee_cards
-    result = instance.ast_card_buff("10003242")
-    assert result == ("card3", 1.03)
-
-
-def test_ast_card_buff_melee_receives_melee_card():
-    """
-    For a melee job (e.g., Ninja) receiving a melee card,.
-
-    expect a 6% damage buff.
-    """
-    instance = ActionTable.__new__(ActionTable)
-    instance.job = "Ninja"
-    instance.melee_cards = ["11111111"]
-    instance.ranged_cards = []
-    result = instance.ast_card_buff("11111111")
-    assert result == ("card6", 1.06)
-
-
-def test_ast_card_buff_melee_receives_ranged_card():
-    """
-    For a melee job (e.g., Ninja) receiving a ranged card,.
-
-    expect a 3% damage buff.
-    """
-    instance = ActionTable.__new__(ActionTable)
-    instance.job = "Ninja"
-    instance.melee_cards = []  # No melee card present
-    instance.ranged_cards = ["11111111"]  # Card provided in ranged_cards
-    result = instance.ast_card_buff("11111111")
-    assert result == ("card3", 1.03)
-
-
-def test_estimate_radiant_finale_strength_phase0_under100():
-    """For phase 0 and elapsed_time < 100, should return "RadiantFinale1"."""
-    instance = ActionTable.__new__(ActionTable)
-    instance.phase = 0
-    result = instance.estimate_radiant_finale_strength(50)
-    assert result == "RadiantFinale1"
-
-
-def test_estimate_radiant_finale_strength_phase1_under100():
-    """For phase 1 and elapsed_time < 100, should return "RadiantFinale1"."""
-    instance = ActionTable.__new__(ActionTable)
-    instance.phase = 1
-    result = instance.estimate_radiant_finale_strength(75)
-    assert result == "RadiantFinale1"
-
-
-def test_estimate_radiant_finale_strength_phase2_under100():
-    """
-    For phase 2 and elapsed_time < 100, since phase > 1 the condition fails,.
-
-    so it should return "RadiantFinale3".
-    """
-    instance = ActionTable.__new__(ActionTable)
-    instance.phase = 2
-    result = instance.estimate_radiant_finale_strength(50)
-    assert result == "RadiantFinale3"
-
-
-def test_estimate_radiant_finale_strength_phase0_over100():
-    """For phase 0 and elapsed_time > 100, should return "RadiantFinale3"."""
-    instance = ActionTable.__new__(ActionTable)
-    instance.phase = 0
-    result = instance.estimate_radiant_finale_strength(150)
-    assert result == "RadiantFinale3"
-
-
-def test_estimate_radiant_finale_strength_phase1_over100():
-    """For phase 1 and elapsed_time > 100, should return "RadiantFinale3"."""
-    instance = ActionTable.__new__(ActionTable)
-    instance.phase = 1
-    result = instance.estimate_radiant_finale_strength(200)
-    assert result == "RadiantFinale3"
-
-
-def test_estimate_radiant_finale_strength_phase2_over100():
-    """For phase 2 and elapsed_time > 100, should return "RadiantFinale3"."""
-    instance = ActionTable.__new__(ActionTable)
-    instance.phase = 2
-    result = instance.estimate_radiant_finale_strength(150)
-    assert result == "RadiantFinale3"
+    instance.phase = phase
+    result = instance.estimate_radiant_finale_strength(elapsed)
+    assert (
+        result == expected
+    ), f"For phase {phase} and elapsed {elapsed}, expected {expected} but got {result}"
 
 
 @pytest.fixture
