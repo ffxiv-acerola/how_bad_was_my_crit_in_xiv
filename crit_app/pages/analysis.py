@@ -419,6 +419,7 @@ def layout(analysis_id=None):
                     guaranteed_hits_by_action_table,
                     guaranteed_hits_by_buff_table,
                     potency_table,
+                    encounter_phases,
                     pet_ids,
                     analysis_details["excluded_enemy_ids"],
                 )

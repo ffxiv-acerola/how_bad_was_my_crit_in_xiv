@@ -375,11 +375,10 @@ class ActionTable(FFLogsClient):
                 Each event is a dict with fields like timestamp, type,
                 sourceID, targetID, amount, etc.
         """
+        # Querying by playerID also includes pets
+        # neat...
         self.actions = []
-
         source_ids = [self.player_id]
-        if self.pet_ids is not None:
-            source_ids += self.pet_ids
 
         for i in source_ids:
             variables = {
