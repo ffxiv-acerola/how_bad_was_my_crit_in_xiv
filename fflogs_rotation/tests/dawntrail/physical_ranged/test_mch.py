@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
+from crit_app.job_data.encounter_data import encounter_phases
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
     damage_buff_table,
@@ -63,6 +64,7 @@ class TestMachinistActions:
             guaranteed_hits_by_action_table,
             guaranteed_hits_by_buff_table,
             potency_table,
+            encounter_phases,
             pet_ids=self.pet_ids,
         )
 
@@ -173,6 +175,7 @@ class TestMachinistMultiTargetActions:
             guaranteed_hits_by_action_table,
             guaranteed_hits_by_buff_table,
             potency_table,
+            encounter_phases=encounter_phases,
             pet_ids=self.pet_ids,
         )
 

@@ -114,7 +114,7 @@ class BuffQuery(object):
         Returns:
             DataFrame with updated buff and action name columns
         """
-        actions_df.loc[condition, "buffs"] = actions_df["buffs"].apply(
+        actions_df.loc[condition, "buffs"] = actions_df.loc[condition, "buffs"].apply(
             lambda x: x + [str(buff_id)]
         )
 
