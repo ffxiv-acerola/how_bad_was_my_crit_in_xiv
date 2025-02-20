@@ -37,6 +37,7 @@ from crit_app.figures import (
 )
 from crit_app.job_data.encounter_data import (
     encounter_level,
+    encounter_phases,
     patch_times,
     stat_ranges,
     valid_encounters,
@@ -418,6 +419,7 @@ def layout(analysis_id=None):
                     guaranteed_hits_by_action_table,
                     guaranteed_hits_by_buff_table,
                     potency_table,
+                    encounter_phases,
                     pet_ids,
                     analysis_details["excluded_enemy_ids"],
                 )
@@ -492,7 +494,7 @@ def layout(analysis_id=None):
                     role,
                     player_job_no_space,
                     rotation_df,
-                    rotation_object.fight_time,
+                    rotation_object.fight_dps_time,
                     main_stat,
                     secondary_stat,
                     determination,
@@ -1633,7 +1635,17 @@ def analyze_and_register_rotation(
         role,
         encounter_id,
         encounter_name,
+        last_phase_index,
     ) = read_player_analysis_info(report_id, fight_id, player_id)
+
+    # Edge case example: fight analyzing phase 5 is loaded
+    # user switches log url to a phase where phase 1 was reached
+    # if they don't hit submit, phase 5 can still be selected, which is
+    # impossible. Easy solution:
+    # Just analyze the final phase reached, that's pry what they wanted anw.
+    if fight_phase > last_phase_index:
+        fight_phase = last_phase_index
+
     level = encounter_level[encounter_id]
 
     # Higher level = bigger damage = bigger discretization step size
@@ -1718,12 +1730,13 @@ def analyze_and_register_rotation(
             guaranteed_hits_by_action_table,
             guaranteed_hits_by_buff_table,
             potency_table,
+            encounter_phases,
             pet_ids,
             excluded_enemy_ids,
         )
 
         rotation_df = rotation.rotation_df
-        t = rotation.fight_time
+        t = rotation.fight_dps_time
         encounter_name = rotation.fight_name
 
         job_analysis_object = rotation_analysis(

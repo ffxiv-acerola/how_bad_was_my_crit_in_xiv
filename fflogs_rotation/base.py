@@ -24,10 +24,26 @@ class BuffQuery(object):
     Provides base functionality for job-specific buff tracking classes.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, api_url: str = "https://www.fflogs.com/api/v2/client") -> None:
+        self.api_url = api_url
         self.report_start: int = 0
         self.request_response: Dict[str, Any] = {}
 
+    def gql_query(self, headers, query, variables, operation_name):
+        json_payload = {
+            "query": query,
+            "variables": variables,
+            "operationName": operation_name,
+        }
+        response = requests.post(
+            headers=headers,
+            url="https://www.fflogs.com/api/v2/client",
+            json=json_payload,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    # FIXME: WTF was I thinking here
     def _perform_graph_ql_query(
         self,
         headers: Dict[str, str],
@@ -87,6 +103,9 @@ class BuffQuery(object):
         """
         Apply a buff to an actions DataFrame.
 
+        Appends the buff ID to `buffs` column.
+        Updates the `action_name` column to include the new buff ID.
+
         Args:
             actions_df: DataFrame of actions
             condition: Boolean mask for which actions to apply buff to
@@ -95,7 +114,7 @@ class BuffQuery(object):
         Returns:
             DataFrame with updated buff and action name columns
         """
-        actions_df.loc[condition, "buffs"] = actions_df["buffs"].apply(
+        actions_df.loc[condition, "buffs"] = actions_df.loc[condition, "buffs"].apply(
             lambda x: x + [str(buff_id)]
         )
 

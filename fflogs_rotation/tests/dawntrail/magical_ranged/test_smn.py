@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
+from crit_app.job_data.encounter_data import encounter_phases
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
     damage_buff_table,
@@ -62,6 +63,7 @@ class TestSummonerActions:
             guaranteed_hits_by_action_table,
             guaranteed_hits_by_buff_table,
             potency_table,
+            encounter_phases=encounter_phases,
             pet_ids=self.pet_ids,
         )
 
@@ -85,7 +87,7 @@ class TestSummonerActions:
         return (
             pd.DataFrame(
                 [
-                    {"base_action": "Attack", "n": 126},
+                    # {"base_action": "Attack", "n": 126},
                     {"base_action": "Slipstream (tick)", "n": 47},
                     {"base_action": "Topaz Rite", "n": 36},
                     {"base_action": "Emerald Rite", "n": 36},

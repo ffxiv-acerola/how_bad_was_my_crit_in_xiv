@@ -1,12 +1,10 @@
-import json
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import requests
 
-from crit_app.job_data.encounter_data import encounter_phases
 from fflogs_rotation.bard import BardActions
 from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.dragoon import DragoonActions
@@ -26,24 +24,41 @@ from ffxiv_stats import Rate
 url = "https://www.fflogs.com/api/v2/client"
 
 
-class ActionTable(object):
+class FFLogsClient(object):
+    """Responsible for FFLogs API calls."""
+
+    def __init__(self, api_url: str = "https://www.fflogs.com/api/v2/client"):
+        self.api_url = api_url
+
+    def gql_query(
+        self, headers, query: str, variables: dict, operation_name: str
+    ) -> dict:
+        json_payload = {
+            "query": query,
+            "variables": variables,
+            "operationName": operation_name,
+        }
+        response = requests.post(headers=headers, url=self.api_url, json=json_payload)
+        response.raise_for_status()
+        return response.json()
+
+
+class ActionTable(FFLogsClient):
     """
     Processes FFXIV combat log data into action tables for damage analysis.
 
-    Handles parsing FFLogs data, applying buffs and combat mechanics, and creating
-    standardized action tables for further analysis.
-
-    The transformation process follows a medallion pattern:
-    - Bronze: Raw damage event payload from FFLogs API
-    - Silver: Processed action table
-    - Gold: Aggregated rotation table
+    Responsibilities:
+      - Retrieve fight and damage data via an injected FFLogsClient (for easier testing)
+      - Process fight timings (start/end/down time/phase) and expose them
+      - Delegate job-specific mechanics to helper methods/classes
+      - Transform raw events into a structured DataFrame
     """
 
     def __init__(
         self,
         headers: Dict[str, str],
         report_id: str,
-        fight_id: str,
+        fight_id: int,
         job: str,
         player_id: int,
         crit_stat: int,
@@ -57,33 +72,10 @@ class ActionTable(object):
         direct_hit_rate_buff_table: pd.DataFrame,
         guaranteed_hits_by_action_table: pd.DataFrame,
         guaranteed_hits_by_buff_table: pd.DataFrame,
+        encounter_phases,
         pet_ids: Optional[List[int]] = None,
         debug: bool = False,
     ) -> None:
-        """
-        Initialize ActionTable instance.
-
-        Args:
-            headers: FFLogs API headers
-            report_id: FFLogs report ID (e.g. "gbkzXDBTFAQqjxpL")
-            fight_id: Fight ID within report (e.g. 4)
-            job: Job name in PascalCase (e.g. "DarkKnight")
-            player_id: FFLogs player ID
-            crit_stat: Critical hit stat value
-            dh_stat: Direct hit stat value
-            determination: Determination stat value
-            medication_amt: Main stat increase from medication
-            level: Player level
-            phase: Fight phase number
-            damage_buff_table: Table of damage buffs
-            critical_hit_rate_buff_table: Table of crit rate buffs
-            direct_hit_rate_buff_table: Table of DH rate buffs
-            guaranteed_hits_by_action_table: Table of guaranteed hits by action
-            guaranteed_hits_by_buff_table: Table of guaranteed hits by buff
-            pet_ids: Optional list of pet IDs
-            debug: Enable debug logging
-        """
-
         self.report_id = report_id
         self.fight_id = fight_id
         self.job = job
@@ -91,230 +83,57 @@ class ActionTable(object):
         self.pet_ids = pet_ids
         self.level = level
         self.phase = phase
-
         self.critical_hit_stat = crit_stat
         self.direct_hit_stat = dh_stat
         self.determination = determination
         self.medication_amt = medication_amt
-
         self.debug = debug
-        self.fight_information(headers)
-        self.damage_events(headers)
-        self.ability_name_mapping_str = dict(
-            zip(
-                [str(x) for x in self.ability_name_mapping.keys()],
-                self.ability_name_mapping.values(),
-            )
-        )
-        self.fight_start_time = self.report_start_time + self.actions[0]["timestamp"]
+        self.encounter_phases = encounter_phases
+
+        super().__init__(api_url="https://www.fflogs.com/api/v2/client")
+
+        # Fetch fight information and set timings
+        self.fight_info_response = self._query_fight_information(headers)
+        self._set_fight_information(headers)
+        # Fetch damage events from FFLogs
+        self.actions = self._query_damage_events(headers)
+
+        # Patch (used for echo)
         self.patch_number = self.what_patch_is_it()
-        # Buff information, filtered to the relevant timestamp
-        # Just about everything is handled as dictionaries except for
-        # hit types via buffs because they are matched on two keys,
-        # buff and action. This is simpler to do in pandas.
 
-        # Everything ends up as an ID : multiplier/rate/hit type relationship
-        self.damage_buffs = (
-            damage_buff_table[
-                (damage_buff_table["valid_start"] <= self.fight_start_time)
-                & (self.fight_start_time <= damage_buff_table["valid_end"])
-            ]
-            # .set_index("buff_id")["buff_strength"]
-            # .to_dict()
-        )
-
-        self.critical_hit_rate_buffs = (
-            critical_hit_rate_buff_table[
-                (critical_hit_rate_buff_table["valid_start"] <= self.fight_start_time)
-                & (self.fight_start_time <= critical_hit_rate_buff_table["valid_end"])
-            ]
-            .set_index("buff_id")["rate_buff"]
-            .to_dict()
-        )
-
-        self.direct_hit_rate_buffs = (
-            direct_hit_rate_buff_table[
-                (direct_hit_rate_buff_table["valid_start"] <= self.fight_start_time)
-                & (self.fight_start_time <= direct_hit_rate_buff_table["valid_end"])
-            ]
-            .set_index("buff_id")["rate_buff"]
-            .to_dict()
-        )
-
-        # Guaranteed hit types
-        self.guaranteed_hit_type_via_buff = guaranteed_hits_by_buff_table[
-            (guaranteed_hits_by_buff_table["valid_start"] <= self.fight_start_time)
-            & (self.fight_start_time <= guaranteed_hits_by_buff_table["valid_end"])
-        ]
-
-        self.guaranteed_hit_type_via_action = (
-            guaranteed_hits_by_action_table[
-                (
-                    guaranteed_hits_by_action_table["valid_start"]
-                    <= self.fight_start_time
-                )
-                & (
-                    self.fight_start_time
-                    <= guaranteed_hits_by_action_table["valid_end"]
-                )
-            ]
-            .set_index("action_id")["hit_type"]
-            .to_dict()
+        # Buff tables filtered based on fight start time
+        self._filter_buff_tables(
+            damage_buff_table,
+            critical_hit_rate_buff_table,
+            direct_hit_rate_buff_table,
+            guaranteed_hits_by_buff_table,
+            guaranteed_hits_by_action_table,
         )
 
         self.ranged_cards = self.damage_buffs[
             self.damage_buffs["buff_name"].isin(["The Bole", "The Spire", "The Ewer"])
         ]["buff_id"].tolist()
+
         self.melee_cards = self.damage_buffs[
             self.damage_buffs["buff_name"].isin(
                 ["The Arrow", "The Balance", "The Spear"]
             )
         ]["buff_id"].tolist()
 
+        # Build initial actions DataFrame
         self.actions_df = self.create_action_df()
+        # Apply job-specific mechanics
+        self._apply_job_specifics(headers)
 
-        # Use delegation to handle job-specific mechanics,
-        # since exact transformations will depend on the job.
-        self.job_specifics = None
-
-        if self.job == "DarkKnight":
-            self.job_specifics = DarkKnightActions()
-            self.actions_df = self.estimate_ground_effect_multiplier(
-                self.job_specifics.salted_earth_id,
-            )
-            self.actions_df = self.job_specifics.apply_drk_things(
-                self.actions_df,
-                self.player_id,
-                self.pet_ids[0],
-            )
-
-        elif self.job == "Paladin":
-            self.job_specifics = PaladinActions(headers, report_id, fight_id, player_id)
-            self.actions_df = self.job_specifics.apply_pld_buffs(self.actions_df)
-            pass
-
-        elif self.job == "BlackMage":
-            self.job_specifics = BlackMageActions(
-                headers, report_id, fight_id, player_id, self.level, self.patch_number
-            )
-            self.actions_df = self.job_specifics.apply_elemental_buffs(self.actions_df)
-            self.actions_df = self.actions_df[
-                self.actions_df["ability_name"] != "Attack"
-            ]
-
-        elif self.job == "Summoner":
-            self.actions_df = self.estimate_ground_effect_multiplier(
-                1002706,
-            )
-
-        elif self.job in (
-            "Pictomancer",
-            "RedMage",
-            "Summoner",
-            "Astrologian",
-            "WhiteMage",
-            "Sage",
-            "Scholar",
-        ):
-            self.actions_df = self.actions_df[
-                self.actions_df["ability_name"].str.lower() != "attack"
-            ]
-
-        # FIXME: I think arm of the destroyer won't get updated but surely no one would use that in savage.
-        elif self.job == "Monk":
-            self.job_specifics = MonkActions(
-                headers, report_id, fight_id, player_id, self.patch_number
-            )
-
-            if self.patch_number < 7.0:
-                self.actions_df = self.job_specifics.apply_endwalker_mnk_buffs(
-                    self.actions_df
-                )
-            else:
-                self.actions_df = self.job_specifics.apply_dawntrail_mnk_buffs(
-                    self.actions_df
-                )
-
-            self.actions_df = self.job_specifics.apply_bootshine_autocrit(
-                self.actions_df,
-                self.critical_hit_stat,
-                self.direct_hit_stat,
-                self.critical_hit_rate_buffs,
-                self.level,
-            )
-            pass
-
-        elif self.job == "Ninja":
-            self.job_specifics = NinjaActions(
-                headers, report_id, fight_id, player_id, self.patch_number
-            )
-            self.actions_df = self.job_specifics.apply_ninja_buff(self.actions_df)
-            pass
-
-        elif self.job == "Dragoon":
-            self.job_specifics = DragoonActions(
-                headers, report_id, fight_id, player_id, self.patch_number
-            )
-            # if self.patch_number >= 7.0:
-            #     self.actions_df = self.job_specifics.apply_dawntrail_life_of_the_dragon_buffs(
-            #         self.actions_df
-            #     )
-            if self.patch_number < 7.0:
-                self.actions_df = (
-                    self.job_specifics.apply_endwalker_combo_finisher_potencies(
-                        self.actions_df
-                    )
-                )
-
-        elif self.job == "Reaper":
-            self.job_specifics = ReaperActions(headers, report_id, fight_id, player_id)
-            self.actions_df = self.job_specifics.apply_enhanced_buffs(self.actions_df)
-            pass
-
-        elif self.job == "Viper":
-            self.job_specifics = ViperActions(headers, report_id, fight_id, player_id)
-            self.actions_df = self.job_specifics.apply_viper_buffs(self.actions_df)
-
-        elif self.job == "Samurai":
-            self.job_specifics = SamuraiActions(headers, report_id, fight_id, player_id)
-            self.actions_df = self.job_specifics.apply_enhanced_enpi(self.actions_df)
-
-        elif self.job == "Machinist":
-            # wildfire can't crit...
-            self.actions_df.loc[
-                self.actions_df["abilityGameID"] == 1000861,
-                ["p_n", "p_c", "p_d", "p_cd"],
-            ] = [1.0, 0.0, 0.0, 0.0]
-
-            self.actions_df = self.estimate_ground_effect_multiplier(
-                1000861,
-            )
-            self.job_specifics = MachinistActions(
-                headers, report_id, fight_id, player_id
-            )
-            self.actions_df = self.job_specifics.apply_mch_potencies(self.actions_df)
-
-        elif self.job == "Bard":
-            self.job_specifics = BardActions()
-            self.actions_df = self.job_specifics.estimate_pitch_perfect_potency(
-                self.actions_df
-            )
-            if self.patch_number >= 7.0:
-                self.actions_df = self.job_specifics.estimate_radiant_encore_potency(
-                    self.actions_df
-                )
-        # Unpaired didn't have damage go off, filter these out.
-        # This column wont exist if there aren't any unpaired actions though.
-        # This is done at the very end because unpaired actions can still give gauge,
-        # which is important for tracking actions like Darkside.
+        # Final cleanup of actions DataFrame
+        # Remove unpaired actions, which still count towards gauge generation
         if "unpaired" in self.actions_df.columns:
             self.actions_df = self.actions_df[self.actions_df["unpaired"] != True]
-
         self.actions_df = self.actions_df.reset_index(drop=True)
 
+        # Apply the echo, if present
         if self.has_echo:
             self.apply_the_echo()
-        pass
 
     def what_patch_is_it(self) -> float:
         """Map log start timestamp to its associated patch.
@@ -326,44 +145,39 @@ class ActionTable(object):
                 self.fight_start_time <= v["end"]
             ):
                 return k
+        return 0.0
 
-    def fight_information(self, headers: Dict[str, str]) -> None:
+    def _query_fight_information(self, headers: Dict[str, str]) -> None:
         """
-        Query FFLogs API to get fight information and initialize fight-related attributes.
+        Retrieves fight information from the FFLogs GraphQL API for the specified.
 
-        Makes a GraphQL query to get:
-        - Report start time
-        - Fight/phase timings (start time, end time, fight duration)
-        - Phase transition information if present
-        - Ability name mappings
-        - Echo buff status
-
-        Sets the following instance attributes:
-        - fight_name: Name of the fight/encounter
-        - ability_name_mapping: Dict mapping ability IDs to human readable names
-        - has_echo: Boolean indicating if Echo buff is present
-        - report_start_time: Base timestamp for the report
-        - phase_information: List of phase transition details
-        - fight_start_time: Absolute start time of the fight/phase
-        - fight_end_time: Absolute end time of the fight/phase
-        - fight_time: Duration in seconds (excluding downtime)
+        fight and calls `_process_fight_data()` to set core attributes (e.g., encounter
+        name, start/end times, echo). Modifies class state in-place.
 
         Args:
-            headers (Dict[str, str]): FFLogs API request headers containing authorization
+            headers (Dict[str, str]): HTTP headers for GraphQL querying, including
+            authentication tokens.
         """
+        fight_info_variables = {"code": self.report_id, "id": [self.fight_id]}
 
-        query = """
+        response = self.gql_query(
+            headers,
+            self._fight_information_query(),
+            fight_info_variables,
+            "FightInformation",
+        )
+
+        # TODO: check for valid response
+        return response["data"]["reportData"]["report"]
+
+    def _fight_information_query(self) -> str:
+        """Fight information GQL query string."""
+        return """
         query FightInformation($code: String!, $id: [Int]!) {
             reportData {
                 report(code: $code) {
                     startTime
-                    masterData {
-                        abilities {
-                            name
-                            gameID
-                        }
-                    }
-                    rankings(fightIDs: $id)
+                    # masterData { abilities { name gameID } }
                     table(fightIDs: $id, dataType: DamageDone)
                     fights(fightIDs: $id, translate: true) {
                         encounterID
@@ -372,155 +186,17 @@ class ActionTable(object):
                         endTime
                         name
                         hasEcho
-                        phaseTransitions {
-                            id
-                            startTime
-                        }
+                        phaseTransitions { id startTime }
                     }
+                    rankings(fightIDs: $id)
                 }
             }
         }
         """
 
-        # Initial query that gets the fight duration
-        variables = {
-            "code": self.report_id,
-            "id": [self.fight_id],
-        }
-        json_payload = {
-            "query": query,
-            "variables": variables,
-            "operationName": "FightInformation",
-        }
-        r = requests.post(url=url, json=json_payload, headers=headers)
-        r = json.loads(r.text)
-
-        # Fight name
-        self.fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
-
-        # Map ability ID with ability name so they're human readable
-        self.ability_name_mapping = r["data"]["reportData"]["report"]["masterData"][
-            "abilities"
-        ]
-        self.ability_name_mapping = {
-            x["gameID"]: x["name"] for x in self.ability_name_mapping
-        }
-
-        # If true, an additional multiplicative buff is added later.
-        self.has_echo = r["data"]["reportData"]["report"]["fights"][0]["hasEcho"]
-        # All other timestamps are relative to this one
-        self.report_start_time = r["data"]["reportData"]["report"]["startTime"]
-
-        self.phase_information = r["data"]["reportData"]["report"]["fights"][0][
-            "phaseTransitions"
-        ]
-        # Check if it was selected to analyze a phase.
-        # If there is, this affects the start/end time and any downtime, if present
-        # A follow-up query is required to correctly that information.
-        if self.phase > 0:
-            # Start of phase
-            phase_start_time = [
-                p["startTime"] for p in self.phase_information if p["id"] == self.phase
-            ][0]
-
-            # End of phase
-            encounter_id = r["data"]["reportData"]["report"]["fights"][0]["encounterID"]
-            # End time is beginning of next phase
-            if (self.phase < max(encounter_phases[encounter_id].keys())) & (
-                len(self.phase_information) > self.phase
-            ):
-                phase_end_time = [
-                    p["startTime"]
-                    for p in self.phase_information
-                    if p["id"] == self.phase + 1
-                ][0]
-            # Unless the final phase is selected, use end time
-            else:
-                phase_end_time = r["data"]["reportData"]["report"]["fights"][0][
-                    "endTime"
-                ]
-            phase_response = self.phase_fight_times(
-                headers, phase_start_time, phase_end_time
-            )
-            downtime = self.get_downtime(phase_response)
-
-            self.phase_start_time = phase_start_time
-            self.phase_end_time = phase_end_time
-
-            self.fight_start_time = self.report_start_time + phase_start_time
-            self.fight_end_time = self.report_start_time + phase_end_time
-
-        # If no phase is present, all the information is there.
-        else:
-            self.fight_start_time = (
-                self.report_start_time
-                + r["data"]["reportData"]["report"]["fights"][0]["startTime"]
-            )
-            self.fight_end_time = (
-                self.report_start_time
-                + r["data"]["reportData"]["report"]["fights"][0]["endTime"]
-            )
-            downtime = self.get_downtime(r)
-
-        self.fight_time = (
-            self.fight_end_time - self.fight_start_time - downtime
-        ) / 1000
-
-        pass
-
-    def get_downtime(self, response: dict) -> int:
-        """
-        Extract fight downtime from FFLogs API response.
-
-        Downtime represents periods where combat is paused during a fight,
-        such as phase transitions or cutscenes. This time is excluded from
-        DPS calculations.
-
-        Args:
-            response (dict): FFLogs API response containing:
-                data.reportData.report.table.data.downtime
-
-        Returns:
-            int: Total downtime in milliseconds, 0 if no downtime present
-
-        Raises:
-            KeyError: If response missing expected data structure
-        """
-        if (
-            "downtime"
-            in response["data"]["reportData"]["report"]["table"]["data"].keys()
-        ):
-            return response["data"]["reportData"]["report"]["table"]["data"]["downtime"]
-        else:
-            return 0
-
-    def phase_fight_times(
-        self, headers: Dict[str, str], phase_start: int, phase_end: int
-    ) -> Dict[str, Any]:
-        """
-        Query FFLogs API for timing details of a specific fight phase.
-
-        Makes a GraphQL query to get damage table data for a phase-specific time window.
-        Used to calculate phase durations and downtime periods.
-
-        Args:
-            headers: FFLogs API headers with authorization token
-            phase_start: Phase start time in milliseconds (relative to report start)
-            phase_end: Phase end time in milliseconds (relative to report start)
-
-        Returns:
-            Dict containing FFLogs API response with structure:
-                data.reportData.report.table
-                    - startTime: Phase start timestamp
-                    - endTime: Phase end timestamp
-                    - data.downtime: Phase downtime in ms
-
-        Raises:
-            requests.RequestException: If API request fails
-            KeyError: If response missing required data
-            ValueError: If phase_end <= phase_start
-        """
-        phased_query = """
+    def _fight_phase_downtime_query(self) -> str:
+        """Query to get the downtime of a specific phase."""
+        return """
         query PhaseTime($code: String!, $id: [Int]!, $start: Float!, $end: Float!) {
             reportData {
                 report(code: $code) {
@@ -535,25 +211,186 @@ class ActionTable(object):
         }
         """
 
+    def _damage_events_query(self) -> str:
+        """Query to retrieve damage events."""
+        return """
+        query DpsActions(
+            $code: String!
+            $id: [Int]!
+            $sourceID: Int!
+            $startTime: Float!
+            $endTime: Float!
+        ) {
+            reportData {
+                report(code: $code) {
+                    events(
+                        fightIDs: $id
+                        startTime: $startTime
+                        endTime: $endTime
+                        dataType: DamageDone
+                        sourceID: $sourceID
+				        useAbilityIDs: false                    
+                        limit: 10000
+                    ) {
+                        data
+                        nextPageTimestamp
+                    }
+                }
+            }
+        }
+        """
+
+    def _set_fight_information(self, headers: Dict[str, str]) -> None:
+        self.report_start_time = self._get_report_start_time()
+        self.fight_name = self._get_fight_name()
+        self.encounter_id = self._get_encounter_id()
+        self.has_echo = self._get_has_echo()
+        self.kill = self._get_was_kill()
+        self.phase_information = self._get_phase_transitions()
+        self.ranking_duration = self._get_ranking_duration()
+        (
+            self.fight_start_time,
+            self.fight_end_time,
+            self.phase_start_time,
+            self.phase_end_time,
+            self.downtime,
+            self.fight_dps_time,
+        ) = self._process_fight_data(headers)
+        pass
+
+    def _get_report_start_time(self) -> str:
+        return self.fight_info_response["startTime"]
+
+    def _get_fight_name(self) -> str:
+        return self.fight_info_response["fights"][0]["name"]
+
+    def _get_encounter_id(self) -> int:
+        return self.fight_info_response["fights"][0]["encounterID"]
+
+    def _get_has_echo(self) -> bool:
+        return self.fight_info_response["fights"][0]["hasEcho"]
+
+    def _get_was_kill(self) -> bool:
+        return self.fight_info_response["fights"][0]["kill"]
+
+    def _get_phase_transitions(self):
+        return self.fight_info_response["fights"][0]["phaseTransitions"]
+
+    def _get_ranking_duration(self) -> str:
+        if len(self.fight_info_response["rankings"]["data"]) > 0:
+            return self.fight_info_response["rankings"]["data"][0]["duration"]
+        return None
+
+    def _process_fight_data(self, headers: Dict[str, str]) -> None:
+        """
+        Parses the fight data from the FFLogs API response, setting core attributes.
+
+        such as encounter details, start/end times, and handling phase timings.
+        Updates the class state to reflect whether the fight was a kill,
+        whether echo was active, and any relevant phase/downtime offsets.
+
+        Args:
+            response (dict):
+                The parsed JSON response from the FFLogs API containing report
+                and fight data.
+            headers (Dict[str, str]):
+                HTTP headers used for further GraphQL queries, if needed
+                for phase/downtime details.
+        """
+        fight = self.fight_info_response["fights"][0]
+
+        fight_start_time = self.report_start_time
+        fight_end_time = self.report_start_time
+
+        # If user requested a specific phase, adjust start/end times
+        if self.phase > 0:
+            phase_start_time, phase_end_time = self._fetch_phase_start_end_time(
+                fight["endTime"]
+            )
+            phase_response = self._fetch_phase_downtime(
+                headers, phase_start_time, phase_end_time
+            )
+            downtime = self._get_downtime(phase_response)
+
+            fight_start_time += phase_start_time
+            fight_end_time += phase_end_time
+        else:
+            downtime = self._get_downtime(self.fight_info_response)
+            phase_start_time = None
+            phase_end_time = None
+            fight_start_time += fight["startTime"]
+            fight_end_time += fight["endTime"]
+
+        fight_dps_time = (fight_end_time - fight_start_time - downtime) / 1000
+
+        return (
+            fight_start_time,
+            fight_end_time,
+            phase_start_time,
+            phase_end_time,
+            downtime,
+            fight_dps_time,
+        )
+
+    def _fetch_phase_start_end_time(self, fight_end_time: int):
+        """
+        Determines the start and end timestamps (in milliseconds) for the requested phase.
+
+        If the next phase exists, its start becomes the current phase's end. Otherwise,
+        the phase end is set to the overall fight_end_time.
+
+        Args:
+            fight_end_time (int): The timestamp (ms) identifying the fight end.
+
+        Returns:
+            tuple[int, int]: (phase_start_time, phase_end_time), both in milliseconds.
+            phase_start_time is extracted from self.phase_information where id == self.phase.
+            phase_end_time is either the next phase start or fight_end_time.
+        """
+        phase_start_time = next(
+            p["startTime"] for p in self.phase_information if p["id"] == self.phase
+        )
+
+        # Phase end = fight end if either:
+        # - Final phase of the fight.
+        # - Final phase of a pull with a wipe.
+        if (
+            self.phase < max(self.encounter_phases[self.encounter_id].keys())
+            and len(self.phase_information) > self.phase
+        ):
+            phase_end_time = next(
+                p["startTime"]
+                for p in self.phase_information
+                if p["id"] == self.phase + 1
+            )
+        else:
+            phase_end_time = fight_end_time
+
+        return phase_start_time, phase_end_time
+
+    def _fetch_phase_downtime(
+        self, headers: Dict[str, str], phase_start_time: int, phase_end_time: int
+    ) -> dict:
+        """Retrieves phase-specific timing data."""
         variables = {
             "code": self.report_id,
             "id": [self.fight_id],
-            "start": phase_start,
-            "end": phase_end,
+            "start": phase_start_time,
+            "end": phase_end_time,
         }
+        return self.gql_query(
+            headers, self._fight_phase_downtime_query(), variables, "PhaseTime"
+        )["data"]["reportData"]["report"]
 
-        json_payload = {
-            "query": phased_query,
-            "variables": variables,
-            "operationName": "PhaseTime",
-        }
-        r = requests.post(url=url, json=json_payload, headers=headers)
-        r = json.loads(r.text)
-        return r
+    def _get_downtime(self, response: dict) -> int:
+        """Extracts downtime from the response, returning 0 if not present."""
+        return response["table"]["data"].get("downtime", 0)
 
-    def damage_events(self, headers: Dict[str, str]) -> None:
+    def _query_damage_events(self, headers: Dict[str, str]) -> None:
         """
         Query FFLogs API for damage events from a specific fight.
+
+        Filters to player ID and any pet IDs, if present.
 
         Makes a GraphQL query to fetch damage events with:
         - Source filtering by job/player
@@ -578,52 +415,62 @@ class ActionTable(object):
                 Each event is a dict with fields like timestamp, type,
                 sourceID, targetID, amount, etc.
         """
-        self.actions = []
+        # Querying by playerID also includes pets
+        # neat...
+        actions = []
+        # source_ids = [self.player_id]
 
-        # Then remove that because damage done table and fight table doesn't need to be queried for every new page.
-        # There might be a more elegant way to do this, but this is good enough.
-        query = """
-        query DpsActions(
-            $code: String!
-            $id: [Int]!
-            $job: String!
-            $startTime: Float!
-            $endTime: Float!
-        ) {
-            reportData {
-                report(code: $code) {
-                    events(
-                        fightIDs: $id
-                        startTime: $startTime
-                        endTime: $endTime
-                        dataType: DamageDone
-                        sourceClass: $job
-                        limit: 10000
-                    ) {
-                        data
-                        nextPageTimestamp
-                    }
-                }
-            }
-        }
-                """
+        # for i in source_ids:
         variables = {
             "code": self.report_id,
             "id": [self.fight_id],
-            "job": self.job,
+            "sourceID": self.player_id,
+            # Need to switch back to relative timestamp
+            # Time filtering is needed to ensure the correct phase
             "startTime": self.fight_start_time - self.report_start_time,
             "endTime": self.fight_end_time - self.report_start_time,
         }
 
-        json_payload = {
-            "query": query,
-            "variables": variables,
-            "operationName": "DpsActions",
-        }
-        r = requests.post(url=url, json=json_payload, headers=headers)
-        r = json.loads(r.text)
-        self.actions.extend(r["data"]["reportData"]["report"]["events"]["data"])
-        pass
+        response = self.gql_query(
+            headers, self._damage_events_query(), variables, "DpsActions"
+        )
+        actions.extend(response["data"]["reportData"]["report"]["events"]["data"])
+        return actions
+
+    def _filter_buff_tables(
+        self,
+        damage_buff_table: pd.DataFrame,
+        crit_rate_table: pd.DataFrame,
+        dh_rate_table: pd.DataFrame,
+        guaranteed_buff_table: pd.DataFrame,
+        guaranteed_action_table: pd.DataFrame,
+    ) -> None:
+        """Filter buff tables to the relevant patch."""
+        # Here damage_buffs is left as a DataFrame while the others are converted into dicts
+        self.damage_buffs = damage_buff_table[
+            (damage_buff_table["valid_start"] <= self.fight_start_time)
+            & (self.fight_start_time <= damage_buff_table["valid_end"])
+        ]
+        self.critical_hit_rate_buffs = (
+            crit_rate_table[
+                (crit_rate_table["valid_start"] <= self.fight_start_time)
+                & (self.fight_start_time <= crit_rate_table["valid_end"])
+            ]
+            .set_index("buff_id")["rate_buff"]
+            .to_dict()
+        )
+        self.direct_hit_rate_buffs = (
+            dh_rate_table[
+                (dh_rate_table["valid_start"] <= self.fight_start_time)
+                & (self.fight_start_time <= dh_rate_table["valid_end"])
+            ]
+            .set_index("buff_id")["rate_buff"]
+            .to_dict()
+        )
+        self.guaranteed_hit_type_via_buff = guaranteed_buff_table
+        self.guaranteed_hit_type_via_action = guaranteed_action_table.set_index(
+            "action_id"
+        )["hit_type"].to_dict()
 
     def ast_card_buff(self, card_id):
         """
@@ -647,11 +494,6 @@ class ActionTable(object):
             Tuple containing:
             - str: Standardized card ID ("card3" or "card6")
             - float: Damage multiplier (1.03 or 1.06)
-
-        Example:
-            >>> card_id, mult = ast_card_buff("10003242")  # The Balance on SAM
-            >>> print(card_id, mult)
-            card6 1.06
         """
         ranged_jobs = [
             "WhiteMage",
@@ -687,7 +529,7 @@ class ActionTable(object):
 
     def estimate_radiant_finale_strength(self, elapsed_time):
         """
-        Estimate Radiant Finale buff strength based on fight duration.
+        Estimate Radiant Finale buff strength based on fight duration/phase.
 
         Radiant Finale's buff strength depends on number of Codas collected,
         but this isn't directly available in FFLogs. We estimate it based on
@@ -706,22 +548,80 @@ class ActionTable(object):
 
         Raises:
             ValueError: If elapsed_time < 0
-
-        Example:
-            >>> # Early in fight with 1 Coda
-            >>> estimate_radiant_finale_strength(50)
-            'RadiantFinale1'
-            >>> # Later with 3 Codas
-            >>> estimate_radiant_finale_strength(150)
-            'RadiantFinale3'
         """
         if elapsed_time < 0:
             raise ValueError("elapsed_time must be non-negative")
 
-        if elapsed_time < 100:
+        if (elapsed_time < 100) and (self.phase <= 1):
             return "RadiantFinale1"
         else:
             return "RadiantFinale3"
+
+    def _compute_multiplier_table(
+        self, actions_df: pd.DataFrame, damage_buffs: pd.DataFrame
+    ) -> pd.DataFrame:
+        """Compute the multiplier table for ground effects based on actions_df and damage_buffs."""
+        df = actions_df.copy()
+        df["str_buffs"] = df["buffs"].astype(str)
+
+        unique_buff_sets = df.drop_duplicates(
+            subset=["str_buffs", "multiplier"]
+        ).sort_values(["str_buffs", "multiplier"])[["str_buffs", "buffs", "multiplier"]]
+        unique_buff_sets["multiplier"] = unique_buff_sets.groupby("str_buffs")[
+            "multiplier"
+        ].ffill()
+        unique_buff_sets = unique_buff_sets.drop_duplicates(subset=["str_buffs"])
+
+        buff_strengths = (
+            damage_buffs.drop_duplicates(subset=["buff_id", "buff_strength"])
+            .set_index("buff_id")["buff_strength"]
+            .to_dict()
+        )
+
+        remainder = unique_buff_sets[unique_buff_sets["multiplier"].isna()].copy()
+        remainder.loc[:, "multiplier"] = (
+            remainder["buffs"]
+            .apply(lambda x: list(map(buff_strengths.get, x)))
+            .apply(lambda x: np.prod([y for y in x if y is not None]) if x else None)
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            multiplier_table = pd.concat(
+                [unique_buff_sets[~unique_buff_sets["multiplier"].isna()], remainder]
+            )
+        return multiplier_table
+
+    def _update_actions_with_ground_effect(
+        self,
+        actions_df: pd.DataFrame,
+        multiplier_table: pd.DataFrame,
+        ground_effect_id: str,
+    ) -> pd.DataFrame:
+        """Merge multiplier values for ground effect actions and return an updated actions_df."""
+        df = actions_df.copy()
+        df["str_buffs"] = df["buffs"].astype(str)
+
+        ground_ticks_actions = df[df["abilityGameID"] == ground_effect_id].copy()
+        ground_ticks_actions = ground_ticks_actions.merge(
+            multiplier_table[["str_buffs", "multiplier"]],
+            on="str_buffs",
+            how="left",
+            suffixes=("_x", "_y"),
+        )
+        # If a multiplier already exists (multiplier_x), use that; otherwise fallback to multiplier_y.
+        ground_ticks_actions["multiplier"] = ground_ticks_actions[
+            "multiplier_x"
+        ].combine_first(ground_ticks_actions["multiplier_y"])
+        ground_ticks_actions.drop(
+            columns=["multiplier_x", "multiplier_y"], inplace=True
+        )
+
+        # Combine the updated ground effect rows back into df
+        df_updated = pd.concat(
+            [df[df["abilityGameID"] != ground_effect_id], ground_ticks_actions]
+        ).drop(columns=["str_buffs"])
+        return df_updated.sort_values("elapsed_time")
 
     def estimate_ground_effect_multiplier(self, ground_effect_id: str) -> pd.DataFrame:
         """
@@ -741,91 +641,18 @@ class ActionTable(object):
         Returns:
             pd.DataFrame: Updated actions_df with estimated multipliers for the ground effect
                         Preserves original row order and indexes
-
-        Raises:
-            ValueError: If ground_effect_id not found in actions
-            KeyError: If required columns missing from DataFrame
-
-        Example:
-            ```python
-            # Estimate Salted Earth multipliers
-            actions_df = estimate_ground_effect_multiplier("1000815")
-            print(actions_df.loc[actions_df["abilityGameID"] == "1000815", "multiplier"])
-            ```
         """
         # Check if the multiplier already exists for other actions
         # Unhashable string column of buffs, which allow duplicates to be dropped
         # Buffs are always ordered the same way
-        self.actions_df["str_buffs"] = self.actions_df["buffs"].astype(str)
-
-        # Sort of buff fact table, grouped by buff and associated multiplier
-        unique_buff_sets = self.actions_df.drop_duplicates(
-            subset=["str_buffs", "multiplier"]
-        ).sort_values(["str_buffs", "multiplier"])[["str_buffs", "buffs", "multiplier"]]
-
-        # Ground effects have a null multiplier, but can be imputed if
-        # there exists the same set of buffs for a non ground effect
-        unique_buff_sets["multiplier"] = unique_buff_sets.groupby("str_buffs")[
-            "multiplier"
-        ].ffill()
-        unique_buff_sets = unique_buff_sets.drop_duplicates(subset=["str_buffs"])
-
-        buff_strengths = (
-            self.damage_buffs.drop_duplicates(subset=["buff_id", "buff_strength"])
-            .set_index("buff_id")["buff_strength"]
-            .to_dict()
-        )
-
-        # TODO: Could probably improve this by looking for the closest set of buffs with a multiplier
-        # and then just make a small change to that
-        remainder = unique_buff_sets[unique_buff_sets["multiplier"].isna()]
-        remainder.loc[:, "multiplier"] = (
-            remainder["buffs"]
-            .apply(lambda x: list(map(buff_strengths.get, x)))
-            .apply(lambda x: np.prod([y for y in x if y is not None]))
+        multiplier_table = self._compute_multiplier_table(
+            self.actions_df, self.damage_buffs
         )
         with warnings.catch_warnings():
             warnings.simplefilter(action="ignore", category=FutureWarning)
-            multiplier_table = pd.concat(
-                [unique_buff_sets[~unique_buff_sets["multiplier"].isna()], remainder]
+            self.actions_df = self._update_actions_with_ground_effect(
+                self.actions_df, multiplier_table, ground_effect_id
             )
-
-        # Apply multiplier to ground effect ticks
-        ground_ticks_actions = self.actions_df[
-            self.actions_df["abilityGameID"] == ground_effect_id
-        ]
-        ground_ticks_actions = ground_ticks_actions.merge(
-            multiplier_table[["str_buffs", "multiplier"]], on="str_buffs"
-        )
-        # If for whatever reason a multiplier already existed,
-        # use that first instead of the derived one
-        # combine_first is basically coalesce
-        ground_ticks_actions["multiplier"] = ground_ticks_actions[
-            "multiplier_x"
-        ].combine_first(ground_ticks_actions["multiplier_y"])
-        ground_ticks_actions.drop(
-            columns=["multiplier_y", "multiplier_x"], inplace=True
-        )
-
-        with warnings.catch_warnings():
-            warnings.simplefilter(action="ignore", category=FutureWarning)
-            # Recombine,
-            # drop temporary scratch columns,
-            # Re sort values
-            self.actions_df = (
-                pd.concat(
-                    [
-                        self.actions_df[
-                            self.actions_df["abilityGameID"] != ground_effect_id
-                        ],
-                        ground_ticks_actions,
-                    ]
-                )
-                .drop(columns=["str_buffs"])
-                .sort_values("elapsed_time")
-            )
-
-        return self.actions_df
 
     def guaranteed_hit_type_damage_buff(
         self,
@@ -837,6 +664,8 @@ class ActionTable(object):
     ) -> Tuple[float, int]:
         """
         Calculate damage multiplier and hit type for abilities with guaranteed critical/direct hits.
+
+        acting under hit type buffs.
 
         Hit types:
         0 = Normal
@@ -982,18 +811,6 @@ class ActionTable(object):
                 - p_n/p_c/p_d/p_cd: Hit type probabilities
                 - main_stat_add: Main stat increases
                 - buffs: List of active buff IDs
-
-        Example:
-            ```python
-            actions_df = action_table.create_action_df()
-            print(f"Found {len(actions_df)} actions")
-            print(actions_df[["ability_name", "multiplier"]].head())
-            ```
-
-        Notes:
-            - Job-specific mechanics are handled later by RotationTable
-            - Ground effects/pets are included if present
-            - Unpaired actions are filtered out
         """
 
         # These columns are almost always here, there can be some additional columns
@@ -1016,16 +833,18 @@ class ActionTable(object):
             "directHit",
         ]
 
-        # Whether to include damage from pets by their source ID
-        source_id_filters = [self.player_id]
-        if self.pet_ids is not None:
-            source_id_filters += self.pet_ids
-
         # Unpaired actions have a cast begin but the damage does not go out
         # These will be filtered out later, but are included because unpaired
         # actions can still grant job gauge like Darkside
         actions_df = pd.DataFrame(self.actions)
-        actions_df = actions_df[actions_df["sourceID"].isin(source_id_filters)]
+
+        actions_df["ability_name"] = actions_df["ability"].apply(
+            lambda x: x.get("name") if isinstance(x, dict) else None
+        )
+        actions_df["abilityGameID"] = actions_df["ability"].apply(
+            lambda x: x.get("guid") if isinstance(x, dict) else None
+        )
+        actions_df.drop(columns="ability", inplace=True)
 
         if "unpaired" in actions_df.columns:
             action_df_columns.append("unpaired")
@@ -1061,9 +880,6 @@ class ActionTable(object):
             actions_df["buffs"] = pd.NA
             actions_df["buffs"] = actions_df["buffs"].astype("object")
 
-        actions_df["ability_name"] = actions_df["abilityGameID"].map(
-            self.ability_name_mapping
-        )
         # Time in seconds relative to the first second
         actions_df["elapsed_time"] = (
             actions_df["timestamp"] - actions_df["timestamp"].iloc[0]
@@ -1173,6 +989,170 @@ class ActionTable(object):
         )
         return actions_df.reset_index(drop=True)
 
+    def _apply_job_specifics(self, headers: Dict[str, str]) -> None:
+        """Delegates job-specific transformations."""
+        self.job_specifics = None
+
+        if self.job == "DarkKnight":
+            self.job_specifics = DarkKnightActions()
+            self.estimate_ground_effect_multiplier(
+                self.job_specifics.salted_earth_id,
+            )
+            self.actions_df = self.job_specifics.apply_drk_things(
+                self.actions_df,
+                self.player_id,
+                self.pet_ids[0],
+            )
+
+        elif self.job == "Paladin":
+            self.job_specifics = PaladinActions(
+                headers, self.report_id, self.fight_id, self.player_id
+            )
+            self.actions_df = self.job_specifics.apply_pld_buffs(self.actions_df)
+            pass
+
+        # FIXME:
+        elif self.job == "BlackMage":
+            self.job_specifics = BlackMageActions(
+                self.actions_df,
+                headers,
+                self.report_id,
+                self.fight_id,
+                self.player_id,
+                self.level,
+                self.phase,
+                self.patch_number,
+                self.phase,
+            )
+            self.actions_df = self.job_specifics.apply_blm_buffs(self.actions_df)
+            self.actions_df = self.actions_df[
+                self.actions_df["ability_name"] != "Attack"
+            ]
+
+        elif self.job == "Summoner":
+            self.estimate_ground_effect_multiplier(
+                1002706,
+            )
+
+        # FIXME: I think arm of the destroyer won't get updated but surely no one would use that in savage.
+        elif self.job == "Monk":
+            self.job_specifics = MonkActions(
+                headers,
+                self.report_id,
+                self.fight_id,
+                self.player_id,
+                self.patch_number,
+            )
+
+            if self.patch_number < 7.0:
+                self.actions_df = self.job_specifics.apply_endwalker_mnk_buffs(
+                    self.actions_df
+                )
+            else:
+                self.actions_df = self.job_specifics.apply_dawntrail_mnk_buffs(
+                    self.actions_df
+                )
+
+            self.actions_df = self.job_specifics.apply_bootshine_autocrit(
+                self.actions_df,
+                self.critical_hit_stat,
+                self.direct_hit_stat,
+                self.critical_hit_rate_buffs,
+                self.level,
+            )
+            pass
+
+        elif self.job == "Ninja":
+            self.job_specifics = NinjaActions(
+                headers,
+                self.report_id,
+                self.fight_id,
+                self.player_id,
+                self.patch_number,
+            )
+            self.actions_df = self.job_specifics.apply_ninja_buff(self.actions_df)
+            pass
+
+        elif self.job == "Dragoon":
+            self.job_specifics = DragoonActions(
+                headers,
+                self.report_id,
+                self.fight_id,
+                self.player_id,
+                self.patch_number,
+            )
+            # if self.patch_number >= 7.0:
+            #     self.actions_df = self.job_specifics.apply_dawntrail_life_of_the_dragon_buffs(
+            #         self.actions_df
+            #     )
+            if self.patch_number < 7.0:
+                self.actions_df = (
+                    self.job_specifics.apply_endwalker_combo_finisher_potencies(
+                        self.actions_df
+                    )
+                )
+
+        elif self.job == "Reaper":
+            self.job_specifics = ReaperActions(
+                headers, self.report_id, self.fight_id, self.player_id
+            )
+            self.actions_df = self.job_specifics.apply_enhanced_buffs(self.actions_df)
+            pass
+
+        elif self.job == "Viper":
+            self.job_specifics = ViperActions(
+                headers, self.report_id, self.fight_id, self.player_id
+            )
+            self.actions_df = self.job_specifics.apply_viper_buffs(self.actions_df)
+
+        elif self.job == "Samurai":
+            self.job_specifics = SamuraiActions(
+                headers, self.report_id, self.fight_id, self.player_id
+            )
+            self.actions_df = self.job_specifics.apply_enhanced_enpi(self.actions_df)
+
+        elif self.job == "Machinist":
+            # wildfire can't crit...
+            self.actions_df.loc[
+                self.actions_df["abilityGameID"] == 1000861,
+                ["p_n", "p_c", "p_d", "p_cd"],
+            ] = [1.0, 0.0, 0.0, 0.0]
+
+            self.estimate_ground_effect_multiplier(
+                1000861,
+            )
+            self.actions_df = self.actions_df.reset_index(drop=True)
+            self.job_specifics = MachinistActions(
+                headers, self.report_id, self.fight_id, self.player_id
+            )
+            self.actions_df = self.job_specifics.apply_mch_potencies(self.actions_df)
+
+        elif self.job == "Bard":
+            self.job_specifics = BardActions()
+            self.actions_df = self.job_specifics.estimate_pitch_perfect_potency(
+                self.actions_df
+            )
+            if self.patch_number >= 7.0:
+                self.actions_df = self.job_specifics.estimate_radiant_encore_potency(
+                    self.actions_df
+                )
+        else:
+            self.job_specifics = None
+
+        # Filter out Auto Attacks for casters
+        if self.job in (
+            "Pictomancer",
+            "RedMage",
+            "Summoner",
+            "Astrologian",
+            "WhiteMage",
+            "Sage",
+            "Scholar",
+        ):
+            self.actions_df = self.actions_df[
+                self.actions_df["ability_name"].str.lower() != "attack"
+            ]
+
 
 class RotationTable(ActionTable):
     """
@@ -1210,6 +1190,7 @@ class RotationTable(ActionTable):
         guaranteed_hits_by_action_table: pd.DataFrame,
         guaranteed_hits_by_buff_table: pd.DataFrame,
         potency_table: pd.DataFrame,
+        encounter_phases,
         pet_ids: Optional[List[int]] = None,
         excluded_enemy_ids: Optional[List[int]] = None,
         debug: bool = False,
@@ -1281,26 +1262,16 @@ class RotationTable(ActionTable):
             direct_hit_rate_buff_table,
             guaranteed_hits_by_action_table,
             guaranteed_hits_by_buff_table,
+            encounter_phases,
             pet_ids,
             debug,
         )
         self.excluded_enemy_ids = excluded_enemy_ids
 
-        self.potency_table = potency_table[
-            (potency_table["valid_start"] <= self.fight_start_time)
-            & (self.fight_start_time <= potency_table["valid_end"])
-            & (potency_table["job"] == job)
-            & (potency_table["level"] == level)
-        ]
-
-        self.potency_table.loc[
-            self.potency_table["potency_falloff"].isna(), "potency_falloff"
-        ] = "1."
-        self.potency_table.loc[:, "potency_falloff"] = self.potency_table[
-            "potency_falloff"
-        ].apply(lambda x: x.split(";"))
+        self._setup_potency_table(potency_table)
         self.rotation_df = self.make_rotation_df(self.actions_df)
 
+        #
         if excluded_enemy_ids is None:
             self.filtered_actions_df = self.actions_df.copy()
         else:
@@ -1317,7 +1288,106 @@ class RotationTable(ActionTable):
             )
         pass
 
-    def normalize_hit_types(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+    def _setup_potency_table(self, potency_table: pd.DataFrame) -> None:
+        """
+        Filters the provided potency table based on job, level, and valid time range,.
+
+        then converts the `potency_falloff` column into a list of numeric values.
+
+        The method filters the table to retain only rows that:
+        - Have a `valid_start` less than or equal to `fight_start_time`
+        - Have a `valid_end` greater than or equal to `fight_start_time`
+        - Match the current job and level
+
+        Any missing `potency_falloff` entries are filled with `"1."` before splitting
+        the string on semicolons to create lists of values.
+
+        Args:
+            potency_table (pd.DataFrame):
+                Original DataFrame containing columns:
+                - `valid_start`/`valid_end`: timestamps indicating when the row is valid
+                - `job`: job name
+                - `level`: required job level
+                - `potency_falloff`: string of semicolon-separated falloff values
+        """
+        self.potency_table = potency_table[
+            (potency_table["valid_start"] <= self.fight_start_time)
+            & (self.fight_start_time <= potency_table["valid_end"])
+            & (potency_table["job"] == self.job)
+            & (potency_table["level"] == self.level)
+        ]
+
+        self.potency_table.loc[
+            self.potency_table["potency_falloff"].isna(), "potency_falloff"
+        ] = "1."
+        self.potency_table.loc[:, "potency_falloff"] = self.potency_table[
+            "potency_falloff"
+        ].apply(lambda x: x.split(";"))
+
+    def _filter_actions_by_timestamp(
+        self,
+        actions_df: pd.DataFrame,
+        t_start_clip: float = None,
+        t_end_clip: float = None,
+        return_clipped: bool = False,
+        clipped_portion: str = "end",
+    ) -> pd.DataFrame:
+        """Filter an actions_dataframe to a portion of the fight for analysis.
+
+        Used primarily by party analyses to analyze kill time by clipping out
+        end segments of the fight.
+
+        Args:
+            actions_df (pd.DataFrame): _description_
+            t_start_clip (float, optional): _description_. Defaults to None.
+            t_end_clip (float, optional): _description_. Defaults to None.
+            return_clipped (bool, optional): _description_. Defaults to False.
+            clipped_portion (str, optional): _description_. Defaults to "end".
+
+        Raises:
+            ValueError: _description_
+
+        Returns:
+            pd.DataFrame: _description_
+        """
+        if t_end_clip is None:
+            t_end = self.fight_end_time
+        else:
+            t_end = self.fight_end_time - (t_end_clip * 1000)
+
+        if t_start_clip is None:
+            t_start = self.fight_start_time
+        else:
+            t_start = self.fight_start_time + (t_start_clip * 1000)
+
+        # Count how many times each action is performed
+
+        if return_clipped:
+            if clipped_portion == "end":
+                actions_df = actions_df[
+                    actions_df["timestamp"].between(
+                        t_end, self.fight_end_time, inclusive="right"
+                    )
+                ]
+            elif clipped_portion == "middle":
+                actions_df = actions_df[actions_df["timestamp"].between(t_start, t_end)]
+
+            elif clipped_portion == "start":
+                actions_df = actions_df[
+                    actions_df["timestamp"].between(
+                        self.fight_start_time, t_start, inclusive="left"
+                    )
+                ]
+            else:
+                raise ValueError(
+                    f"Accepted values of `clipped_portion` are 'start', 'middle', and 'end', not {clipped_portion}"
+                )
+        else:
+            actions_df = actions_df[actions_df["timestamp"].between(t_start, t_end)]
+
+        return actions_df
+
+    def _normalize_hit_types(self, actions_df: pd.DataFrame) -> pd.DataFrame:
         """
         Remove hit type damage bonuses to get base damage values.
 
@@ -1344,6 +1414,7 @@ class RotationTable(ActionTable):
             ```
         """
         # Constants
+        # 1 = not critical hit, 2 = critical (direct) hit
         CRIT_HIT_TYPE = 2
         DIRECT_HIT_MULT = 1.25
 
@@ -1361,7 +1432,7 @@ class RotationTable(ActionTable):
 
         return actions_df
 
-    def group_multi_target_hits(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+    def _group_multi_target_hits(self, actions_df: pd.DataFrame) -> pd.DataFrame:
         """
         Group multi-target hits by packet ID and find highest base damage.
 
@@ -1383,13 +1454,6 @@ class RotationTable(ActionTable):
             - DoT ticks and ground effects are excluded since their AoE versions
             have no damage falloff
             - Copy is returned to avoid modifying original DataFrame
-
-        Example:
-            ```python
-            # Group Fat Edge of Darkness hits on multiple targets
-            hits_df = group_multi_target_hits(actions_df)
-            print(hits_df.head())
-            ```
         """
         # Filter out ticks because application damage + tick have same packet ID
         # Only an issue for Dia, where application pot = tick pot.
@@ -1402,7 +1466,7 @@ class RotationTable(ActionTable):
             .rename(columns={"base_damage": "max_base"})[["packetID", "max_base"]]
         ).copy()
 
-    def potency_falloff_fraction(
+    def _potency_falloff_fraction(
         self, actions_df: pd.DataFrame, max_multi_hit: pd.DataFrame
     ) -> pd.DataFrame:
         """
@@ -1447,7 +1511,7 @@ class RotationTable(ActionTable):
         ] = 1
         return actions_df
 
-    def match_potency_falloff(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+    def _match_potency_falloff(self, actions_df: pd.DataFrame) -> pd.DataFrame:
         """
         Match actual potency falloff values to expected values from potency table.
 
@@ -1502,6 +1566,220 @@ class RotationTable(ActionTable):
             subset=["elapsed_time", "packetID", "amount", "matched_falloff"]
         )
 
+    def _count_actions(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Groups actions by their distinguishing columns and counts how many times each.
+
+        unique action occurs, then merges the result with the potency table.
+
+        Steps:
+        1. Creates a string representation of buffs in `buff_str` (including matched falloff).
+        2. Excludes specified enemy IDs (`excluded_enemy_ids`).
+        3. Filters out actions with zero damage.
+        4. Fills NaN values in `bonusPercent` with -1.
+        5. Groups by multiple columns that affect action uniqueness and counts occurrences.
+        6. Merges grouped DataFrame with the potency table to retrieve potency info.
+        7. Restores buffs to a list in `buff_list`.
+
+        Args:
+            actions_df (pd.DataFrame):
+                DataFrame of parsed combat actions containing columns such as:
+                - "buffs": Buff identifiers
+                - "matched_falloff": Action potency falloff
+                - "amount": Damage amount
+                - "bonusPercent": Any bonus potency percentage
+                - Other columns required for grouping
+
+        Returns:
+            pd.DataFrame:
+                An aggregated DataFrame representing each unique action (by buffs,
+                falloff, combo state, etc.), including a count of how many times
+                the action occurred, tied to its potency data.
+        """
+        # Lists are unhashable, so make as an ordered string.
+        actions_df["buff_str"] = (
+            actions_df["buffs"].sort_values().apply(lambda x: sorted(x)).str.join(".")
+        )
+        # Need to add potency falloff so counting is correctly done later.
+        actions_df["buff_str"] += "." + actions_df["matched_falloff"].astype(str)
+
+        # Exclude any enemies in excluded_enemy_ids
+        # ex: crystals of darkness in FRU
+        if self.excluded_enemy_ids is not None:
+            actions_df = actions_df[
+                ~actions_df["targetID"].isin(self.excluded_enemy_ids)
+            ]
+
+        # Filter out any actions which do no damage.
+        # This is currently only observed for DoT ticks occurring
+        # on a dead, castlocked boss.
+        # E.g, FRU p4 killed before CT will be castlocked for akh morn cast
+        actions_df = actions_df[actions_df["amount"] > 0]
+
+        # And you cant value count nans
+        actions_df["bonusPercent"] = actions_df["bonusPercent"].fillna(-1)
+
+        # Count actions grouping by all columns which change the underlying distribution
+        group_by_columns = [
+            "action_name",
+            "abilityGameID",
+            "bonusPercent",
+            "buff_str",
+            "p_n",
+            "p_c",
+            "p_d",
+            "p_cd",
+            "multiplier",
+            "l_c",
+            "main_stat_add",
+            "matched_falloff",
+        ]
+
+        # Count actions to make a rotation DF
+        # Also merge to the potency table to get the potency
+        # and is later used to determine combo/positional
+        rotation_df = (
+            actions_df[group_by_columns]
+            .value_counts()
+            .reset_index()
+            .merge(self.potency_table, left_on="abilityGameID", right_on="ability_id")
+            .rename(
+                columns={
+                    "count": "n",
+                    "multiplier": "buffs",
+                    "ability_name": "base_action",
+                }
+            )
+        )
+
+        # Buffs go back to a list
+        rotation_df["buff_list"] = rotation_df["buff_str"].str.split(".")
+        return rotation_df
+
+    def _apply_potency_priority(self, rotation_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Some jobs can have multiple potencies for the same action, depending on whether.
+
+        certain buffs (identified by `buff_id`) are present. This produces multiple rows
+        in the potency table, each with a different `buff_id`. The correct potency must
+        be selected based on which buffs actually occurred.
+
+        The following priority is used to match `buff_id` against `buff_list`:
+        - Highest priority (2): `buff_id` is in `buff_list`
+        - Medium priority (1): `buff_id` is `NaN` (no buff)
+        - Lowest priority (0): `buff_id` is not `NaN` but is absent from `buff_list`
+
+        For example, a Paladin's Holy Spirit can be un-buffed, buffed by Requiescat,
+        or buffed by Divine Might, each having different potencies.
+
+        Returns:
+            pd.DataFrame: The input DataFrame with a new `potency_priority` column.
+            The original DataFrame is also mutated in-place.
+        """
+
+        def buff_id_match(buff_id, buff_list):
+            if buff_id in buff_list:
+                return 2
+            elif pd.isna(buff_id):
+                return 1
+            else:
+                return 0
+
+        rotation_df["potency_priority"] = rotation_df.apply(
+            lambda x: buff_id_match(x["buff_id"], x["buff_list"]), axis=1
+        )
+        return rotation_df
+
+    def _apply_bonus_potency(
+        self, rotation_df: pd.DataFrame, bonus_type: str
+    ) -> pd.DataFrame:
+        """
+        Updates the `potency` column for combo, positional, or combo_positional.
+
+        actions based on matching the `bonusPercent` column value to the required
+        `bonus_type` amount. The action name is also appended with `_bonus_type`.
+
+        Args:
+            rotation_df (pd.DataFrame):
+                DataFrame containing action rows, including columns for:
+                `bonusPercent`, `combo_bonus`, `combo_potency`, `positional_bonus`,
+                `positional_potency`, etc. The `potency` column will be modified
+                when the bonus is met.
+            bonus_type (str):
+                One of `combo`, `positional`, or `combo_positional`, indicating
+                which bonus to check for.
+
+        Raises:
+            ValueError:
+                If the bonus_type is not one of the recognized bonus types.
+
+        Returns:
+            pd.DataFrame:
+                Returns the same DataFrame with updated `potency` values and
+                `action_name` strings for rows that meet the specified bonus criteria.
+                The original DataFrame is also mutated in-place.
+        """
+        if bonus_type not in ("combo", "positional", "combo_positional"):
+            raise ValueError("Incorrect bonus_type")
+
+        bonus_col_name = bonus_type + "_bonus"
+        potency_col_name = bonus_type + "_potency"
+
+        # Update potency where bonus is satisfied.
+        rotation_df.loc[
+            rotation_df["bonusPercent"] == rotation_df[bonus_col_name], "potency"
+        ] = rotation_df[potency_col_name]
+
+        # Update the name where the bonus is satisfied.
+        rotation_df.loc[
+            rotation_df["bonusPercent"] == rotation_df[bonus_col_name], "action_name"
+        ] += f"_{bonus_type}"
+
+        return rotation_df
+
+    def _take_highest_priority_potency(self, rotation_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Selects the highest priority potency value from a set of actions.
+
+        This method sorts the actions by a predefined list of columns and then groups
+        them by a subset of these columns. It takes the first row in each group, which
+        corresponds to the highest priority potency value.
+
+        Args:
+            rotation_df (pd.DataFrame): DataFrame containing action data, including
+                columns for action name, ability ID, number of occurrences, buffs,
+                hit type probabilities, main stat additions, and potency priority.
+
+        Returns:
+            pd.DataFrame: DataFrame with the highest priority potency value for each
+                unique action, grouped by the specified columns.
+        """
+        sort_list = [
+            "base_action",
+            "abilityGameID",
+            "n",
+            "buff_str",
+            "p_n",
+            "p_c",
+            "p_d",
+            "p_cd",
+            "buffs",
+            "main_stat_add",
+            "potency_priority",
+        ]
+
+        group_by_list = sort_list[:-1] + ["bonusPercent"]
+
+        # Sort by these columns to get everything in the correct order
+        # Do a groupby-head operation to get the first column in the group
+        # Note it include bonus percent now
+        rotation_df = (
+            rotation_df.sort_values(sort_list, ascending=False)
+            .groupby(group_by_list)
+            .head(1)
+        )
+        return rotation_df
+
     def make_rotation_df(
         self,
         actions_df: pd.DataFrame,
@@ -1515,9 +1793,7 @@ class RotationTable(ActionTable):
 
         Processes raw combat actions into standardized rotation format by:
         1. Filtering to specified time window
-        2. Processing multi-target hits:
-        - Normalizing damage values to identify primary hits
-        - Calculating potency falloff for secondary hits
+        2. Processing multi-target hits
         3. Applying potency rules (combos, positionals)
         4. Grouping and counting actions
         5. Building final rotation table
@@ -1555,191 +1831,64 @@ class RotationTable(ActionTable):
                                 return_clipped=True)
             ```
         """
-        if t_end_clip is None:
-            t_end = self.fight_end_time
-        else:
-            t_end = self.fight_end_time - (t_end_clip * 1000)
-
-        if t_start_clip is None:
-            t_start = self.fight_start_time
-        else:
-            t_start = self.fight_start_time + (t_start_clip * 1000)
-
-        # Count how many times each action is performed
-
         actions_df = actions_df.copy()
+        actions_df = self._filter_actions_by_timestamp(
+            actions_df, t_start_clip, t_end_clip, return_clipped, clipped_portion
+        )
 
-        if return_clipped:
-            if clipped_portion == "end":
-                actions_df = actions_df[
-                    actions_df["timestamp"].between(
-                        t_end, self.fight_end_time, inclusive="right"
-                    )
-                ]
-            elif clipped_portion == "middle":
-                actions_df = actions_df[actions_df["timestamp"].between(t_start, t_end)]
-
-            elif clipped_portion == "start":
-                actions_df = actions_df[
-                    actions_df["timestamp"].between(
-                        self.fight_start_time, t_start, inclusive="left"
-                    )
-                ]
-            else:
-                raise ValueError(
-                    f"Accepted values of `clipped_portion` are 'start', 'middle', and 'end', not {clipped_portion}"
-                )
-        else:
-            actions_df = actions_df[actions_df["timestamp"].between(t_start, t_end)]
-
+        # If the DataFrame is empty, set the rotation DF as none type
         if len(actions_df) == 0:
             return None
-            # raise RuntimeWarning(
-            #     f"Cliping the DataFrame by {t_start_clip} from the start and {t_end_clip} seconds from the end led to any empty DataFrame. Either change the amount to clip the DataFrame by or the portion which is returned"
-            # )
 
-        # First step is looking for multi-target and identifying any associated potency falloffs
-        # Potency falloff is identified, and then applied to the final potency
+        # Now check for multi-target actions and identify any associated potency falloffs
+        # Limitations:
+        # - Multi target where one target is castlocked and doesn't take damage.
 
-        actions_df = self.normalize_hit_types(actions_df)
-        max_multi_hit = self.group_multi_target_hits(actions_df)
-        actions_df = self.potency_falloff_fraction(actions_df, max_multi_hit)
-        actions_df = self.match_potency_falloff(actions_df)
+        # First, undo damage bonuses from crit/direct hits
+        actions_df = self._normalize_hit_types(actions_df)
+        # PacketID is used to group hits together and sort damage falloff
+        max_multi_hit = self._group_multi_target_hits(actions_df)
+        # Assign and match potency falloff
+        actions_df = self._potency_falloff_fraction(actions_df, max_multi_hit)
+        actions_df = self._match_potency_falloff(actions_df)
         actions_df["action_name"] += "_" + actions_df["matched_falloff"].astype(str)
 
-        group_by_columns = [
-            "action_name",
-            "abilityGameID",
-            "bonusPercent",
-            "buff_str",
-            "p_n",
-            "p_c",
-            "p_d",
-            "p_cd",
-            "multiplier",
-            "l_c",
-            "main_stat_add",
-            "matched_falloff",
-        ]
+        # Count actions to determine the rotation
+        # Actions are different if they sample a unique 1-hit distribution
+        # Many factors influence this including:
+        # - buffs (damage and hit type)
+        # - combo bonus
+        # - positionals
+        # - potency falloff
+        # - potions
+        # - job-specific mechanics like gauge
+        rotation_df = self._count_actions(actions_df)
 
-        # Lists are unhashable, so make as an ordered string.
-        actions_df["buff_str"] = (
-            actions_df["buffs"].sort_values().apply(lambda x: sorted(x)).str.join(".")
-        )
-        # Need to add potency falloff so counting is correctly done later.
-        actions_df["buff_str"] += "." + actions_df["matched_falloff"].astype(str)
-
-        # Exclude any enemies in excluded_enemy_ids
-        # ex: crystals of darkness in FRU
-        if self.excluded_enemy_ids is not None:
-            actions_df = actions_df[
-                ~actions_df["targetID"].isin(self.excluded_enemy_ids)
-            ]
-
-        # Filter out any actions which do no damage.
-        # This is currently only observed for DoT ticks occurring
-        # on a dead, castlocked boss.
-        # E.g, FRU p4 killed before CT will be castlocked for akh morn cast
-        actions_df = actions_df[actions_df["amount"] > 0]
-
-        # And you cant value count nans
-        actions_df["bonusPercent"] = actions_df["bonusPercent"].fillna(-1)
-        rotation_df = (
-            actions_df[group_by_columns]
-            .value_counts()
-            .reset_index()
-            .merge(self.potency_table, left_on="abilityGameID", right_on="ability_id")
-            .rename(
-                columns={
-                    "count": "n",
-                    "multiplier": "buffs",
-                    "ability_name": "base_action",
-                }
-            )
-        )
-
-        # Back to a list
-        rotation_df["buff_list"] = rotation_df["buff_str"].str.split(".")
-
-        # Some jobs get different potencies depending if certain buffs are present, which corresponds to
-        # multiple rows in the potency table with different `buff_id` values.
-        # The corresponding potency needs to be correctly matched depending which buffs are present (or not).
-
-        # The following priority is used by comparing the list of buffs to buff_id values:
-        # Highest priority: buff_id column is in the list of buffs
-        # Next highest priority: buff_id is nan, meaning no buff was present (the majority of actions).
-        # Lowest priority: the buff_id column is not nan and isnt in the list of buffs.
-
-        # For example, PLD's Holy Spirit can be bufed with Requiescat or Divine Might or be unbuffed.
-        # All of these different scenarios have different potencies.
-        def buff_id_match(buff_id, buff_list):
-            if buff_id in buff_list:
-                return 2
-            elif pd.isna(buff_id):
-                return 1
-            else:
-                return 0
-
+        # Now determine potencies
         # Determine potency priority
-        rotation_df["potency_priority"] = rotation_df.apply(
-            lambda x: buff_id_match(x["buff_id"], x["buff_list"]), axis=1
-        )
+        rotation_df = self._apply_potency_priority(rotation_df)
 
-        # Assign potency based on whether combo, positional, or combo + positional was satisfied
-        # Also update the action name
+        # Check if action was a combo, positional, or combo + positional was satisfied
+        # Also update the action name accordingly
         rotation_df["potency"] = rotation_df["base_potency"]
+
         # Combo bonus
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["combo_bonus"], "potency"
-        ] = rotation_df["combo_potency"]
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["combo_bonus"], "action_name"
-        ] += "_combo"
+        rotation_df = self._apply_bonus_potency(rotation_df, "combo")
 
         # Positional bonus
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["positional_bonus"], "potency"
-        ] = rotation_df["positional_potency"]
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["positional_bonus"],
-            "action_name",
-        ] += "_positional"
+        rotation_df = self._apply_bonus_potency(rotation_df, "positional")
 
         # Combo bonus and positional bonus
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["combo_positional_bonus"],
-            "potency",
-        ] = rotation_df["combo_positional_potency"]
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df["combo_positional_bonus"],
-            "action_name",
-        ] += "_combo_positional"
+        rotation_df = self._apply_bonus_potency(rotation_df, "combo_positional")
 
-        # Take the highest potency priority value by unique action
-        sort_list = [
-            "base_action",
-            "abilityGameID",
-            "n",
-            "buff_str",
-            "p_n",
-            "p_c",
-            "p_d",
-            "p_cd",
-            "buffs",
-            "main_stat_add",
-            "potency_priority",
-        ]
-        rotation_df = (
-            rotation_df.sort_values(sort_list, ascending=False)
-            .groupby(sort_list[:-1] + ["bonusPercent"])
-            .head(1)
-        )
-
+        rotation_df = self._take_highest_priority_potency(rotation_df)
         # Now that all correct potencies have been assigned,
         # Multiply by damage falloff
         rotation_df["potency"] = (
             rotation_df["potency"] * rotation_df["matched_falloff"]
         ).astype(int)
+
+        # Select final columns, sort, and return
         rotation_df = rotation_df[
             [
                 "action_name",
@@ -1756,6 +1905,7 @@ class RotationTable(ActionTable):
                 "damage_type",
             ]
         ]
+
         return rotation_df.sort_values(
             ["base_action", "damage_type", "n"], ascending=[True, True, False]
         )
@@ -1763,14 +1913,82 @@ class RotationTable(ActionTable):
 
 if __name__ == "__main__":
     from crit_app.config import FFLOGS_TOKEN
-    # from fflogs_rotation.job_data.data import (
-    #     critical_hit_rate_table,
+    from crit_app.job_data.encounter_data import encounter_phases
+    from fflogs_rotation.job_data.data import (
+        critical_hit_rate_table,
+        damage_buff_table,
+        direct_hit_rate_table,
+        guaranteed_hits_by_action_table,
+        guaranteed_hits_by_buff_table,
+        potency_table,
+    )
+
+    api_key = FFLOGS_TOKEN  # or copy/paste your key here
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+    # fflogs_client = FFLogsClient()
+    # ActionTable(
+    #     # fflogs_client,
+    #     headers,
+    #     "2p4VBGN9MDn7ZaC6",
+    #     7,
+    #     "Pictomancer",
+    #     15,
+    #     3090,
+    #     1781,
+    #     2585,
+    #     392,
+    #     100,
+    #     0,
     #     damage_buff_table,
+    #     critical_hit_rate_table,
+    #     direct_hit_rate_table,
+    #     guaranteed_hits_by_action_table,
+    #     guaranteed_hits_by_buff_table,
+    #     encounter_phases,
+    # )
+
+    # RotationTable(
+    #     # fflogs_client,
+    #     headers,
+    #     "vNg4jJ1KMF9mt23q",
+    #     104,
+    #     "DarkKnight",
+    #     422,
+    #     2591,
+    #     2367,
+    #     2745,
+    #     392,
+    #     100,
+    #     0,
+    #     damage_buff_table,
+    #     critical_hit_rate_table,
     #     direct_hit_rate_table,
     #     guaranteed_hits_by_action_table,
     #     guaranteed_hits_by_buff_table,
     #     potency_table,
+    #     encounter_phases,
+    #     pet_ids=[432],
     # )
 
-    api_key = FFLOGS_TOKEN  # or copy/paste your key here
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+    RotationTable(
+        # fflogs_client,
+        headers,
+        "ZfnF8AqRaBbzxW3w",
+        5,
+        "Machinist",
+        20,
+        3174,
+        1542,
+        2310,
+        392,
+        100,
+        3,
+        damage_buff_table,
+        critical_hit_rate_table,
+        direct_hit_rate_table,
+        guaranteed_hits_by_action_table,
+        guaranteed_hits_by_buff_table,
+        potency_table,
+        encounter_phases,
+        [33],
+    )

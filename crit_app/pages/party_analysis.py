@@ -19,6 +19,7 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 from plotly.graph_objs._figure import Figure
+from crit_app.job_data.encounter_data import encounter_phases
 
 from crit_app.api_queries import (
     get_encounter_job_info,
@@ -1285,7 +1286,7 @@ def analyze_party_rotation(
 
         # Convert job analysis to data class
         job_analysis_data = job_analysis_to_data_class(
-            job_rotation_pdf_list[a], job_rotation_analyses_list[a].fight_time
+            job_rotation_pdf_list[a], job_rotation_analyses_list[a].fight_dps_time
         )
 
         job_analysis_data.interpolate_distributions(
@@ -1477,7 +1478,8 @@ def player_analysis_loop(
                     guaranteed_hits_by_action_table,
                     guaranteed_hits_by_buff_table,
                     potency_table,
-                    pet_id_map[player_id[a]],
+                    encounter_phases=encounter_phases,
+                    pet_ids=pet_id_map[player_id[a]],
                 )
             )
 
@@ -1512,7 +1514,7 @@ def player_analysis_loop(
                     fight_id,
                     fight_phase,
                     encounter_name,
-                    job_rotation_analyses_list[a].fight_time,
+                    job_rotation_analyses_list[a].fight_dps_time,
                     full_job,
                     player_name[a],
                     int(main_stat_no_buff[a]),
@@ -1797,7 +1799,7 @@ def party_analysis_portion(
 
     # FIXME: have fight/phase duration
     # and active dps time
-    active_dps_time = job_rotation_analyses_list[0].fight_time
+    active_dps_time = job_rotation_analyses_list[0].fight_dps_time
 
     if job_rotation_analyses_list[0].phase > 0:
         fight_duration = (

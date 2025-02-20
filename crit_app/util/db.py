@@ -177,7 +177,8 @@ def read_player_analysis_info(
             job,
             `role`,
             encounter_id,
-            encounter_name
+            encounter_name,
+            last_phase_index
         from
             encounter
         where
@@ -195,6 +196,7 @@ def read_player_analysis_info(
         role,
         encounter_id,
         encounter_name,
+        last_phase_index,
     ) = cur.fetchone()
     cur.close()
     con.close()
@@ -210,6 +212,7 @@ def read_player_analysis_info(
         role,
         encounter_id,
         encounter_name,
+        last_phase_index,
     )
 
 
