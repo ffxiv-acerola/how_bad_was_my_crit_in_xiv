@@ -19,7 +19,6 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 from plotly.graph_objs._figure import Figure
-from crit_app.job_data.encounter_data import encounter_phases
 
 from crit_app.api_queries import (
     get_encounter_job_info,
@@ -40,6 +39,7 @@ from crit_app.figures import (
 from crit_app.job_data.encounter_data import (
     custom_t_clip_encounter_phases,
     encounter_level,
+    encounter_phases,
     skip_kill_time_analysis_phases,
     stat_ranges,
     valid_encounters,
@@ -1182,6 +1182,18 @@ def analyze_party_rotation(
         return updated_url, [error_alert(error_message)]
 
     if perform_kill_time_analysis:
+        # FIXME: surely I can do this less dumb
+        # P5 enrage requires offset to be found b/c of cutscene
+        furthest_phase = furthest_phase = max(
+            [i["id"] for i in job_rotation_analyses_list[0].phase_information]
+        )
+        if (
+            (encounter_id == 1079)
+            & ((fight_phase == 5) | ((fight_phase == 0) & (furthest_phase == 5)))
+            & (not job_rotation_analyses_list[0].kill)
+        ):
+            find_t_clip_offset = True
+
         if find_t_clip_offset:
             t_clip_offset = calculate_time_clip_offset(job_rotation_analyses_list)
 
