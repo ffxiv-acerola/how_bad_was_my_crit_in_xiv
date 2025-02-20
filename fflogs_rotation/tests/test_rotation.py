@@ -15,39 +15,10 @@ class DummyAction(ActionTable):
     def __init__(
         self,
     ):
-        # Build a minimal fight info response.
-        self.fight_info_response = {
-            "startTime": 1000,  # Report start time in ms
-            "table": {
-                "data": {
-                    "downtime": 100,
-                }
-            },
-            "fights": [
-                {
-                    "encounterID": 1,
-                    "kill": True,
-                    "startTime": 100,
-                    "endTime": 15000,
-                    "name": "Futures Rewritten",
-                    "hasEcho": False,
-                    "phaseTransitions": [
-                        {"id": 1, "startTime": 100},
-                        {"id": 2, "startTime": 5000},
-                        {"id": 3, "startTime": 10000},
-                    ],
-                }
-            ],
-            "rankings": {
-                "data": [
-                    {"duration": 5000}  # Dummy ranking information
-                ]
-            },
-        }
         # encounter_phases is not used directly by _process_fight_data.
         self.encounter_phases = {1: {1: "Phase 1", 2: "Phase 2", 3: "Phase 3"}}
 
-    def _fetch_phase_downtime(self, headers={}):
+    def _fetch_phase_downtime(self, headers={}, phase_start_time=0, phase_end_time=0):
         # Return a dummy dict structure for downtime extraction.
         return {"table": {"data": {"downtime": 100}}}
 
@@ -56,25 +27,84 @@ class DummyAction(ActionTable):
         return response["table"]["data"].get("downtime", 0)
 
 
+def create_fight_response(kill: bool, phases: int):
+    """Simulate _fetchPhase_start_end_time based on the number phases and whether a kill happened.
+
+    Args:
+        kill (bool): _description_
+        phases (int): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    end_time_wipe = {0: 3000, 1: 4000, 2: 8000, 3: 13000}
+
+    phase_transitions = [
+        {"id": 1, "startTime": 100},
+        {"id": 2, "startTime": 5000},
+        {"id": 3, "startTime": 10000},
+    ]
+
+    if kill:
+        end_time = 15000
+    else:
+        end_time = end_time_wipe[phases]
+        phase_transitions = phase_transitions[0:phases]
+    return {
+        "startTime": 1000,  # Report start time in ms
+        "table": {
+            "data": {
+                "downtime": 100,
+            }
+        },
+        "fights": [
+            {
+                "encounterID": 1,
+                "kill": kill,
+                "startTime": 100,
+                "endTime": end_time,
+                "name": "Futures Rewritten",
+                "hasEcho": False,
+                "phaseTransitions": phase_transitions,
+            }
+        ],
+        "rankings": {
+            "data": [
+                {"duration": 5000}  # Dummy ranking information
+            ]
+        },
+    }
+
+
 @pytest.fixture
 def action_table():
     return DummyAction()
 
 
 @pytest.mark.parametrize(
-    "phase,kill,end_time,expected",
+    "phase, kill, expected",
     [
-        (0, True, 0, [1100, 16000, 14.80]),
-        (1, True, 0, [1100, 6000, 4.80]),
-        # (1, False, 0, [1000, 1000, 1000]),
+        (0, True, [1100, 16000, 14.80]),
+        (1, True, [1100, 6000, 4.80]),
+        (2, True, [6000, 11000, 4.9]),
+        (3, True, [11000, 16000, 4.9]),
+        (0, False, [1100, 4000, 2.8]),
+        (1, False, [1100, 5000, 3.8]),
+        (2, False, [6000, 9000, 2.9]),
+        (3, False, [11000, 14000, 2.9]),
     ],
 )
-def test_fight_times(action_table, phase, kill, end_time, expected):
-    action_table.kill = kill
-    if not kill:
-        action_table.fight_info_response["fights"][0]["endTime"] = end_time
+def test_fight_times(action_table, phase, kill, expected):
+    """
+    Test that fight times are properly calculated for a hypothetical three phase fight.
 
+    Tests fight start time, fight end time, and dps active time for all phases
+    and simulating a wipe at every phase.
+    """
     action_table.phase = phase
+    # Make phase response depending on the outcome
+    action_table.fight_info_response = create_fight_response(kill, phase)
+
     action_table._set_fight_information({})
 
     assert action_table.fight_start_time == expected[0]

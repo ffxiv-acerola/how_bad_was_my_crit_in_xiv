@@ -307,7 +307,9 @@ class ActionTable(FFLogsClient):
             phase_start_time, phase_end_time = self._fetch_phase_start_end_time(
                 fight["endTime"]
             )
-            phase_response = self._fetch_phase_downtime(headers)
+            phase_response = self._fetch_phase_downtime(
+                headers, phase_start_time, phase_end_time
+            )
             downtime = self._get_downtime(phase_response)
 
             fight_start_time += phase_start_time
@@ -1980,7 +1982,7 @@ if __name__ == "__main__":
         2310,
         392,
         100,
-        5,
+        3,
         damage_buff_table,
         critical_hit_rate_table,
         direct_hit_rate_table,
