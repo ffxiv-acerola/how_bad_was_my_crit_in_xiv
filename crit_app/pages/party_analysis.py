@@ -58,7 +58,6 @@ from crit_app.party_cards import (
     create_results_card,
 )
 from crit_app.shared_elements import (
-    etro_build,
     format_kill_time_str,
     get_phase_selector_options,
     rotation_analysis,
@@ -67,6 +66,9 @@ from crit_app.shared_elements import (
     validate_secondary_stat,
     validate_speed_stat,
     validate_weapon_damage,
+)
+from crit_app.util.api.job_build import(
+    etro_build
 )
 from crit_app.util.dash_elements import error_alert
 from crit_app.util.db import (

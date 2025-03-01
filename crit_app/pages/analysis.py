@@ -46,7 +46,6 @@ from crit_app.job_data.job_data import weapon_delays
 from crit_app.job_data.job_warnings import job_warnings
 from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
 from crit_app.shared_elements import (
-    etro_build,
     format_kill_time_str,
     get_phase_selector_options,
     rotation_analysis,
@@ -54,6 +53,7 @@ from crit_app.shared_elements import (
     validate_meldable_stat,
     validate_weapon_damage,
 )
+from crit_app.util.api.job_build import etro_build, job_build_provider, xiv_gear_build
 from crit_app.util.dash_elements import error_alert
 from crit_app.util.db import (
     check_valid_player_analysis_id,
@@ -875,56 +875,70 @@ def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, .
         [],
     ]
 
-    gearset_id, error_code = parse_etro_url(url)
+    # FIXME: check feedback.
+    # Check if job build is etro or xivgear
+    valid_provider, provider = job_build_provider(url)
 
-    if error_code == 0:
-        pass
+    if not valid_provider:
+        return tuple([provider] + invalid_return)
 
-    elif error_code == 1:
-        feedback = ["This isn't an etro.gg link..."]
-        return tuple(feedback + invalid_return)
+    elif provider == "etro":
+        # Get the build if everything checks out
+        (
+            etro_call_successful,
+            etro_error,
+            build_name,
+            build_role,
+            primary_stat,
+            tenacity,
+            determination,
+            speed,
+            ch,
+            dh,
+            wd,
+            delay,
+            etro_party_bonus,
+        ) = etro_build(url)
 
-    else:
-        feedback = [
-            "This doesn't appear to be a valid gearset. Please double check the link."
-        ]
-        return tuple(feedback + invalid_return)
+        if not etro_call_successful:
+            return tuple([etro_error] + invalid_return)
+        # job_abbreviated = build_result["jobAbbrev"]
 
-    # Get the build if everything checks out
-    (
-        etro_call_successful,
-        etro_error,
-        build_name,
-        build_role,
-        primary_stat,
-        tenacity,
-        determination,
-        speed,
-        ch,
-        dh,
-        wd,
-        delay,
-        etro_party_bonus,
-    ) = etro_build(gearset_id)
+        if etro_party_bonus > 1.0:
+            bonus_fmt = etro_party_bonus - 1
+            warning_row = dbc.Alert(
+                [
+                    html.I(className="bi bi-exclamation-triangle-fill me-2"),
+                    f"Warning! The linked etro build has already applied a {bonus_fmt:.0%} bonus to its main stats. Values shown here have the party bonus removed.",
+                ],
+                color="warning",
+                className="d-flex align-items-center",
+            )
+            primary_stat = int(primary_stat / etro_party_bonus)
+        else:
+            warning_row = []
 
-    if not etro_call_successful:
-        return tuple([etro_error] + invalid_return)
-    # job_abbreviated = build_result["jobAbbrev"]
-    build_children = [html.H4(f"Build name: {build_name}")]
-
-    if etro_party_bonus > 1.0:
-        bonus_fmt = etro_party_bonus - 1
-        warning_row = dbc.Alert(
-            [
-                html.I(className="bi bi-exclamation-triangle-fill me-2"),
-                f"Warning! The linked etro build has already applied a {bonus_fmt:.0%} bonus to its main stats. Values shown here have the party bonus removed..",
-            ],
-            color="warning",
-            className="d-flex align-items-center",
-        )
-        primary_stat = int(primary_stat / etro_party_bonus)
-    else:
+    # xivgear is more complicated because it returns sheets with multiple jobs.
+    # Also create a new dropdown with the different options
+    elif provider == "xivgear":
+        error_code, gear_sets, gear_idx = xiv_gear_build(url)
+        if gear_idx >= 0:
+            (
+                job_name,
+                build_name,
+                build_role,
+                primary_stat,
+                dh,
+                ch,
+                determination,
+                speed,
+                wd,
+                etro_party_bonus,
+                tenacity,
+            ) = gear_sets[gear_idx]
         warning_row = []
+
+    build_children = [html.H4(f"Build name: {build_name}")]
     return (
         [],
         True,

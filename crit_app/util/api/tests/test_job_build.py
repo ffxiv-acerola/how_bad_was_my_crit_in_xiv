@@ -26,16 +26,20 @@ xivgear_url_5 = "https://invalidapp.com/?page=sl%7Cf9b260a9-650c-445a-b3eb-c56d8
 xivgear_url_6 = "https://xivgear.app/?page=sl%7Cinvalid-uuid&onlySetIndex=1"
 # Decodes to "sl|invalid-uuid"; since "invalid-uuid" is not a valid UUID, expected: error_code 2, None, 1
 
+xivgear_url_7 = (
+    "https://xivgear.app/?page=sl|ff8e55a8-a598-4bf3-abdd-bb40b66fa908&selectedIndex=3"
+)
 
 @pytest.mark.parametrize(
     "input_url, expected",
     [
-        (xivgear_url_1, (2, "a8881f6f-9ab3-40cc-9931-7035021a3f1b", 0)),
+        (xivgear_url_1, (0, "a8881f6f-9ab3-40cc-9931-7035021a3f1b", 0)),
         (xivgear_url_2, (0, "bis/sch/endwalker/anabaseios", 0)),
-        (xivgear_url_3, (2, "ff8e55a8-a598-4bf3-abdd-bb40b66fa908", 2)),
+        (xivgear_url_3, (0, "ff8e55a8-a598-4bf3-abdd-bb40b66fa908", 2)),
         (xivgear_url_4, (0, "bis/sch/endwalker/anabaseios", 0)),
         (xivgear_url_5, (1, None, 0)),
         (xivgear_url_6, (2, None, 1)),
+        (xivgear_url_7, (0, "ff8e55a8-a598-4bf3-abdd-bb40b66fa908", 3)),
     ],
 )
 def test_parse_and_validate_xiv_gear_url(input_url, expected):

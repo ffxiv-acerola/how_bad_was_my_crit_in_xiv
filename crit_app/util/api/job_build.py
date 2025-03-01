@@ -31,8 +31,35 @@ JOB_STATS = {
     "MCH": ("Physical Ranged", "DEX", "SKS"),
 }
 
+def job_build_provider(job_build_url:str) -> bool:
+    """Check if the required domain elements are present.
 
-def is_valid_uuid(uuid_to_test, version=4) -> bool:
+    Args:
+        netloc (_type_): _description_
+        required_elements (list[str], optional): _description_. Defaults to ["xivgear", "app"].
+
+    Returns:
+        bool: `True` if all required elements are present in the domain, otherwise `False`.
+    """
+    INVALID_BUILD_PROVIDER = "Only etro.gg or xivgear.app is supported."
+    try:
+        parsed_url = urlparse(job_build_url)
+        netloc_elements = parsed_url.netloc.split(".")
+
+        # etro.gg
+        if all([n in netloc_elements for n in ["etro", "gg"]]):
+            return True, "etro"
+        # xivgear.app
+        elif all([n in netloc_elements for n in ["xivgear", "app"]]):
+            return True, "xivgear"
+        else:
+            return False, INVALID_BUILD_PROVIDER
+
+        # invalid
+    except Exception:
+        return False, INVALID_BUILD_PROVIDER
+
+def _is_valid_uuid(uuid_to_test, version=4) -> bool:
     """
     Check if uuid_to_test is a valid UUID.
 
@@ -90,7 +117,7 @@ def _parse_and_validate_etro_url(etro_url: str) -> tuple[Optional[str], int]:
             return None, 1
 
         gearset_id = [segment for segment in parts.path.split("/") if segment][-1]
-        if not is_valid_uuid(gearset_id):
+        if not _is_valid_uuid(gearset_id):
             return None, 2
 
     except Exception:
@@ -267,9 +294,9 @@ def _parse_and_validate_xiv_gear_url(
             if "bis" in id_candidate:
                 uuid_value = "/".join(id_candidate)
             # Otherwise the ID should be a uuid4
-            elif is_valid_uuid(id_candidate[-1]):
+            elif _is_valid_uuid(id_candidate[-1]):
                 uuid_value = id_candidate[-1]
-                error_code = 2
+                error_code = 0
             else:
                 uuid_value = None
                 error_code = 2
@@ -278,7 +305,7 @@ def _parse_and_validate_xiv_gear_url(
             error_code = 2
 
         # Extract the onlySetIndex value
-        set_index = int(query_params.get("onlySetIndex", [0])[0])
+        set_index = int(query_params.get("onlySetIndex", query_params.get("selectedIndex", [0]))[0])
 
         return error_code, uuid_value, set_index
     except Exception:
@@ -387,13 +414,15 @@ def xiv_gear_build(xiv_gear_url: str) -> tuple[list[Any], int]:
         xiv_gear_url
     )
     if error_code > 0:
-        return (False, "", *([None] * 9))
+        return (error_code, None, 0)
 
     error_code, gear_sets = _query_xiv_gear_sets(xiv_gearset_id)
     if error_code != 0:
-        return (False, error_code, *([None] * 9))
+        return (error_code, None, 0)
 
-    return [_extract_xiv_gear_set(g) for g in gear_sets], gear_idx
+    # FIXME: check if only one gear set is present, if it is,
+    # return that and set gear_idx = 0
+    return 0, [_extract_xiv_gear_set(g) for g in gear_sets], gear_idx
 
 
 if __name__ == "__main__":
