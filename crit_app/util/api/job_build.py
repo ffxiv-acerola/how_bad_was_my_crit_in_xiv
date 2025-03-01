@@ -1,9 +1,9 @@
-import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 from urllib.parse import parse_qs, urlparse
 from uuid import UUID
-import requests
+
 import coreapi
+import requests
 
 from crit_app.job_data.job_data import weapon_delays
 
@@ -53,7 +53,7 @@ def is_valid_uuid(uuid_to_test, version=4) -> bool:
     return str(uuid_obj) == uuid_to_test
 
 
-def is_valid_domain(netloc, required_elements: list[str] = ["xivgear", "app"]) -> bool:
+def is_valid_domain(netloc, required_elements: list[str]) -> bool:
     """Check if the required domain elements are present.
 
     Args:
@@ -61,7 +61,7 @@ def is_valid_domain(netloc, required_elements: list[str] = ["xivgear", "app"]) -
         required_elements (list[str], optional): _description_. Defaults to ["xivgear", "app"].
 
     Returns:
-        _type_: _description_
+        bool: `True` if all required elements are present in the domain, otherwise `False`.
     """
     netloc_elements = netloc.split(".")
     return all([n in netloc_elements for n in required_elements])
@@ -101,7 +101,7 @@ def _parse_and_validate_etro_url(etro_url: str) -> tuple[Optional[str], int]:
 
 
 def _query_etro_stats(gearset_id: str):
-    """Query etro build result given a gearset ID
+    """Query etro build result given a gearset ID.
 
     Args:
         gearset_id (str): ID of the etro gearset
@@ -228,7 +228,9 @@ def etro_build(etro_url: str):
     )
 
 
-def _parse_and_validate_xiv_gear_url(xiv_gear_url: str) -> tuple[int, str, int]:
+def _parse_and_validate_xiv_gear_url(
+    xiv_gear_url: str,
+) -> tuple[int, Optional[str], int]:
     """
     Extract and validate UUID and onlySetIndex from a given URL.
 
@@ -250,7 +252,7 @@ def _parse_and_validate_xiv_gear_url(xiv_gear_url: str) -> tuple[int, str, int]:
     """
 
     error_code = 0
-    try: 
+    try:
         parsed_url = urlparse(xiv_gear_url)
         query_params = parse_qs(parsed_url.query)
 
@@ -283,14 +285,20 @@ def _parse_and_validate_xiv_gear_url(xiv_gear_url: str) -> tuple[int, str, int]:
         return 3, None, 0
 
 
-def _query_xiv_gear_sets(xiv_gearset_id: str):
+def _query_xiv_gear_sets(xiv_gearset_id: str) -> tuple[int, Optional[list[dict]]]:
     """GET gearset information from xivgear API.
 
     Args:
-        xiv_gearset_id (str): Gearset ID, either uuid4 or /bis/job/expansion/raid_tier
+        xiv_gearset_id (str): Gearset ID, either uuid4 or `/bis/{job}/{expansion}/{raid_tier}`
 
     Returns:
-        _type_: _description_
+        Tuple[int, Optional[List[dict]]]
+            - Error code:
+                0 = Success
+                1 = Invalid domain (not xivgear.app)
+                2 = Invalid UUID length
+                3 = Query issue
+            - List of gear sets if valid, None if invalid
     """
     request_url = f"https://api.xivgear.app/fulldata/{xiv_gearset_id}?partyBonus=0"
     xiv_gear_request = requests.get(request_url)
@@ -301,14 +309,27 @@ def _query_xiv_gear_sets(xiv_gearset_id: str):
     return 0, xiv_gear_request.json()["sets"]
 
 
-def _extract_xiv_gear_set(gear_set: list[dict]):
+def _extract_xiv_gear_set(
+    gear_set: list[dict],
+) -> tuple[str, str, str, int, int, int, int, int, int, float, str]:
     """Extract the relevant job build stats from a xivgear build.
 
     Args:
         gear_set (list[dict]): _description_
 
     Returns:
-        _type_: _description_
+        Tuple[str, str, str, int, int, int, int, int, int, float, str]
+            - Job abbreviation
+            - Build name
+            - Build role
+            - Primary stat
+            - Direct hit
+            - Critical hit
+            - Determination
+            - Speed
+            - Weapon damage
+            - Delay
+            - Tenacity
     """
     job_abbreviated = gear_set["computedStats"]["job"]
     build_role = gear_set["computedStats"]["jobStats"]["role"]
@@ -351,13 +372,16 @@ def _extract_xiv_gear_set(gear_set: list[dict]):
 
 def xiv_gear_build(xiv_gear_url: str) -> tuple[list[Any], int]:
     """Get build information from a xivgear.app link.
+
     Also extracts the selected page, if present.
 
     Args:
         xiv_gear_url (str): URL to xivgear.app sheet.
 
     Returns:
-        _type_: _description_
+        Tuple[List[Any], int]
+            - List of extracted gear sets
+            - Selected gear set index
     """
     error_code, xiv_gearset_id, gear_idx = _parse_and_validate_xiv_gear_url(
         xiv_gear_url
