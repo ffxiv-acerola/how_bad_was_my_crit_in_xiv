@@ -311,6 +311,7 @@ def layout(analysis_id=None):
         result_card = initialize_results(rotation_card, action_card, True)
         return dash.html.Div(
             [
+                dcc.Store(id="xiv-gear-sheet-data"),
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -720,6 +721,7 @@ def layout(analysis_id=None):
 
         return dash.html.Div(
             [
+                dcc.Store(id="xiv-gear-sheet-data"),
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -827,18 +829,20 @@ def fill_role_stat_labels(role: str) -> Tuple[str, str, str, str]:
 
 @callback(
     Output("etro-url-feedback", "children"),
+    Output("xiv-gear-set-div", "hidden"),
     Output("etro-url", "valid"),
     Output("etro-url", "invalid"),
     Output("etro-build-name-div", "children"),
     Output("role-select", "value"),
     Output("main-stat", "value"),
-    Output("TEN", "value"),
     Output("DET", "value"),
     Output("speed-stat", "value"),
     Output("CRT", "value"),
     Output("DH", "value"),
     Output("WD", "value"),
+    Output("TEN", "value"),
     Output("party-bonus-warning", "children"),
+    Output("xiv-gear-sheet-data", "data"),
     Input("etro-url-button", "n_clicks"),
     State("etro-url", "value"),
     State("role-select", "value"),
@@ -859,8 +863,11 @@ def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, .
     if n_clicks is None:
         raise PreventUpdate
 
-    feedback = []
+    xiv_gear_sets = []
+    gear_idx = -1
+    xiv_gear_sets_store = {"gear_index": gear_idx, "data": xiv_gear_sets}
     invalid_return = [
+        True,
         False,
         True,
         [],
@@ -873,6 +880,7 @@ def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, .
         [],
         [],
         [],
+        xiv_gear_sets_store,
     ]
 
     # FIXME: check feedback.
@@ -883,6 +891,7 @@ def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, .
         return tuple([provider] + invalid_return)
 
     elif provider == "etro":
+        hide_xiv_gear_set_selector = True
         # Get the build if everything checks out
         (
             etro_call_successful,
@@ -890,19 +899,18 @@ def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, .
             build_name,
             build_role,
             primary_stat,
-            tenacity,
             determination,
             speed,
             ch,
             dh,
             wd,
+            tenacity,
             delay,
             etro_party_bonus,
         ) = etro_build(url)
 
         if not etro_call_successful:
             return tuple([etro_error] + invalid_return)
-        # job_abbreviated = build_result["jobAbbrev"]
 
         if etro_party_bonus > 1.0:
             bonus_fmt = etro_party_bonus - 1
@@ -921,7 +929,18 @@ def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, .
     # xivgear is more complicated because it returns sheets with multiple jobs.
     # Also create a new dropdown with the different options
     elif provider == "xivgear":
-        error_code, gear_sets, gear_idx = xiv_gear_build(url)
+        hide_xiv_gear_set_selector = False
+        xiv_gear_success, error_message, xiv_gear_sets, gear_idx = xiv_gear_build(url)
+
+        if not xiv_gear_success:
+            return tuple([error_message] + invalid_return)
+
+        # Handle three behaviors
+        # 1. Gear set specified, select and fill that in.
+        # 2. Sheet only has 1 gear set, select and fill that in.
+        # 3. Whole sheet linked, fill nothing in.
+        if len(xiv_gear_sets) == 1:
+            gear_idx = 0
         if gear_idx >= 0:
             (
                 job_name,
@@ -935,25 +954,79 @@ def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, .
                 wd,
                 etro_party_bonus,
                 tenacity,
-            ) = gear_sets[gear_idx]
+            ) = xiv_gear_sets[gear_idx]
+        else:
+            build_name = (None,)
+            build_role = xiv_gear_sets[0][2]
+            primary_stat = 0
+            dh = None
+            ch = None
+            determination = None
+            speed = None
+            wd = None
+            etro_party_bonus = None
+            tenacity = None
+
         warning_row = []
+        xiv_gear_sets_store = {"gear_index": gear_idx, "data": xiv_gear_sets}
 
     build_children = [html.H4(f"Build name: {build_name}")]
     return (
         [],
+        hide_xiv_gear_set_selector,
         True,
         False,
         build_children,
         build_role,
         primary_stat,
-        tenacity,
         determination,
         speed,
         ch,
         dh,
         wd,
+        tenacity,
         warning_row,
+        xiv_gear_sets_store,
     )
+
+
+@callback(
+    Output("xiv-gear-select", "options"),
+    Output("xiv-gear-select", "value"),
+    Input("xiv-gear-sheet-data", "data"),
+)
+def fill_xiv_gear_build_selector(data):
+    if (data is None) or (not data):
+        raise PreventUpdate
+    gear_data = data["data"]
+    gear_idx = data["gear_index"]
+    # Don't select anything if a gearset wasn't explicitly provided
+    gear_idx = None if gear_idx == -1 else str(gear_idx)
+    selector_options = [
+        {"label": d[1], "value": str(idx)} for idx, d in enumerate(gear_data)
+    ]
+    return selector_options, gear_idx
+
+
+@callback(
+    Output("main-stat", "value", allow_duplicate=True),
+    Output("DET", "value", allow_duplicate=True),
+    Output("speed-stat", "value", allow_duplicate=True),
+    Output("CRT", "value", allow_duplicate=True),
+    Output("DH", "value", allow_duplicate=True),
+    Output("WD", "value", allow_duplicate=True),
+    Output("TEN", "value", allow_duplicate=True),
+    Input("xiv-gear-sheet-data", "data"),
+    Input("xiv-gear-select", "value"),
+    prevent_initial_call=True,
+)
+def fill_job_build_via_xiv_gear_select(xiv_gear_sheet_data, index):
+    if index is None:
+        raise PreventUpdate
+    index = int(index)
+    if index == -1:
+        raise PreventUpdate
+    return tuple(xiv_gear_sheet_data["data"][index][3:-1])
 
 
 @callback(

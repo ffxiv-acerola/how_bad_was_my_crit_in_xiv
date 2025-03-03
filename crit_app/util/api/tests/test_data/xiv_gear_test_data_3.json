@@ -1,0 +1,31 @@
+{
+  "name": "2.50 BiS Edenmorn",
+  "computedStats": {
+    "hp": 215096,
+    "vitality": 5312,
+    "strength": 4842,
+    "dexterity": 415,
+    "intelligence": 261,
+    "mind": 179,
+    "piety": 440,
+    "crit": 3174,
+    "dhit": 1524,
+    "determination": 2310,
+    "tenacity": 868,
+    "skillspeed": 420,
+    "spellspeed": 420,
+    "wdPhys": 146,
+    "wdMag": 73,
+    "weaponDelay": 2.96,
+    "job": "DRK",
+    "jobStats": {
+      "role": "Tank",
+      "mainStat": "strength",
+      "autoAttackStat": "strength",
+      "irrelevantSubstats": ["spellspeed", "piety"],
+      "aaPotency": 90,
+      "excludedRelicSubstats": ["dhit"],
+      "maxLevel": 100
+    }
+  }
+}

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from urllib.parse import parse_qs, urlparse
 from uuid import UUID
 
@@ -7,7 +7,7 @@ import requests
 
 from crit_app.job_data.job_data import weapon_delays
 
-JOB_STATS = {
+ETRO_JOB_STATS = {
     "WHM": ("Healer", "MND", "SPS"),
     "AST": ("Healer", "MND", "SPS"),
     "SGE": ("Healer", "MND", "SPS"),
@@ -31,15 +31,21 @@ JOB_STATS = {
     "MCH": ("Physical Ranged", "DEX", "SKS"),
 }
 
-def job_build_provider(job_build_url:str) -> bool:
+ERROR_CODE_MAP = {
+    1: "Only etro.gg or xivgear.app is supported.",
+    2: "URL does not link to valid build.",
+    3: "Error retrieving build.",
+}
+
+
+def job_build_provider(job_build_url: str) -> tuple[bool, str]:
     """Check if the required domain elements are present.
 
     Args:
-        netloc (_type_): _description_
-        required_elements (list[str], optional): _description_. Defaults to ["xivgear", "app"].
+        job_build_url (str): URL to the job build.
 
     Returns:
-        bool: `True` if all required elements are present in the domain, otherwise `False`.
+        Tuple[bool, str]: A tuple containing a boolean indicating if the URL is valid and the provider name or error message.
     """
     INVALID_BUILD_PROVIDER = "Only etro.gg or xivgear.app is supported."
     try:
@@ -58,6 +64,7 @@ def job_build_provider(job_build_url:str) -> bool:
         # invalid
     except Exception:
         return False, INVALID_BUILD_PROVIDER
+
 
 def _is_valid_uuid(uuid_to_test, version=4) -> bool:
     """
@@ -81,11 +88,12 @@ def _is_valid_uuid(uuid_to_test, version=4) -> bool:
 
 
 def is_valid_domain(netloc, required_elements: list[str]) -> bool:
-    """Check if the required domain elements are present.
+    """
+    Check if the required domain elements are present in the given netloc.
 
     Args:
-        netloc (_type_): _description_
-        required_elements (list[str], optional): _description_. Defaults to ["xivgear", "app"].
+        netloc (str): The network location part of the URL (e.g., "xivgear.app").
+        required_elements (list[str], optional): A list of required domain parts. Defaults to ["xivgear", "app"].
 
     Returns:
         bool: `True` if all required elements are present in the domain, otherwise `False`.
@@ -94,7 +102,7 @@ def is_valid_domain(netloc, required_elements: list[str]) -> bool:
     return all([n in netloc_elements for n in required_elements])
 
 
-def _parse_and_validate_etro_url(etro_url: str) -> tuple[Optional[str], int]:
+def _parse_and_validate_etro_url(etro_url: str) -> tuple[Optional[str], str]:
     """
     Extract gearset ID from Etro URL and validate format.
 
@@ -104,37 +112,36 @@ def _parse_and_validate_etro_url(etro_url: str) -> tuple[Optional[str], int]:
     Returns:
         Tuple containing:
             - Gearset ID (UUID) if valid, None if invalid
-            - Error code:
-                0 = Success
-                1 = Invalid domain (not etro.gg)
-                2 = Invalid UUID length
-                3 = Query issue
+            - Error message
     """
-    error_code = 0
+    error_code = None
     try:
         parts = urlparse(etro_url)
         if not is_valid_domain(parts.netloc, ["etro", "gg"]):
-            return None, 1
+            return None, ERROR_CODE_MAP[1]
 
         gearset_id = [segment for segment in parts.path.split("/") if segment][-1]
         if not _is_valid_uuid(gearset_id):
-            return None, 2
+            return None, ERROR_CODE_MAP[2]
 
     except Exception:
         gearset_id = None
-        error_code = 3
+        error_code = ERROR_CODE_MAP[3]
 
     return gearset_id, error_code
 
 
-def _query_etro_stats(gearset_id: str):
-    """Query etro build result given a gearset ID.
+def _query_etro_stats(gearset_id: str) -> tuple[Union[dict[str, Any], str], bool]:
+    """
+    Query an Etro build given a gearset ID.
 
     Args:
-        gearset_id (str): ID of the etro gearset
+        gearset_id (str): The UUID for the Etro gearset.
 
     Returns:
-        _type_: _description_
+        Tuple[Union[dict[str, Any], str], bool]:
+            - A tuple containing either the build result (dict) or an error message (str)
+            - A boolean indicating success (True) or failure (False)
     """
     # Initialize a client & load the schema document
     client = coreapi.Client()
@@ -150,15 +157,36 @@ def _query_etro_stats(gearset_id: str):
 
     except Exception as e:
         # TODO: write to DB or something
-        print(e.error.title)
         return e.error.title, False
 
 
-def _extract_etro_build_stats(build_result):
+def _extract_etro_build_stats(
+    build_result: dict[str, Any],
+) -> tuple[str, str, str, int, int, int, int, int, int, Any, Union[str, int]]:
+    """
+    Extract build statistics from the Etro build result.
+
+    Args:
+        build_result (dict[str, Any]): The dictionary containing the Etro build data.
+
+    Returns:
+        Tuple[str, str, str, int, int, int, int, int, int, Any, Union[str, int]]:
+            - Job abbreviation
+            - Build name
+            - Build role
+            - Primary stat
+            - Direct hit
+            - Critical hit
+            - Determination
+            - Speed
+            - Weapon Damage
+            - Party bonus (type may vary from the API)
+            - Tenacity (int if a Tank, otherwise "None")
+    """
     job_abbreviated = build_result["jobAbbrev"]
     build_name = build_result["name"]
 
-    build_role, main_stat_str, speed_stat_str = JOB_STATS[job_abbreviated]
+    build_role, main_stat_str, speed_stat_str = ETRO_JOB_STATS[job_abbreviated]
 
     total_params = {}
 
@@ -196,23 +224,52 @@ def _extract_etro_build_stats(build_result):
     )
 
 
-def etro_build(etro_url: str):
+def etro_build(
+    etro_url: str,
+) -> tuple[
+    bool,
+    str,
+    Optional[str],
+    Optional[str],
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[float],
+    Optional[str],
+]:
     """Extract job build from an etro URL.
 
     Args:
-        etro_url (str): _description_
+        etro_url (str): URL to the etro.gg build.
 
     Returns:
-        _type_: _description_
+        Tuple[bool, str, Optional[str], Optional[str], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[float], Optional[str]]:
+            - Boolean indicating success or failure
+            - Error message if any, empty string if no error
+            - Build name
+            - Build role
+            - Primary stat
+            - Determination
+            - Speed
+            - Critical hit
+            - Direct hit
+            - Weapon damage
+            - Tenacity
+            - Delay
+            - Etro party bonus
     """
     invalid_return = [False, ""] + [None] * 11
 
     # Get ID from url
-    gearset_id, error_code = _parse_and_validate_etro_url(etro_url)
+    gearset_id, error_message = _parse_and_validate_etro_url(etro_url)
 
     # Return problem with etro URL
-    if error_code > 0:
-        invalid_return[1] = ""
+    if error_message is not None:
+        invalid_return[1] = error_message
         return tuple(invalid_return)
 
     build_result, etro_api_success = _query_etro_stats(gearset_id)
@@ -232,7 +289,7 @@ def etro_build(etro_url: str):
         speed,
         wd,
         etro_party_bonus,
-        secondary_stat,
+        tenacity,
     ) = _extract_etro_build_stats(build_result)
 
     # TODO: Try to get by weapon ID
@@ -244,12 +301,12 @@ def etro_build(etro_url: str):
         build_name,
         build_role,
         primary_stat,
-        secondary_stat,
         determination,
         speed,
         ch,
         dh,
         wd,
+        tenacity,
         delay,
         etro_party_bonus,
     )
@@ -257,34 +314,29 @@ def etro_build(etro_url: str):
 
 def _parse_and_validate_xiv_gear_url(
     xiv_gear_url: str,
-) -> tuple[int, Optional[str], int]:
+) -> tuple[str, Optional[str], int]:
     """
     Extract and validate UUID and onlySetIndex from a given URL.
 
     Parameters
     ----------
-    url : str
+    xiv_gear_url : str
 
     Returns
     -------
-    Tuple containing:
+    Tuple[str, Optional[str], int]
         Tuple containing:
-            - Error code:
-                0 = Success
-                1 = Invalid domain (not xivgear.app)
-                2 = Invalid UUID length
-                3 = Query issue
+            - Error message if any, empty string if no error
             - Gearset ID if valid, None if invalid
-            - selected gearset ID
+            - Selected gearset index
     """
-
-    error_code = 0
+    error_message = ""
     try:
         parsed_url = urlparse(xiv_gear_url)
         query_params = parse_qs(parsed_url.query)
 
         if not is_valid_domain(parsed_url.netloc, ["xivgear", "app"]):
-            return 1, None, 0
+            return ERROR_CODE_MAP[1], None, 0
 
         # Extract the UUID from the 'page' parameter
         page_param = query_params.get("page", [None])[0]
@@ -296,35 +348,32 @@ def _parse_and_validate_xiv_gear_url(
             # Otherwise the ID should be a uuid4
             elif _is_valid_uuid(id_candidate[-1]):
                 uuid_value = id_candidate[-1]
-                error_code = 0
             else:
                 uuid_value = None
-                error_code = 2
+                error_message = ERROR_CODE_MAP[2]
         else:
             uuid_value = None
-            error_code = 2
+            error_message = ERROR_CODE_MAP[3]
 
         # Extract the onlySetIndex value
-        set_index = int(query_params.get("onlySetIndex", query_params.get("selectedIndex", [0]))[0])
+        set_index = int(
+            query_params.get("onlySetIndex", query_params.get("selectedIndex", [-1]))[0]
+        )
 
-        return error_code, uuid_value, set_index
+        return error_message, uuid_value, set_index
     except Exception:
-        return 3, None, 0
+        return ERROR_CODE_MAP[3], None, 0
 
 
-def _query_xiv_gear_sets(xiv_gearset_id: str) -> tuple[int, Optional[list[dict]]]:
+def _query_xiv_gear_sets(xiv_gearset_id: str) -> tuple[str, Optional[list[dict]]]:
     """GET gearset information from xivgear API.
 
     Args:
         xiv_gearset_id (str): Gearset ID, either uuid4 or `/bis/{job}/{expansion}/{raid_tier}`
 
     Returns:
-        Tuple[int, Optional[List[dict]]]
-            - Error code:
-                0 = Success
-                1 = Invalid domain (not xivgear.app)
-                2 = Invalid UUID length
-                3 = Query issue
+        Tuple[str, Optional[List[dict]]]
+            - Error message if any, empty string if no error
             - List of gear sets if valid, None if invalid
     """
     request_url = f"https://api.xivgear.app/fulldata/{xiv_gearset_id}?partyBonus=0"
@@ -332,8 +381,8 @@ def _query_xiv_gear_sets(xiv_gearset_id: str) -> tuple[int, Optional[list[dict]]
     try:
         xiv_gear_request.raise_for_status()
     except Exception as e:
-        return e.error.title, None
-    return 0, xiv_gear_request.json()["sets"]
+        return str(e), None
+    return "", xiv_gear_request.json()["sets"]
 
 
 def _extract_xiv_gear_set(
@@ -342,7 +391,7 @@ def _extract_xiv_gear_set(
     """Extract the relevant job build stats from a xivgear build.
 
     Args:
-        gear_set (list[dict]): _description_
+        gear_set (dict): Dictionary containing gear set information.
 
     Returns:
         Tuple[str, str, str, int, int, int, int, int, int, float, str]
@@ -358,8 +407,22 @@ def _extract_xiv_gear_set(
             - Delay
             - Tenacity
     """
+    XIV_GEAR_ROLE_MAP = {
+        "Caster": "Magical Ranged",
+        "Ranged": "Physical Ranged",
+    }
+
+    WD_SELECT = {
+        "Magical Ranged": "wdMag",
+        "Healer": "wdMag",
+        "Tank": "wdPhys",
+        "Melee": "wdPhys",
+        "Physical Ranged": "wdPhys",
+    }
+
     job_abbreviated = gear_set["computedStats"]["job"]
     build_role = gear_set["computedStats"]["jobStats"]["role"]
+    build_role = XIV_GEAR_ROLE_MAP.get(build_role, build_role)
     main_stat_str = gear_set["computedStats"]["jobStats"]["mainStat"]
 
     # Determine the relevant speed stat (either "skillspeed" or "spellspeed")
@@ -380,24 +443,24 @@ def _extract_xiv_gear_set(
     ch = gear_set["computedStats"]["crit"]
     determination = gear_set["computedStats"]["determination"]
     speed = gear_set["computedStats"][speed_stat]
-    wd = gear_set["computedStats"]["wdMag"]
+    wd = gear_set["computedStats"][WD_SELECT[build_role]]
 
     return (
         job_abbreviated,
         build_name,
         build_role,
         primary_stat,
-        dh,
-        ch,
         determination,
         speed,
+        ch,
+        dh,
         wd,
-        1.0,
         tenacity,
+        1.0,
     )
 
 
-def xiv_gear_build(xiv_gear_url: str) -> tuple[list[Any], int]:
+def xiv_gear_build(xiv_gear_url: str) -> tuple[bool, str, Optional[list[Any]], int]:
     """Get build information from a xivgear.app link.
 
     Also extracts the selected page, if present.
@@ -406,30 +469,32 @@ def xiv_gear_build(xiv_gear_url: str) -> tuple[list[Any], int]:
         xiv_gear_url (str): URL to xivgear.app sheet.
 
     Returns:
-        Tuple[List[Any], int]
-            - List of extracted gear sets
+        Tuple[bool, str, Optional[List[Any]], int]
+            - Boolean indicating success or failure
+            - Error message if any, empty string if no error
+            - List of extracted gear sets if successful, None if failed
             - Selected gear set index
     """
-    error_code, xiv_gearset_id, gear_idx = _parse_and_validate_xiv_gear_url(
+    error_message, xiv_gearset_id, gear_idx = _parse_and_validate_xiv_gear_url(
         xiv_gear_url
     )
-    if error_code > 0:
-        return (error_code, None, 0)
+    if error_message != "":
+        return (False, error_message, None, 0)
 
-    error_code, gear_sets = _query_xiv_gear_sets(xiv_gearset_id)
-    if error_code != 0:
-        return (error_code, None, 0)
+    error_message, gear_sets = _query_xiv_gear_sets(xiv_gearset_id)
+    if error_message != "":
+        return (False, error_message, None, 0)
 
-    # FIXME: check if only one gear set is present, if it is,
-    # return that and set gear_idx = 0
-    return 0, [_extract_xiv_gear_set(g) for g in gear_sets], gear_idx
+    return True, error_message, [_extract_xiv_gear_set(g) for g in gear_sets], gear_idx
 
 
 if __name__ == "__main__":
     etro_id = "07ae7334-ca45-4333-9830-9b516658ae6d"
 
     _query_etro_stats(etro_id)
-    gear_sets, gear_idx = xiv_gear_build(
-        "https://xivgear.app/?page=bis%7Csch%7Cendwalker%7Canabaseios"
+    error_code, gear_sets, gear_idx = xiv_gear_build(
+        # "https://xivgear.app/?page=sl%7C01a73d6f-8f17-4aa5-acc8-a8f9ad911119" # PCT build
+        # "https://xivgear.app/?page=sl%7Cf49f08b0-ce11-470f-a967-3e7613321213" # BRD build
+        "https://xivgear.app/?page=sl%7C9ee61d69-7daa-41bd-9c28-8a0f0055f90f"  # DRK build
     )
     print(gear_idx)

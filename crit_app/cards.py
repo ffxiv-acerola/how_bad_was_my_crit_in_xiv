@@ -22,6 +22,7 @@ def initialize_job_build(
     delay: Optional[float] = None,
     party_bonus: float = 1.05,
     medication_amt: int = 392,
+    build_selector_hidden: bool = True,
 ) -> html.Div:
     """
     Create job build card with stat inputs and role selection.
@@ -102,6 +103,31 @@ def initialize_job_build(
             ),
         ],
         class_name="mb-3",
+    )
+
+    xiv_gear_select = html.Div(
+        dbc.Row(
+            [
+                dbc.Label("Select build:", width=12, md=2),
+                dbc.Col(
+                    [
+                        dbc.Select(
+                            [
+                                "A",
+                                "B",
+                                "C",
+                            ],
+                            "A",
+                            id="xiv-gear-select",
+                        )
+                    ],
+                    width=12,
+                    md=5,
+                ),
+            ]
+        ),
+        hidden=build_selector_hidden,
+        id="xiv-gear-set-div",
     )
 
     tincture_input = dbc.Row(
@@ -325,6 +351,7 @@ def initialize_job_build(
                         [
                             etro_input,
                             role_input,
+                            xiv_gear_select,
                             html.H3("Job stats"),
                             html.P(
                                 "Do not include any percent bonus to main stat, this is automatically "
