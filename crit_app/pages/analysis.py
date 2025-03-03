@@ -351,9 +351,9 @@ def layout(analysis_id=None):
         if (analysis_details["etro_id"] is not None) and (
             analysis_details["etro_id"] != ""
         ):
-            etro_url = f"https://etro.gg/gearset/{analysis_details['etro_id']}"
+            job_build_url = f"https://etro.gg/gearset/{analysis_details['etro_id']}"
         else:
-            etro_url = None
+            job_build_url = None
 
         #### FFLogs Card Info ####
         # FFlogs URL
@@ -668,7 +668,7 @@ def layout(analysis_id=None):
 
         ### Make all the divs
         job_build = initialize_job_build(
-            etro_url,
+            job_build_url,
             role,
             main_stat_pre_bonus,
             secondary_stat_pre_bonus,
@@ -828,11 +828,11 @@ def fill_role_stat_labels(role: str) -> Tuple[str, str, str, str]:
 
 
 @callback(
-    Output("etro-url-feedback", "children"),
+    Output("job-build-url-feedback", "children"),
     Output("xiv-gear-set-div", "hidden"),
-    Output("etro-url", "valid"),
-    Output("etro-url", "invalid"),
-    Output("etro-build-name-div", "children"),
+    Output("job-build-url", "valid"),
+    Output("job-build-url", "invalid"),
+    Output("job-build-name-div", "children"),
     Output("role-select", "value"),
     Output("main-stat", "value"),
     Output("DET", "value"),
@@ -843,18 +843,20 @@ def fill_role_stat_labels(role: str) -> Tuple[str, str, str, str]:
     Output("TEN", "value"),
     Output("party-bonus-warning", "children"),
     Output("xiv-gear-sheet-data", "data"),
-    Input("etro-url-button", "n_clicks"),
-    State("etro-url", "value"),
+    Input("job-build-url-button", "n_clicks"),
+    State("job-build-url", "value"),
     State("role-select", "value"),
     prevent_initial_call=True,
 )
-def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, ...]:
+def process_job_build_url(
+    n_clicks: int, url: str, default_role: str
+) -> Tuple[Any, ...]:
     """
-    Get the report/fight ID from an etro.gg URL, then determine the encounter ID, start time, and jobs present.
+    Get the report/fight ID from an etro.gg/xivgear.app URL, then determine the encounter ID, start time, and jobs present.
 
     Parameters:
     n_clicks (int): Number of times the button has been clicked.
-    url (str): The etro.gg URL to process.
+    url (str): The xivgear/etro.gg URL to process.
     default_role (str): The default role to select.
 
     Returns:
@@ -1631,6 +1633,7 @@ def copy_analysis_link(n: int, selected: str) -> str:
     return selected
 
 
+# FIXME: read in gear index from xivgear selector
 @callback(
     Output("url", "href", allow_duplicate=True),
     Output("compute-dmg-button", "children", allow_duplicate=True),
@@ -1648,7 +1651,7 @@ def copy_analysis_link(n: int, selected: str) -> str:
     State("tincture-grade", "value"),
     State("fflogs-url", "value"),
     State("phase-select", "value"),
-    State("etro-url", "value"),
+    State("job-build-url", "value"),
     Input("healer-jobs", "value"),
     Input("tank-jobs", "value"),
     Input("melee-jobs", "value"),
@@ -1668,7 +1671,7 @@ def analyze_and_register_rotation(
     medication_amt: int,
     fflogs_url: str,
     fight_phase: Optional[int],
-    etro_url: str,
+    job_build_url: str,
     healer_jobs: Optional[str] = None,
     tank_jobs: Optional[str] = None,
     melee_jobs: Optional[str] = None,
@@ -1690,7 +1693,7 @@ def analyze_and_register_rotation(
     medication_amt (int): Medication amount.
     fflogs_url (str): FFLogs URL.
     fight_phase (Optional[int]): Selected fight phase.
-    etro_url (str): Etro URL.
+    job_build_url (str): Etro URL.
     healer_jobs (Optional[str]): Selected healer job.
     tank_jobs (Optional[str]): Selected tank job.
     melee_jobs (Optional[str]): Selected melee job.
@@ -1766,7 +1769,8 @@ def analyze_and_register_rotation(
     # delay = 3.44
 
     try:
-        gearset_id, error_code = parse_etro_url(etro_url)
+        # TODO: retrieve from dcc.store
+        gearset_id, error_code = parse_etro_url(job_build_url)
         if error_code != 0:
             gearset_id = None
 
