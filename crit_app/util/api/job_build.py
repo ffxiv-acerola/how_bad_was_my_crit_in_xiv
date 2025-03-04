@@ -54,10 +54,10 @@ def job_build_provider(job_build_url: str) -> tuple[bool, str]:
 
         # etro.gg
         if all([n in netloc_elements for n in ["etro", "gg"]]):
-            return True, "etro"
+            return True, "etro.gg"
         # xivgear.app
         elif all([n in netloc_elements for n in ["xivgear", "app"]]):
-            return True, "xivgear"
+            return True, "xivgear.app"
         else:
             return False, INVALID_BUILD_PROVIDER
 
@@ -114,7 +114,7 @@ def _parse_and_validate_etro_url(etro_url: str) -> tuple[Optional[str], str]:
             - Gearset ID (UUID) if valid, None if invalid
             - Error message
     """
-    error_code = None
+    error_code = ""
     try:
         parts = urlparse(etro_url)
         if not is_valid_domain(parts.netloc, ["etro", "gg"]):
@@ -144,14 +144,13 @@ def _query_etro_stats(gearset_id: str) -> tuple[Union[dict[str, Any], str], bool
             - A boolean indicating success (True) or failure (False)
     """
     # Initialize a client & load the schema document
-    client = coreapi.Client()
-    schema = client.get("https://etro.gg/api/docs/")
-
     gearset_action = ["gearsets", "read"]
     gearset_params = {
         "id": gearset_id,
     }
     try:
+        client = coreapi.Client()
+        schema = client.get("https://etro.gg/api/docs/")
         build_result = client.action(schema, gearset_action, params=gearset_params)
         return build_result, True
 
@@ -268,7 +267,7 @@ def etro_build(
     gearset_id, error_message = _parse_and_validate_etro_url(etro_url)
 
     # Return problem with etro URL
-    if error_message is not None:
+    if error_message != "":
         invalid_return[1] = error_message
         return tuple(invalid_return)
 
@@ -486,6 +485,37 @@ def xiv_gear_build(xiv_gear_url: str) -> tuple[bool, str, Optional[list[Any]], i
         return (False, error_message, None, 0)
 
     return True, error_message, [_extract_xiv_gear_set(g) for g in gear_sets], gear_idx
+
+
+def parse_build_uuid(job_build_url: str) -> tuple[Optional[str], str]:
+    """Get the build ID and provider from a job build URL.
+
+    Args:
+        job_build_url (str): URL to the job build
+
+    Returns:
+        tuple[Optional[str], str]: Job build ID and provider.
+    """
+    valid_provider, provider = job_build_provider(job_build_url)
+
+    if not valid_provider:
+        return None
+
+    if provider == "xivgear.app":
+        (
+            error_message,
+            build_id,
+            gearset_idx,
+        ) = _parse_and_validate_xiv_gear_url(job_build_url)
+    elif provider == "etro.gg":
+        build_id, error_message = _parse_and_validate_etro_url(job_build_url)
+        gearset_idx = None
+
+    if error_message == "":
+        return build_id, provider, gearset_idx
+
+    else:
+        return None, provider
 
 
 if __name__ == "__main__":

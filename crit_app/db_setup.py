@@ -63,7 +63,8 @@ create table if not exists report(
     delay REAL NOT NULL,
     medication_amount INTEGER NOT NULL,
     party_bonus REAL NOT NULL,
-    etro_id TEXT,
+    job_build_id TEXT,
+    job_build_provider TEXT,
     redo_dps_pdf_flag INTEGER NOT NULL,
     redo_rotation_flag INTEGER NOT NULL,
     primary key (analysis_id)
@@ -92,7 +93,7 @@ strict
 """
 
 create_player_analysis_creation_table = """
-CREATE TABLE creation_player_analysis (
+CREATE TABLE if not exists creation_player_analysis (
     analysis_id	TEXT NOT NULL,
     creation_ts TEXT,
     PRIMARY KEY("analysis_id")
@@ -143,7 +144,7 @@ create table
 
 create_party_error_table = """
 create table if not exists error_party_analysis(
-    error_id,
+    error_id TEXT NOT NULL,
     report_id TEXT NOT NULL,
     fight_id INTEGER NOT NULL,
     fight_phase INTEGER NOT NULL,

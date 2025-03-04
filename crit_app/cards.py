@@ -117,7 +117,7 @@ def initialize_job_build(
                                 "B",
                                 "C",
                             ],
-                            "A",
+                            value=None,
                             id="xiv-gear-select",
                         )
                     ],

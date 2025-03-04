@@ -14,7 +14,6 @@ from plotly.graph_objs import Figure
 from crit_app.api_queries import (
     get_encounter_job_info,
     headers,
-    parse_etro_url,
     parse_fflogs_url,
 )
 from crit_app.cards import (
@@ -53,7 +52,12 @@ from crit_app.shared_elements import (
     validate_meldable_stat,
     validate_weapon_damage,
 )
-from crit_app.util.api.job_build import etro_build, job_build_provider, xiv_gear_build
+from crit_app.util.api.job_build import (
+    etro_build,
+    job_build_provider,
+    parse_build_uuid,
+    xiv_gear_build,
+)
 from crit_app.util.dash_elements import error_alert
 from crit_app.util.db import (
     check_valid_player_analysis_id,
@@ -348,10 +352,19 @@ def layout(analysis_id=None):
 
         analysis_details = retrieve_player_analysis_information(analysis_id)
         #### Job build / Etro card setup ####
-        if (analysis_details["etro_id"] is not None) and (
-            analysis_details["etro_id"] != ""
+        if (analysis_details["job_build_id"] is not None) and (
+            analysis_details["job_build_id"] != ""
         ):
-            job_build_url = f"https://etro.gg/gearset/{analysis_details['etro_id']}"
+            job_build_provider = analysis_details["job_build_provider"]
+            if job_build_provider == "xivgear.app":
+                job_build_url = (
+                    f"https://xivgear.app/?page=sl|{analysis_details['job_build_id']}"
+                )
+
+            elif job_build_provider == "etro.gg":
+                job_build_url = (
+                    f"https://etro.gg/gearset/{analysis_details['job_build_id']}"
+                )
         else:
             job_build_url = None
 
@@ -885,14 +898,13 @@ def process_job_build_url(
         xiv_gear_sets_store,
     ]
 
-    # FIXME: check feedback.
     # Check if job build is etro or xivgear
     valid_provider, provider = job_build_provider(url)
 
     if not valid_provider:
         return tuple([provider] + invalid_return)
 
-    elif provider == "etro":
+    elif provider == "etro.gg":
         hide_xiv_gear_set_selector = True
         # Get the build if everything checks out
         (
@@ -930,7 +942,7 @@ def process_job_build_url(
 
     # xivgear is more complicated because it returns sheets with multiple jobs.
     # Also create a new dropdown with the different options
-    elif provider == "xivgear":
+    elif provider == "xivgear.app":
         hide_xiv_gear_set_selector = False
         xiv_gear_success, error_message, xiv_gear_sets, gear_idx = xiv_gear_build(url)
 
@@ -1633,7 +1645,6 @@ def copy_analysis_link(n: int, selected: str) -> str:
     return selected
 
 
-# FIXME: read in gear index from xivgear selector
 @callback(
     Output("url", "href", allow_duplicate=True),
     Output("compute-dmg-button", "children", allow_duplicate=True),
@@ -1648,6 +1659,7 @@ def copy_analysis_link(n: int, selected: str) -> str:
     State("CRT", "value"),
     State("DH", "value"),
     State("WD", "value"),
+    State("xiv-gear-select", "value"),
     State("tincture-grade", "value"),
     State("fflogs-url", "value"),
     State("phase-select", "value"),
@@ -1668,6 +1680,7 @@ def analyze_and_register_rotation(
     ch: int,
     dh: int,
     wd: int,
+    job_build_idx,
     medication_amt: int,
     fflogs_url: str,
     fight_phase: Optional[int],
@@ -1769,11 +1782,19 @@ def analyze_and_register_rotation(
     # delay = 3.44
 
     try:
-        # TODO: retrieve from dcc.store
-        gearset_id, error_code = parse_etro_url(job_build_url)
-        if error_code != 0:
-            gearset_id = None
-
+        if (job_build_url != "") & (job_build_url is not None):
+            job_build_id, job_build_provider, job_build_idx_fallback = parse_build_uuid(
+                job_build_url
+            )
+            if (job_build_provider == "xivgear.app") & (job_build_id is not None):
+                # If a user loads in an analysis with xivgear.app as the provider,
+                # the job builds won't be loaded in, so go off the set index from the URL
+                if job_build_idx is None:
+                    job_build_idx = job_build_idx_fallback
+                job_build_id = f"{job_build_id}&onlySetIndex={job_build_idx}"
+        else:
+            job_build_id = None
+            job_build_provider = None
         # Check if the rotation has been analyzed before
         prior_analysis_id, redo_analysis = search_prior_player_analyses(
             report_id,
@@ -1884,7 +1905,8 @@ def analyze_and_register_rotation(
                 delay,
                 medication_amt,
                 main_stat_multiplier,
-                gearset_id,
+                job_build_id,
+                job_build_provider,
                 redo_dps_pdf_flag,
                 redo_rotation_flag,
             )

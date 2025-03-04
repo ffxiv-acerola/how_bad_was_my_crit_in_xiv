@@ -51,18 +51,18 @@ def mock_db():
 
     # Insert test data for report table
     report_data = [
-        ('dd099fb5-208a-4113-b88a-b3ab827cf25f', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'DarkKnight', 'Acedia Filianore', 4841, 5083, 'Strength', 868, 868, 'Tenacity', 2310, 420, 3174, 1470, 146, 2.96, 392, 1.05, 'b8cbf432-0728-4676-ac19-c5a4b0b25cd9', 0, 0),
-        ('b5902ddb-9b19-49ca-969d-5340a9b8fc23', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Gunbreaker', 'Shima Tsushima', 4820, 5061, 'Strength', 868, 868, 'Tenacity', 2310, 420, 3174, 1470, 146, 2.8, 392, 1.05, '7d3e76b0-c2e2-42e1-8c85-5466a521633f', 0, 0),
-        ('27415a96-4231-4749-8a87-26826aa67264', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Astrologian', 'Althea Winter', 4885, 5129, 'Mind', None, 229, 'Strength', 2831, 420, 3041, 1014, 146, 3.2, 392, 1.05, 'b48885ce-0f5c-4bd9-8268-1fb109e178a0', 0, 0),
-        ('1c7dce7e-bc96-4519-a837-9f759aca416b', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Scholar', 'Acerola Paracletus', 4883, 5127, 'Mind', None, 414, 'Strength', 2831, 420, 3041, 1014, 146, 3.12, 392, 1.05, 'e42a70d1-133a-4bc8-8867-4e7f500891b1', 0, 0),
-        ('15fed881-743f-4c18-a1c0-cab626a3fdde', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Monk', 'Qata Mewrilah', 4860, 5103, 'Strength', None, None, None, 1855, 956, 3156, 1855, 146, 2.56, 392, 1.05, '4425db78-fa53-43c3-9d87-3ec6269e66ef', 0, 0),
-        ('a10b2f59-8baf-47e1-a290-fd8e26ae6bc0', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Viper', 'Ayazato Suzuka', 4861, 5104, 'Strength', None, None, None, 2387, 528, 3173, 1734, 146, 2.64, 392, 1.05, '00d743c9-6426-4ad9-9956-b94a1495f1e9', 0, 0),
-        ('05b19324-e677-4b16-a70f-ed4b945f683e', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Machinist', 'Chocolate Tea', 4883, 5127, 'Dexterity', None, None, None, 2091, 420, 3177, 2134, 146, 2.64, 392, 1.05, '1f7e62c9-a6ef-4bb6-9fe7-4c08e72f6280', 0, 0),
-        ('1f4be7d0-2748-4bfc-9089-bd1e49684f40', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Pictomancer', 'Hime Chan', 4883, 5127, 'Intelligence', None, 203, 'Strength', 2269, 420, 3140, 1993, 146, 2.96, 392, 1.05, '4697a2b9-ef85-4079-a654-eb85501a3137', 0, 0)
+        ('dd099fb5-208a-4113-b88a-b3ab827cf25f', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'DarkKnight', 'Acedia Filianore', 4841, 5083, 'Strength', 868, 868, 'Tenacity', 2310, 420, 3174, 1470, 146, 2.96, 392, 1.05, 'b8cbf432-0728-4676-ac19-c5a4b0b25cd9', "etro", 0, 0),
+        ('b5902ddb-9b19-49ca-969d-5340a9b8fc23', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Gunbreaker', 'Shima Tsushima', 4820, 5061, 'Strength', 868, 868, 'Tenacity', 2310, 420, 3174, 1470, 146, 2.8, 392, 1.05, '7d3e76b0-c2e2-42e1-8c85-5466a521633f', "etro", 0, 0),
+        ('27415a96-4231-4749-8a87-26826aa67264', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Astrologian', 'Althea Winter', 4885, 5129, 'Mind', None, 229, 'Strength', 2831, 420, 3041, 1014, 146, 3.2, 392, 1.05, 'b48885ce-0f5c-4bd9-8268-1fb109e178a0', "etro", 0, 0),
+        ('1c7dce7e-bc96-4519-a837-9f759aca416b', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Scholar', 'Acerola Paracletus', 4883, 5127, 'Mind', None, 414, 'Strength', 2831, 420, 3041, 1014, 146, 3.12, 392, 1.05, 'e42a70d1-133a-4bc8-8867-4e7f500891b1', "etro", 0, 0),
+        ('15fed881-743f-4c18-a1c0-cab626a3fdde', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Monk', 'Qata Mewrilah', 4860, 5103, 'Strength', None, None, None, 1855, 956, 3156, 1855, 146, 2.56, 392, 1.05, '4425db78-fa53-43c3-9d87-3ec6269e66ef', "etro", 0, 0),
+        ('a10b2f59-8baf-47e1-a290-fd8e26ae6bc0', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Viper', 'Ayazato Suzuka', 4861, 5104, 'Strength', None, None, None, 2387, 528, 3173, 1734, 146, 2.64, 392, 1.05, '00d743c9-6426-4ad9-9956-b94a1495f1e9', "etro", 0, 0),
+        ('05b19324-e677-4b16-a70f-ed4b945f683e', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Machinist', 'Chocolate Tea', 4883, 5127, 'Dexterity', None, None, None, 2091, 420, 3177, 2134, 146, 2.64, 392, 1.05, '1f7e62c9-a6ef-4bb6-9fe7-4c08e72f6280', "etro", 0, 0),
+        ('1f4be7d0-2748-4bfc-9089-bd1e49684f40', 'ZfnF8AqRaBbzxW3w', 5, 0, 'Futures Rewritten', 832.482, 'Pictomancer', 'Hime Chan', 4883, 5127, 'Intelligence', None, 203, 'Strength', 2269, 420, 3140, 1993, 146, 2.96, 392, 1.05, '4697a2b9-ef85-4079-a654-eb85501a3137', "etro", 0, 0)
     ]
 
     cur.executemany(
-        'INSERT INTO report VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO report VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
         report_data
     )
     # fmt: on
@@ -234,7 +234,8 @@ def test_retrieve_player_analysis_information_all_fields(mock_sqlite_connect):
     assert analysis_info["delay"] == 3.2
     assert analysis_info["party_bonus"] == 1.05
     assert analysis_info["medication_amount"] == 392
-    assert analysis_info["etro_id"] == "b48885ce-0f5c-4bd9-8268-1fb109e178a0"
+    assert analysis_info["job_build_id"] == "b48885ce-0f5c-4bd9-8268-1fb109e178a0"
+    assert analysis_info["job_build_provider"] == "etro"
     assert analysis_info["redo_rotation_flag"] == 0
     assert analysis_info["redo_dps_pdf_flag"] == 0
 

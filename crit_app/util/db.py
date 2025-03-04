@@ -430,7 +430,8 @@ def retrieve_player_analysis_information(analysis_id: str) -> Dict[str, Any]:
         delay,
         party_bonus,
         medication_amount,
-        etro_id,
+        job_build_id,
+        job_build_provider,
         redo_rotation_flag,
         redo_dps_pdf_flag
     from
@@ -508,7 +509,7 @@ def update_report_table(db_row):
     cur.execute(
         """
     insert or replace into report
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         db_row,
     )
@@ -871,7 +872,7 @@ def get_party_analysis_player_build(
         r.weapon_damage,
         r.delay,
         r.medication_amount,
-        r.etro_id
+        r.job_build_id
     FROM
         report r
         inner join encounter e using (report_id, fight_id, player_name, job)
