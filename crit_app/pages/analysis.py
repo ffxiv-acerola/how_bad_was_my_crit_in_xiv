@@ -1296,7 +1296,7 @@ def process_fflogs_url(n_clicks, url, role):
     error_return = [
         [],
         [],
-        [],
+        True,
         [],
         [],
         radio_value,

@@ -414,7 +414,7 @@ def party_fflogs_process(n_clicks, url):
     report_id, fight_id, error_code = parse_fflogs_url(url)
 
     if error_code == 1:
-        return "This link isn't FFLogs...", []
+        return tuple(["This link isn't FFLogs..."], +invalid_return)
     elif error_code == 2:
         return tuple(
             [
