@@ -17,50 +17,6 @@ api_key = FFLOGS_TOKEN  # or copy/paste your key here
 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
 
 
-def parse_etro_url(etro_url: str) -> Tuple[Optional[str], int]:
-    """
-    Extract gearset ID from Etro URL and validate format.
-
-    Args:
-        etro_url: Full Etro gearset URL
-
-    Returns:
-        Tuple containing:
-            - Gearset ID (UUID) if valid, None if invalid
-            - Error code:
-                0 = Success
-                1 = Invalid domain (not etro.gg)
-                2 = Invalid UUID length
-                3 = Parse error
-
-    Example:
-        ```python
-        # Valid URL
-        gid, err = parse_etro_url("https://etro.gg/gearset/123e4567-e89b...")
-        assert err == 0
-
-        # Invalid domain
-        gid, err = parse_etro_url("https://google.com")
-        assert err == 1
-        ```
-    """
-    error_code = 0
-    try:
-        parts = urlparse(etro_url)
-        if parts.netloc != "etro.gg":
-            return None, 1
-
-        gearset_id = [segment for segment in parts.path.split("/") if segment][-1]
-        if len(gearset_id) != 36:
-            return None, 2
-
-    except Exception:
-        gearset_id = None
-        error_code = 3
-
-    return gearset_id, error_code
-
-
 def parse_fflogs_url(fflogs_url: str) -> Tuple[Optional[str], Optional[int], int]:
     """
     Read the parts of an FFLogs URL to get report ID and fight ID.
