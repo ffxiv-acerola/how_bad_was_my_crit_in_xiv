@@ -56,6 +56,7 @@ from crit_app.util.api.job_build import (
     etro_build,
     job_build_provider,
     parse_build_uuid,
+    reconstruct_job_build_url,
     xiv_gear_build,
 )
 from crit_app.util.dash_elements import error_alert
@@ -352,21 +353,9 @@ def layout(analysis_id=None):
 
         analysis_details = retrieve_player_analysis_information(analysis_id)
         #### Job build / Etro card setup ####
-        if (analysis_details["job_build_id"] is not None) and (
-            analysis_details["job_build_id"] != ""
-        ):
-            job_build_provider = analysis_details["job_build_provider"]
-            if job_build_provider == "xivgear.app":
-                job_build_url = (
-                    f"https://xivgear.app/?page=sl|{analysis_details['job_build_id']}"
-                )
-
-            elif job_build_provider == "etro.gg":
-                job_build_url = (
-                    f"https://etro.gg/gearset/{analysis_details['job_build_id']}"
-                )
-        else:
-            job_build_url = None
+        job_build_url = reconstruct_job_build_url(
+            analysis_details["job_build_id"], analysis_details["job_build_provider"]
+        )
 
         #### FFLogs Card Info ####
         # FFlogs URL
@@ -845,7 +834,7 @@ def fill_role_stat_labels(role: str) -> Tuple[str, str, str, str]:
     Output("xiv-gear-set-div", "hidden"),
     Output("job-build-url", "valid"),
     Output("job-build-url", "invalid"),
-    Output("job-build-name-div", "children"),
+    Output("job-build-name-div", "children", allow_duplicate=True),
     Output("role-select", "value"),
     Output("main-stat", "value"),
     Output("DET", "value"),
@@ -961,10 +950,10 @@ def process_job_build_url(
                 build_name,
                 build_role,
                 primary_stat,
-                dh,
-                ch,
                 determination,
                 speed,
+                ch,
+                dh,
                 wd,
                 etro_party_bonus,
                 tenacity,
@@ -1023,6 +1012,7 @@ def fill_xiv_gear_build_selector(data):
 
 
 @callback(
+    Output("job-build-name-div", "children", allow_duplicate=True),
     Output("main-stat", "value", allow_duplicate=True),
     Output("DET", "value", allow_duplicate=True),
     Output("speed-stat", "value", allow_duplicate=True),
@@ -1040,7 +1030,10 @@ def fill_job_build_via_xiv_gear_select(xiv_gear_sheet_data, index):
     index = int(index)
     if index == -1:
         raise PreventUpdate
-    return tuple(xiv_gear_sheet_data["data"][index][3:-1])
+    gear_fill = xiv_gear_sheet_data["data"][index]
+
+    job_build_name = [html.H4(f"Build name: {gear_fill[1]}")]
+    return tuple(job_build_name + gear_fill[3:-1])
 
 
 @callback(
@@ -1783,15 +1776,9 @@ def analyze_and_register_rotation(
 
     try:
         if (job_build_url != "") & (job_build_url is not None):
-            job_build_id, job_build_provider, job_build_idx_fallback = parse_build_uuid(
-                job_build_url
+            job_build_id, job_build_provider = parse_build_uuid(
+                job_build_url, job_build_idx
             )
-            if (job_build_provider == "xivgear.app") & (job_build_id is not None):
-                # If a user loads in an analysis with xivgear.app as the provider,
-                # the job builds won't be loaded in, so go off the set index from the URL
-                if job_build_idx is None:
-                    job_build_idx = job_build_idx_fallback
-                job_build_id = f"{job_build_id}&onlySetIndex={job_build_idx}"
         else:
             job_build_id = None
             job_build_provider = None

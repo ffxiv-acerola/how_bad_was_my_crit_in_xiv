@@ -325,9 +325,9 @@ def _parse_and_validate_xiv_gear_url(
     -------
     Tuple[str, Optional[str], int]
         Tuple containing:
-            - Error message if any, empty string if no error
-            - Gearset ID if valid, None if invalid
-            - Selected gearset index
+            - Error message if any, empty string if no error.
+            - Gearset ID if valid, None if invalid.
+            - Selected gearset index, -1 if no set selected.
     """
     error_message = ""
     try:
@@ -459,7 +459,9 @@ def _extract_xiv_gear_set(
     )
 
 
-def xiv_gear_build(xiv_gear_url: str) -> tuple[bool, str, Optional[list[Any]], int]:
+def xiv_gear_build(
+    xiv_gear_url: str, require_sheet_selection: bool = False
+) -> tuple[bool, str, Optional[list[Any]], int]:
     """Get build information from a xivgear.app link.
 
     Also extracts the selected page, if present.
@@ -481,25 +483,36 @@ def xiv_gear_build(xiv_gear_url: str) -> tuple[bool, str, Optional[list[Any]], i
         return (False, error_message, None, 0)
 
     error_message, gear_sets = _query_xiv_gear_sets(xiv_gearset_id)
+    if error_message == "":
+        if len(gear_sets) == 1:
+            gear_idx = 0
+    # Player analysis doesn't need gear set linked.
+    # Party analysis needs gear set linked.
+    if require_sheet_selection & (gear_idx == -1):
+        error_message = "A specific gear set must be linked, not the whole sheet."
     if error_message != "":
         return (False, error_message, None, 0)
 
     return True, error_message, [_extract_xiv_gear_set(g) for g in gear_sets], gear_idx
 
 
-def parse_build_uuid(job_build_url: str) -> tuple[Optional[str], str]:
+def parse_build_uuid(
+    job_build_url: str, fallback_gear_idx: Optional[str] = None
+) -> tuple[Optional[str], Optional[str]]:
     """Get the build ID and provider from a job build URL.
 
     Args:
         job_build_url (str): URL to the job build
+        fallback_gear_idx (str): Gear index to place in the link if one isn't found. Occurs when user links whole gear sheet and selects gear set in the UI.
 
     Returns:
-        tuple[Optional[str], str]: Job build ID and provider.
+        - Job build uuid, with gearset selection if present.
+        - Job build provider
     """
     valid_provider, provider = job_build_provider(job_build_url)
 
     if not valid_provider:
-        return None
+        return None, None
 
     if provider == "xivgear.app":
         (
@@ -507,15 +520,37 @@ def parse_build_uuid(job_build_url: str) -> tuple[Optional[str], str]:
             build_id,
             gearset_idx,
         ) = _parse_and_validate_xiv_gear_url(job_build_url)
+        if (gearset_idx > -1) & (build_id is not None):
+            build_id += f"&onlySetIndex={gearset_idx}"
+        elif (fallback_gear_idx is not None) & (build_id is not None):
+            build_id += f"&onlySetIndex={fallback_gear_idx}"
+
     elif provider == "etro.gg":
         build_id, error_message = _parse_and_validate_etro_url(job_build_url)
-        gearset_idx = None
 
     if error_message == "":
-        return build_id, provider, gearset_idx
+        return build_id, provider
 
     else:
-        return None, provider
+        return None, None
+
+
+def reconstruct_job_build_url(
+    job_build_id: Optional[str], job_build_provider: Optional[str]
+) -> str:
+    if job_build_id is None:
+        return ""
+
+    if job_build_provider == "xivgear.app":
+        # Bis builds have / that need to be converted to |
+        job_build_url = f"https://xivgear.app/?page=sl|{job_build_id.replace('/', '|')}"
+
+    elif job_build_provider == "etro.gg":
+        job_build_url = f"https://etro.gg/gearset/{job_build_id}"
+    else:
+        return ""
+
+    return job_build_url
 
 
 if __name__ == "__main__":

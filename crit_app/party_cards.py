@@ -11,6 +11,7 @@ from dash import (
 from crit_app.job_data.encounter_data import stat_ranges
 from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
 from crit_app.shared_elements import format_kill_time_str
+from crit_app.util.api.job_build import reconstruct_job_build_url
 
 QUICK_BUILD_TABLE_STYLES = {
     "header": {
@@ -183,8 +184,8 @@ def create_fflogs_card(
     job_build_text = [
         html.H3("Enter job builds"),
         html.P(
-            "Job builds for all players must be entered. "
-            "Either enter the Etro link or input each job's stats. "
+            "Enter job builds for either player either by importing from an "
+            "etro / xivgear link or input each job's stats. "
             "Do not include any party composition bonuses to the main stat, "
             "this is automatically calculated."
         ),
@@ -194,9 +195,6 @@ def create_fflogs_card(
     medication_selector = create_tincture_input(medication_amount)
 
     # Quick build input
-    # quick_build_div = create_quick_build_div(
-    #     create_quick_build_table(etro_job_build_information)
-    # )
     quick_build_table = dash_table.DataTable(
         data=quick_build_table_data,
         columns=[
@@ -208,8 +206,8 @@ def create_fflogs_card(
                 "selectable": False,
             },
             {
-                "id": "etro_link",
-                "name": "Etro link",
+                "id": "job_build_url",
+                "name": "Job build link",
                 "editable": True,
                 "selectable": True,
             },
@@ -225,14 +223,14 @@ def create_fflogs_card(
         [
             html.H4("Quick build input"),
             html.P(
-                'Paste etro links into the "Etro link" below like a spreadsheet to'
+                'Paste job build links into the "Job build link" below like a spreadsheet to'
                 "auto-fill each item and pull in the job builds by clicking the"
-                '"Fetch Etro builds" button. Otherwise, enter the build information '
-                "one-by-one."
+                '"Fetch job builds" button. You can mix etro and xivgear links. '
+                "Otherwise, enter the build information one-by-one."
             ),
             quick_build_table,
             html.Br(),
-            dbc.Button("Fetch Etro builds", id="quick-build-fill-button"),
+            dbc.Button("Fetch job builds", id="quick-build-fill-button"),
         ],
         style={"padding-top": "15px", "padding-bottom": "15px"},
     )
@@ -605,8 +603,8 @@ def create_quick_build_table_data(
 
     # Create and sort dataframe
     quick_build = pd.DataFrame(job_information)
-    if "etro_id" not in quick_build.columns:
-        quick_build["etro_id"] = None
+    if "job_build_id" not in quick_build.columns:
+        quick_build["job_build_id"] = None
     # TODO: Verify this is correct
     # quick_build["role_order"] = quick_build["role"].map(ROLE_ORDER)
     quick_build["role_order"] = 1
@@ -615,43 +613,18 @@ def create_quick_build_table_data(
     quick_build.loc[quick_build["role"] == "Physical Ranged", "role_order"] = 4
     quick_build.loc[quick_build["role"] == "Magical Ranged", "role_order"] = 5
     quick_build["job"] = quick_build["job"].map(abbreviated_job_map)
-    quick_build["etro_link"] = None
-    quick_build.loc[~quick_build["etro_id"].isna(), "etro_link"] = (
-        "https://etro.gg/gearset/" + quick_build["etro_id"]
+    quick_build["job_build_url"] = quick_build.apply(
+        lambda row: reconstruct_job_build_url(
+            row["job_build_id"], row.get("job_build_provider")
+        ),
+        axis=1,
     )
 
     quick_build = quick_build.sort_values(
         ["role_order", "job", "player_name", "player_id"]
-    )[["job", "player_name", "etro_link"]]
+    )[["job", "player_name", "job_build_url"]]
 
     return quick_build.to_dict("records")
-
-
-def create_quick_build_div(quick_build_table: Any) -> html.Div:
-    """
-    Create div containing quick build input components.
-
-    Args:
-        quick_build_table: Dash DataTable for entering build info
-
-    Returns:
-        Div containing header, instructions, table and fill button
-    """
-    return html.Div(
-        [
-            html.H4("Quick build input"),
-            html.P(
-                'Paste etro links into the "Etro link" below like a spreadsheet to'
-                "auto-fill each item and pull in the job builds by clicking the"
-                '"Fill in Etro links" button. Otherwise, enter the build information '
-                "one-by-one."
-            ),
-            quick_build_table,
-            html.Br(),
-            dbc.Button("Fill in Etro links", id="quick-build-fill-button"),
-        ],
-        style={"padding-top": "15px", "padding-bottom": "15px"},
-    )
 
 
 # FIXME: remove job and delay
@@ -958,7 +931,7 @@ def create_accordion_items(
     direct_hit: Optional[int] = None,
     weapon_damage: Optional[int] = None,
     delay: Optional[float] = None,
-    etro_url: Optional[str] = None,
+    job_build_url: Optional[str] = None,
 ) -> dbc.AccordionItem:
     """
     Create accordion item for job build input.
@@ -977,7 +950,7 @@ def create_accordion_items(
         direct_hit: Direct hit stat
         weapon_damage: Weapon damage value
         delay: Weapon delay value
-        etro_url: Link to Etro build
+        job_build_url: Link to job build, either etro/xivgear
 
     Returns:
         AccordionItem containing job build input form
@@ -1034,13 +1007,13 @@ def create_accordion_items(
                     dbc.Col(
                         [
                             dbc.Input(
-                                value=etro_url,
-                                placeholder=f"Enter Etro build for {name}",
-                                id={"type": "etro-input", "index": id_idx},
+                                value=job_build_url,
+                                placeholder=f"Enter etro / xivgear link for {name}",
+                                id={"type": "job-build-input", "index": id_idx},
                             ),
                             dbc.FormFeedback(
                                 type="invalid",
-                                id={"type": "etro-feedback", "index": id_idx},
+                                id={"type": "job-build-feedback", "index": id_idx},
                             ),
                         ],
                         md=9,
@@ -1077,7 +1050,7 @@ def create_party_accordion_children(
             - direct_hit: Direct hit value
             - weapon_damage: Weapon damage value
             - delay: Weapon delay value
-            - etro_id: Etro build ID
+            - job_build_id: Job build ID, either xivgear or etro
         job_build_present: Whether job build stats are included
 
     Returns:
@@ -1103,12 +1076,10 @@ def create_party_accordion_children(
             direct_hit = j["direct_hit"]
             weapon_damage = j["weapon_damage"]
             delay = j["delay"]
-            etro_id = j["etro_id"]
+            job_build_url = reconstruct_job_build_url(
+                j["job_build_id"], j["job_build_provider"]
+            )
 
-            if etro_id is None:
-                etro_url = None
-            else:
-                etro_url = f"https://etro.gg/gearset/{etro_id}"
         else:
             main_stat = None
             secondary_stat = None
@@ -1118,7 +1089,7 @@ def create_party_accordion_children(
             direct_hit = None
             weapon_damage = None
             delay = None
-            etro_url = None
+            job_build_url = None
 
         if j["role"] == "Tank":
             tanks.append(
@@ -1136,7 +1107,7 @@ def create_party_accordion_children(
                     direct_hit,
                     weapon_damage,
                     delay,
-                    etro_url,
+                    job_build_url,
                 )
             )
 
@@ -1156,7 +1127,7 @@ def create_party_accordion_children(
                     direct_hit,
                     weapon_damage,
                     delay,
-                    etro_url,
+                    job_build_url,
                 )
             )
 
@@ -1176,7 +1147,7 @@ def create_party_accordion_children(
                     direct_hit,
                     weapon_damage,
                     delay,
-                    etro_url,
+                    job_build_url,
                 )
             )
 
@@ -1196,7 +1167,7 @@ def create_party_accordion_children(
                     direct_hit,
                     weapon_damage,
                     delay,
-                    etro_url,
+                    job_build_url,
                 )
             )
 
@@ -1216,7 +1187,7 @@ def create_party_accordion_children(
                     direct_hit,
                     weapon_damage,
                     delay,
-                    etro_url,
+                    job_build_url,
                 )
             )
 

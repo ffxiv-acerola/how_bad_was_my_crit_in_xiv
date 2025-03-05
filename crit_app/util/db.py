@@ -872,7 +872,8 @@ def get_party_analysis_player_build(
         r.weapon_damage,
         r.delay,
         r.medication_amount,
-        r.job_build_id
+        r.job_build_id,
+        r.job_build_provider
     FROM
         report r
         inner join encounter e using (report_id, fight_id, player_name, job)
@@ -908,7 +909,7 @@ def get_party_analysis_player_build(
     # transform into outputs used by site
     etro_job_build_information = [dict(zip(columns, r)) for r in rows]
     player_analysis_selector_options = [[r[2], r[3], r[0]] for r in rows]
-    medication_amount = rows[0][-2]
+    medication_amount = rows[0][-3]
     cur.close()
     con.close()
 

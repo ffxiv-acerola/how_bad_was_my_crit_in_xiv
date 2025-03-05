@@ -24,7 +24,6 @@ from crit_app.api_queries import (
     get_encounter_job_info,
     headers,
     limit_break_damage_events,
-    parse_etro_url,
     parse_fflogs_url,
 )
 
@@ -63,12 +62,14 @@ from crit_app.shared_elements import (
     rotation_analysis,
     validate_main_stat,
     validate_meldable_stat,
-    validate_secondary_stat,
     validate_speed_stat,
     validate_weapon_damage,
 )
-from crit_app.util.api.job_build import(
-    etro_build
+from crit_app.util.api.job_build import (
+    etro_build,
+    job_build_provider,
+    parse_build_uuid,
+    xiv_gear_build,
 )
 from crit_app.util.dash_elements import error_alert
 from crit_app.util.db import (
@@ -368,13 +369,13 @@ def toggle_party_list(n_clicks: Optional[int]) -> Tuple[bool, str]:
 
 
 @callback(
-    Output({"type": "etro-input", "index": ALL}, "value"),
+    Output({"type": "job-build-input", "index": ALL}, "value"),
     # Input("quick-build-fill-button", "n_clicks"),
     Input("quick-build-table", "data"),
     prevent_initial_call=True,
 )
-def quick_fill_job_build(etro_links):
-    return [e["etro_link"] for e in etro_links]
+def quick_fill_job_build(job_build_links):
+    return [e["job_build_url"] for e in job_build_links]
 
 
 @callback(
@@ -525,11 +526,11 @@ def hide_non_tank_tenactiy(main_stat_label) -> bool:
     Output({"type": "DH", "index": MATCH}, "value", allow_duplicate=True),
     Output({"type": "WD", "index": MATCH}, "value", allow_duplicate=True),
     Output({"type": "build-name", "index": MATCH}, "children"),
-    Output({"type": "etro-input", "index": MATCH}, "valid"),
-    Output({"type": "etro-input", "index": MATCH}, "invalid"),
-    Output({"type": "etro-feedback", "index": MATCH}, "children"),
+    Output({"type": "job-build-input", "index": MATCH}, "valid"),
+    Output({"type": "job-build-input", "index": MATCH}, "invalid"),
+    Output({"type": "job-build-feedback", "index": MATCH}, "children"),
     Input("quick-build-fill-button", "n_clicks"),
-    State({"type": "etro-input", "index": MATCH}, "value"),
+    State({"type": "job-build-input", "index": MATCH}, "value"),
     State({"type": "main-stat-label", "index": MATCH}, "children"),
     State({"type": "main-stat", "index": MATCH}, "value"),
     State({"type": "TEN", "index": MATCH}, "value"),
@@ -540,7 +541,7 @@ def hide_non_tank_tenactiy(main_stat_label) -> bool:
     State({"type": "WD", "index": MATCH}, "value"),
     prevent_initial_call=True,
 )
-def etro_process(
+def job_build_process(
     n_clicks,
     url,
     main_stat_label,
@@ -581,131 +582,74 @@ def etro_process(
         True,
     ]
 
-    gearset_id, error_code = parse_etro_url(url)
+    valid_provider, provider = job_build_provider(url)
+    if not valid_provider:
+        return tuple([provider] + invalid_return)
 
-    if error_code == 0:
+    elif provider == "etro.gg":
+        # Get the build if everything checks out
         (
             etro_call_successful,
             etro_error,
             build_name,
             build_role,
             primary_stat,
-            secondary_stat,
             determination,
             speed,
             critical_hit,
             direct_hit,
             weapon_damage,
+            secondary_stat,
             delay,
             etro_party_bonus,
-        ) = etro_build(gearset_id)
+        ) = etro_build(url)
 
-        if etro_call_successful:
-            # If a party bonus is applied in etro, undo it.
-            if etro_party_bonus > 1:
-                primary_stat = int(primary_stat / etro_party_bonus)
-                # Undo STR for healer/caster
-                # if build_role in ("Healer", "Magical Ranged"):
-                #     secondary_stat = int(secondary_stat / etro_party_bonus)
-
-            time.sleep(1)
-            return (
-                primary_stat,
-                secondary_stat,
-                determination,
-                speed,
-                critical_hit,
-                direct_hit,
-                weapon_damage,
-                f"Build name: {build_name}",
-                True,
-                False,
-                [],
-            )
-
-    # Manual validation if no url is provided/etro fails
-    # All stats present
-    # If role is tank/healer/caster, secondary stat is also present
-    # if url is None:
-    (
-        main_stat,
-        secondary_stat,
-        determination,
-        speed,
-        critical_hit,
-        direct_hit,
-        weapon_damage,
-    ) = invalid_return[0:7]
-    secondary_stat_condition = ((role in ("Tank")) & (secondary_stat is not None)) or (
-        role in ("Melee", "Physical Ranged", "Healer", "Magical Ranged")
-    )
-    if (
-        all(
-            [
-                main_stat is not None,
-                determination is not None,
-                speed is not None,
-                critical_hit is not None,
-                direct_hit is not None,
-                weapon_damage is not None,
-            ]
-        )
-        & secondary_stat_condition
-    ):
-        # Validate each stat
-        validation = [
-            validate_meldable_stat("Main stat", main_stat),
-            validate_secondary_stat(role, secondary_stat),
-            validate_meldable_stat("Determination", determination),
-            validate_speed_stat(speed),
-            validate_meldable_stat("Critical hit", critical_hit),
-            validate_meldable_stat("Direct hit rate", direct_hit),
-            validate_weapon_damage(weapon_damage),
-        ]
-        if all([v[0] for v in validation]):
-            return (
-                main_stat,
-                secondary_stat,
-                determination,
-                speed,
-                critical_hit,
-                direct_hit,
-                weapon_damage,
-                [],
-                True,
-                False,
-                [],
-            )
-
-        else:
-            feedback = " ".join([v[1] for v in validation if v[1] is not None])
-            invalid_return.append(feedback)
+        if not etro_call_successful:
+            invalid_return.append(etro_error)
             return tuple(invalid_return)
 
-    # Non-etro link
-    elif error_code == 1:
-        feedback = "This isn't an etro.gg link..."
-        invalid_return.append(feedback)
-        return tuple(invalid_return)
-
-    # Etro link but not to a gearset
-    elif error_code == 2:
-        feedback = (
-            "This doesn't appear to be a valid gearset. Please double check the link."
+    elif provider == "xivgear.app":
+        xiv_gear_success, error_message, xiv_gear_sets, gear_idx = xiv_gear_build(
+            url, require_sheet_selection=True
         )
-        invalid_return.append(feedback)
-        return tuple(invalid_return)
-
-    # Etro link error, usualy 404
-    if not etro_call_successful:
-        invalid_return.append(etro_error)
-        return tuple(invalid_return)
+        if not xiv_gear_success:
+            invalid_return.append(error_message)
+            return tuple(invalid_return)
+        (
+            job_name,
+            build_name,
+            build_role,
+            primary_stat,
+            determination,
+            speed,
+            critical_hit,
+            direct_hit,
+            weapon_damage,
+            etro_party_bonus,
+            secondary_stat,
+        ) = xiv_gear_sets[gear_idx]
 
     # Make sure correct build is used
     if build_role != role:
         feedback = f"A non-{role} etro build was used."
         invalid_return.append(feedback)
         return tuple(invalid_return)
+
+    time.sleep(1.5)
+
+    return (
+        primary_stat,
+        secondary_stat,
+        determination,
+        speed,
+        critical_hit,
+        direct_hit,
+        weapon_damage,
+        f"Build name: {build_name}",
+        True,
+        False,
+        [],
+    )
 
 
 valid_stat_return = (True, False)
@@ -861,7 +805,7 @@ def validate_wd_stat_wildcard(value):
     Output({"type": "TEN", "index": MATCH}, "valid"),
     Output({"type": "TEN", "index": MATCH}, "invalid"),
     Input({"type": "TEN", "index": MATCH}, "value"),
-    State({"type": "main-stat-label", "index": MATCH}, "children"),
+    Input({"type": "main-stat-label", "index": MATCH}, "children"),
 )
 def validate_tenacity_wildcard(ten_value, main_stat_label):
     """
@@ -870,7 +814,7 @@ def validate_tenacity_wildcard(ten_value, main_stat_label):
     otherwise always valid. No form feedback is returned.
     """
     # Non-tank => always valid
-    if main_stat_label != "STR":
+    if main_stat_label != "STR:":
         return valid_stat_return
 
     # Tank => do normal validation
@@ -929,7 +873,7 @@ def validate_job_builds(
     """
     Hide the 'party-compute-div' if any required stats are invalid or if.
 
-    not all are valid. This replaces the previous check on etro-input.
+    not all are valid. This replaces the previous check on job-build-input.
     """
     # If any stat input is invalid across all players, hide the compute button:
     any_invalid = (
@@ -1005,7 +949,7 @@ def job_progress(job_list, active_job):
     State({"type": "WD", "index": ALL}, "value"),
     State({"type": "main-stat-label", "index": ALL}, "children"),
     State({"type": "player-name", "index": ALL}, "children"),
-    State({"type": "etro-input", "index": ALL}, "value"),
+    State({"type": "job-build-input", "index": ALL}, "value"),
     State("party-tincture-grade", "value"),
     State("party-encounter-name", "children"),
     State("fflogs-url2", "value"),
@@ -1032,7 +976,7 @@ def analyze_party_rotation(
     weapon_damage,
     main_stat_label,
     player_name,
-    etro_url,
+    job_build_url,
     medication_amt,
     encounter_name,
     fflogs_url,
@@ -1085,7 +1029,6 @@ def analyze_party_rotation(
     # Party bonus to main stat
     main_stat_multiplier = 1 + len(set(main_stat_label)) / 100
 
-    # FIXME: this needs to be found for fights like FRU
     # Fixed time between phases, need to find killing damage event
     find_t_clip_offset = False
     perform_kill_time_analysis = True
@@ -1166,7 +1109,7 @@ def analyze_party_rotation(
         weapon_damage,
         medication_amt,
         level,
-        etro_url,
+        job_build_url,
         player_analysis_ids,
         # t_clips,
     )
@@ -1273,7 +1216,6 @@ def analyze_party_rotation(
             weapon_damage,
             main_stat_multiplier,
             medication_amt,
-            etro_url,
             str(e),
             traceback.format_exc(),
         )
@@ -1368,7 +1310,7 @@ def player_analysis_loop(
     weapon_damage: List[int],
     medication_amt: int,
     level: int,
-    etro_url: List[str],
+    job_build_url: List[str],
     player_analysis_ids: List[Optional[str]],
 ) -> Tuple[
     bool,
@@ -1414,7 +1356,7 @@ def player_analysis_loop(
         weapon_damage (List[int]): Weapon damage values for each player's job.
         medication_amt (int): Amount of medicine/food buffs applied.
         level (int): Character level used in calculations.
-        etro_url (List[str]): Gearset URLs for each player.
+        job_build_url (List[str]): Gearset URLs for each player.
         player_analysis_ids (List[Optional[str]]): List of existing or None player analysis IDs.
         t_clips (List[float]): List of time clipping points for truncated analyses.
 
@@ -1470,8 +1412,7 @@ def player_analysis_loop(
                 None if secondary_stat_buff == "None" else secondary_stat_buff
             )
 
-            gearset_id = etro_url[a]
-            gearset_id, _ = parse_etro_url(gearset_id)
+            job_build_id, build_provider = parse_build_uuid(job_build_url[a], 0)
 
             job_rotation_analyses_list.append(
                 RotationTable(
@@ -1547,7 +1488,8 @@ def player_analysis_loop(
                     delay,
                     medication_amt,
                     main_stat_multiplier,
-                    gearset_id,
+                    job_build_id,
+                    build_provider,
                     0,
                     0,
                 )
