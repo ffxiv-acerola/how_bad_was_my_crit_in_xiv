@@ -84,7 +84,7 @@ patch_times = {
 }
 
 stat_ranges = {
-    "main_stat": {"lower": 3400, "upper": 6000},
+    "main_stat": {"lower": 3200, "upper": 6000},
     "DET": {"lower": 380, "upper": 5000},
     "SPEED": {"lower": 380, "upper": 5000},
     "CRT": {"lower": 380, "upper": 5000},
