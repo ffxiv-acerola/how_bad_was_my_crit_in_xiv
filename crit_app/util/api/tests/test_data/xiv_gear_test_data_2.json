@@ -1,0 +1,31 @@
+{
+  "name": "2.50 FRU Weapon + Chaotic Legs",
+  "computedStats": {
+    "hp": 135496,
+    "vitality": 4802,
+    "strength": 220,
+    "dexterity": 484,
+    "intelligence": 4883,
+    "mind": 352,
+    "piety": 440,
+    "crit": 3090,
+    "dhit": 1781,
+    "determination": 2585,
+    "tenacity": 420,
+    "skillspeed": 420,
+    "spellspeed": 420,
+    "wdPhys": 146,
+    "wdMag": 146,
+    "weaponDelay": 2.96,
+    "job": "PCT",
+    "jobStats": {
+      "role": "Caster",
+      "mainStat": "intelligence",
+      "autoAttackStat": "strength",
+      "irrelevantSubstats": ["skillspeed", "tenacity", "piety"],
+      "aaPotency": 90,
+      "excludedRelicSubstats": [],
+      "maxLevel": 100
+    }
+  }
+}

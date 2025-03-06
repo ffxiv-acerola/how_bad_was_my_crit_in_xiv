@@ -14,7 +14,6 @@ from plotly.graph_objs import Figure
 from crit_app.api_queries import (
     get_encounter_job_info,
     headers,
-    parse_etro_url,
     parse_fflogs_url,
 )
 from crit_app.cards import (
@@ -46,13 +45,19 @@ from crit_app.job_data.job_data import weapon_delays
 from crit_app.job_data.job_warnings import job_warnings
 from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
 from crit_app.shared_elements import (
-    etro_build,
     format_kill_time_str,
     get_phase_selector_options,
     rotation_analysis,
     set_secondary_stats,
     validate_meldable_stat,
     validate_weapon_damage,
+)
+from crit_app.util.api.job_build import (
+    etro_build,
+    job_build_provider,
+    parse_build_uuid,
+    reconstruct_job_build_url,
+    xiv_gear_build,
 )
 from crit_app.util.dash_elements import error_alert
 from crit_app.util.db import (
@@ -311,6 +316,7 @@ def layout(analysis_id=None):
         result_card = initialize_results(rotation_card, action_card, True)
         return dash.html.Div(
             [
+                dcc.Store(id="xiv-gear-sheet-data"),
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -347,12 +353,9 @@ def layout(analysis_id=None):
 
         analysis_details = retrieve_player_analysis_information(analysis_id)
         #### Job build / Etro card setup ####
-        if (analysis_details["etro_id"] is not None) and (
-            analysis_details["etro_id"] != ""
-        ):
-            etro_url = f"https://etro.gg/gearset/{analysis_details['etro_id']}"
-        else:
-            etro_url = None
+        job_build_url = reconstruct_job_build_url(
+            analysis_details["job_build_id"], analysis_details["job_build_provider"]
+        )
 
         #### FFLogs Card Info ####
         # FFlogs URL
@@ -667,7 +670,7 @@ def layout(analysis_id=None):
 
         ### Make all the divs
         job_build = initialize_job_build(
-            etro_url,
+            job_build_url,
             role,
             main_stat_pre_bonus,
             secondary_stat_pre_bonus,
@@ -720,6 +723,7 @@ def layout(analysis_id=None):
 
         return dash.html.Div(
             [
+                dcc.Store(id="xiv-gear-sheet-data"),
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -826,31 +830,35 @@ def fill_role_stat_labels(role: str) -> Tuple[str, str, str, str]:
 
 
 @callback(
-    Output("etro-url-feedback", "children"),
-    Output("etro-url", "valid"),
-    Output("etro-url", "invalid"),
-    Output("etro-build-name-div", "children"),
+    Output("job-build-url-feedback", "children"),
+    Output("xiv-gear-set-div", "hidden"),
+    Output("job-build-url", "valid"),
+    Output("job-build-url", "invalid"),
+    Output("job-build-name-div", "children", allow_duplicate=True),
     Output("role-select", "value"),
     Output("main-stat", "value"),
-    Output("TEN", "value"),
     Output("DET", "value"),
     Output("speed-stat", "value"),
     Output("CRT", "value"),
     Output("DH", "value"),
     Output("WD", "value"),
+    Output("TEN", "value"),
     Output("party-bonus-warning", "children"),
-    Input("etro-url-button", "n_clicks"),
-    State("etro-url", "value"),
+    Output("xiv-gear-sheet-data", "data"),
+    Input("job-build-url-button", "n_clicks"),
+    State("job-build-url", "value"),
     State("role-select", "value"),
     prevent_initial_call=True,
 )
-def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, ...]:
+def process_job_build_url(
+    n_clicks: int, url: str, default_role: str
+) -> Tuple[Any, ...]:
     """
-    Get the report/fight ID from an etro.gg URL, then determine the encounter ID, start time, and jobs present.
+    Get the report/fight ID from an etro.gg/xivgear.app URL, then determine the encounter ID, start time, and jobs present.
 
     Parameters:
     n_clicks (int): Number of times the button has been clicked.
-    url (str): The etro.gg URL to process.
+    url (str): The xivgear/etro.gg URL to process.
     default_role (str): The default role to select.
 
     Returns:
@@ -859,8 +867,11 @@ def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, .
     if n_clicks is None:
         raise PreventUpdate
 
-    feedback = []
+    xiv_gear_sets = []
+    gear_idx = -1
+    xiv_gear_sets_store = {"gear_index": gear_idx, "data": xiv_gear_sets}
     invalid_return = [
+        True,
         False,
         True,
         [],
@@ -873,73 +884,156 @@ def process_etro_url(n_clicks: int, url: str, default_role: str) -> Tuple[Any, .
         [],
         [],
         [],
+        xiv_gear_sets_store,
     ]
 
-    gearset_id, error_code = parse_etro_url(url)
+    # Check if job build is etro or xivgear
+    valid_provider, provider = job_build_provider(url)
 
-    if error_code == 0:
-        pass
+    if not valid_provider:
+        return tuple([provider] + invalid_return)
 
-    elif error_code == 1:
-        feedback = ["This isn't an etro.gg link..."]
-        return tuple(feedback + invalid_return)
+    elif provider == "etro.gg":
+        hide_xiv_gear_set_selector = True
+        # Get the build if everything checks out
+        (
+            etro_call_successful,
+            etro_error,
+            build_name,
+            build_role,
+            primary_stat,
+            determination,
+            speed,
+            ch,
+            dh,
+            wd,
+            tenacity,
+            delay,
+            etro_party_bonus,
+        ) = etro_build(url)
 
-    else:
-        feedback = [
-            "This doesn't appear to be a valid gearset. Please double check the link."
-        ]
-        return tuple(feedback + invalid_return)
+        if not etro_call_successful:
+            return tuple([etro_error] + invalid_return)
 
-    # Get the build if everything checks out
-    (
-        etro_call_successful,
-        etro_error,
-        build_name,
-        build_role,
-        primary_stat,
-        tenacity,
-        determination,
-        speed,
-        ch,
-        dh,
-        wd,
-        delay,
-        etro_party_bonus,
-    ) = etro_build(gearset_id)
+        if etro_party_bonus > 1.0:
+            bonus_fmt = etro_party_bonus - 1
+            warning_row = dbc.Alert(
+                [
+                    html.I(className="bi bi-exclamation-triangle-fill me-2"),
+                    f"Warning! The linked etro build has already applied a {bonus_fmt:.0%} bonus to its main stats. Values shown here have the party bonus removed.",
+                ],
+                color="warning",
+                className="d-flex align-items-center",
+            )
+            primary_stat = int(primary_stat / etro_party_bonus)
+        else:
+            warning_row = []
 
-    if not etro_call_successful:
-        return tuple([etro_error] + invalid_return)
-    # job_abbreviated = build_result["jobAbbrev"]
-    build_children = [html.H4(f"Build name: {build_name}")]
+    # xivgear is more complicated because it returns sheets with multiple jobs.
+    # Also create a new dropdown with the different options
+    elif provider == "xivgear.app":
+        hide_xiv_gear_set_selector = False
+        xiv_gear_success, error_message, xiv_gear_sets, gear_idx = xiv_gear_build(url)
 
-    if etro_party_bonus > 1.0:
-        bonus_fmt = etro_party_bonus - 1
-        warning_row = dbc.Alert(
-            [
-                html.I(className="bi bi-exclamation-triangle-fill me-2"),
-                f"Warning! The linked etro build has already applied a {bonus_fmt:.0%} bonus to its main stats. Values shown here have the party bonus removed..",
-            ],
-            color="warning",
-            className="d-flex align-items-center",
-        )
-        primary_stat = int(primary_stat / etro_party_bonus)
-    else:
+        if not xiv_gear_success:
+            return tuple([error_message] + invalid_return)
+
+        # Handle three behaviors
+        # 1. Gear set specified, select and fill that in.
+        # 2. Sheet only has 1 gear set, select and fill that in.
+        # 3. Whole sheet linked, fill nothing in.
+        if len(xiv_gear_sets) == 1:
+            gear_idx = 0
+        if gear_idx >= 0:
+            (
+                job_name,
+                build_name,
+                build_role,
+                primary_stat,
+                determination,
+                speed,
+                ch,
+                dh,
+                wd,
+                etro_party_bonus,
+                tenacity,
+            ) = xiv_gear_sets[gear_idx]
+        else:
+            build_name = (None,)
+            build_role = xiv_gear_sets[0][2]
+            primary_stat = 0
+            dh = None
+            ch = None
+            determination = None
+            speed = None
+            wd = None
+            etro_party_bonus = None
+            tenacity = None
+
         warning_row = []
+        xiv_gear_sets_store = {"gear_index": gear_idx, "data": xiv_gear_sets}
+
+    build_children = [html.H4(f"Build name: {build_name}")]
     return (
         [],
+        hide_xiv_gear_set_selector,
         True,
         False,
         build_children,
         build_role,
         primary_stat,
-        tenacity,
         determination,
         speed,
         ch,
         dh,
         wd,
+        tenacity,
         warning_row,
+        xiv_gear_sets_store,
     )
+
+
+@callback(
+    Output("xiv-gear-select", "options"),
+    Output("xiv-gear-select", "value"),
+    Input("xiv-gear-sheet-data", "data"),
+)
+def fill_xiv_gear_build_selector(data):
+    if (data is None) or (not data):
+        raise PreventUpdate
+    gear_data = data["data"]
+    gear_idx = data["gear_index"]
+    # Don't select anything if a gearset wasn't explicitly provided
+    gear_idx = None if gear_idx == -1 else str(gear_idx)
+    selector_options = [
+        {"label": d[1], "value": str(idx)} for idx, d in enumerate(gear_data)
+    ]
+    return selector_options, gear_idx
+
+
+@callback(
+    Output("job-build-name-div", "children", allow_duplicate=True),
+    Output("main-stat", "value", allow_duplicate=True),
+    Output("DET", "value", allow_duplicate=True),
+    Output("speed-stat", "value", allow_duplicate=True),
+    Output("CRT", "value", allow_duplicate=True),
+    Output("DH", "value", allow_duplicate=True),
+    Output("WD", "value", allow_duplicate=True),
+    Output("TEN", "value", allow_duplicate=True),
+    Input("xiv-gear-sheet-data", "data"),
+    Input("xiv-gear-select", "value"),
+    prevent_initial_call=True,
+)
+def fill_job_build_via_xiv_gear_select(xiv_gear_sheet_data, index):
+    if index is None:
+        raise PreventUpdate
+    index = int(index)
+    if index == -1:
+        raise PreventUpdate
+    gear_fill = xiv_gear_sheet_data["data"][index]
+
+    job_build_name = [html.H4(f"Build name: {gear_fill[1]}")]
+    return tuple(job_build_name + gear_fill[3:-1])
 
 
 @callback(
@@ -1202,7 +1296,7 @@ def process_fflogs_url(n_clicks, url, role):
     error_return = [
         [],
         [],
-        [],
+        True,
         [],
         [],
         radio_value,
@@ -1558,10 +1652,11 @@ def copy_analysis_link(n: int, selected: str) -> str:
     State("CRT", "value"),
     State("DH", "value"),
     State("WD", "value"),
+    State("xiv-gear-select", "value"),
     State("tincture-grade", "value"),
     State("fflogs-url", "value"),
     State("phase-select", "value"),
-    State("etro-url", "value"),
+    State("job-build-url", "value"),
     Input("healer-jobs", "value"),
     Input("tank-jobs", "value"),
     Input("melee-jobs", "value"),
@@ -1578,10 +1673,11 @@ def analyze_and_register_rotation(
     ch: int,
     dh: int,
     wd: int,
+    job_build_idx,
     medication_amt: int,
     fflogs_url: str,
     fight_phase: Optional[int],
-    etro_url: str,
+    job_build_url: str,
     healer_jobs: Optional[str] = None,
     tank_jobs: Optional[str] = None,
     melee_jobs: Optional[str] = None,
@@ -1603,7 +1699,7 @@ def analyze_and_register_rotation(
     medication_amt (int): Medication amount.
     fflogs_url (str): FFLogs URL.
     fight_phase (Optional[int]): Selected fight phase.
-    etro_url (str): Etro URL.
+    job_build_url (str): Etro URL.
     healer_jobs (Optional[str]): Selected healer job.
     tank_jobs (Optional[str]): Selected tank job.
     melee_jobs (Optional[str]): Selected melee job.
@@ -1624,7 +1720,18 @@ def analyze_and_register_rotation(
         fight_phase = fight_phase[0]
     else:
         fight_phase = int(fight_phase)
-    player_id = [x for x in player_id if x is not None][0]
+    player_id = [x for x in player_id if x is not None]
+
+    if len(player_id) == 0:
+        return (
+            updated_url,
+            ["Analyze rotation"],
+            False,
+            ["No player selected."],
+            False,
+        )
+
+    player_id = player_id[0]
     report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
 
     (
@@ -1679,10 +1786,13 @@ def analyze_and_register_rotation(
     # delay = 3.44
 
     try:
-        gearset_id, error_code = parse_etro_url(etro_url)
-        if error_code != 0:
-            gearset_id = None
-
+        if (job_build_url != "") & (job_build_url is not None):
+            job_build_id, job_build_provider = parse_build_uuid(
+                job_build_url, job_build_idx
+            )
+        else:
+            job_build_id = None
+            job_build_provider = None
         # Check if the rotation has been analyzed before
         prior_analysis_id, redo_analysis = search_prior_player_analyses(
             report_id,
@@ -1793,7 +1903,8 @@ def analyze_and_register_rotation(
                 delay,
                 medication_amt,
                 main_stat_multiplier,
-                gearset_id,
+                job_build_id,
+                job_build_provider,
                 redo_dps_pdf_flag,
                 redo_rotation_flag,
             )

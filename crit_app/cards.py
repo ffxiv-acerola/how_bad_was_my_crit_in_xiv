@@ -10,7 +10,7 @@ from crit_app.job_data.encounter_data import stat_ranges
 
 
 def initialize_job_build(
-    etro_url: Optional[str] = None,
+    job_build_url: Optional[str] = None,
     role: str = "Healer",
     main_stat: Optional[int] = None,
     tenacity: Optional[int] = None,
@@ -22,18 +22,19 @@ def initialize_job_build(
     delay: Optional[float] = None,
     party_bonus: float = 1.05,
     medication_amt: int = 392,
+    build_selector_hidden: bool = True,
 ) -> html.Div:
     """
     Create job build card with stat inputs and role selection.
 
     The card allows:
-    - Loading builds from Etro URLs
+    - Loading builds from etro/xivgear URLs
     - Manual stat entry with validation
     - Role selection
     - Medication/tincture selection
 
     Args:
-        etro_url: Optional Etro build URL to preload stats
+        job_build_url: Optional job build URL to preload stats (etro.gg or xivgear.api)
         role: Selected role (Tank/Healer/etc)
         main_stat: Main stat value for selected role
         tenacity: Tenacity stat (tanks only)
@@ -50,20 +51,20 @@ def initialize_job_build(
         html.Div containing the complete job build card
     """
 
-    etro_input = dbc.Row(
+    job_build_input = dbc.Row(
         [
-            dbc.Label("Etro build URL", width=12, md=2),
+            dbc.Label("Job build URL", width=12, md=2),
             dbc.Col(
                 [
                     dbc.Input(
-                        value=etro_url,
+                        value=job_build_url,
                         type="text",
-                        placeholder="Enter Etro job build URL",
-                        id="etro-url",
+                        placeholder="Enter etro.gg / xivgear.app build URL",
+                        id="job-build-url",
                     ),
                     dbc.FormFeedback(
                         type="invalid",
-                        id="etro-url-feedback",
+                        id="job-build-url-feedback",
                     ),
                 ],
                 className="me-3",
@@ -72,7 +73,7 @@ def initialize_job_build(
                 dbc.Button(
                     "Submit",
                     color="primary",
-                    id="etro-url-button",
+                    id="job-build-url-button",
                 ),
                 width="auto",
             ),
@@ -102,6 +103,31 @@ def initialize_job_build(
             ),
         ],
         class_name="mb-3",
+    )
+
+    xiv_gear_select = html.Div(
+        dbc.Row(
+            [
+                dbc.Label("Select build:", width=12, md=2),
+                dbc.Col(
+                    [
+                        dbc.Select(
+                            [
+                                "A",
+                                "B",
+                                "C",
+                            ],
+                            value=None,
+                            id="xiv-gear-select",
+                        )
+                    ],
+                    width=12,
+                    md=5,
+                ),
+            ]
+        ),
+        hidden=build_selector_hidden,
+        id="xiv-gear-set-div",
     )
 
     tincture_input = dbc.Row(
@@ -317,20 +343,19 @@ def initialize_job_build(
                     html.H3("Select a role and enter job build"),
                     html.P(
                         "A job build must be fully entered before a log can be analyzed. "
-                        "A build from an Etro URL can be loaded in or values can be manually entered. "
-                        "A role must be selected so the correct main/secondary stats can be used. "
-                        "If an Etro build is used, the role will be automatically selected. "
+                        "You can load a build from an etro.gg / xivgear.app URL, or manually enter the values."
                     ),
                     dbc.Form(
                         [
-                            etro_input,
+                            job_build_input,
                             role_input,
+                            xiv_gear_select,
                             html.H3("Job stats"),
                             html.P(
                                 "Do not include any percent bonus to main stat, this is automatically "
                                 "calculated."
                             ),
-                            dbc.Row(id="etro-build-name-div"),
+                            dbc.Row(id="job-build-name-div"),
                             top_stat_row,
                             middle_stat_row,
                             bottom_stat_row,

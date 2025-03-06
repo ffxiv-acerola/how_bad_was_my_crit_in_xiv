@@ -1,125 +1,12 @@
 from typing import Any, Optional, Tuple, Union
 
-import coreapi
 import numpy as np
 import pandas as pd
 
 from crit_app.job_data.encounter_data import encounter_phases
-from crit_app.job_data.job_data import caster_healer_strength, weapon_delays
+from crit_app.job_data.job_data import caster_healer_strength
 from crit_app.job_data.roles import role_stat_dict
 from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
-
-
-def etro_build(gearset_id):
-    # Initialize a client & load the schema document
-    client = coreapi.Client()
-    schema = client.get("https://etro.gg/api/docs/")
-
-    gearset_action = ["gearsets", "read"]
-    gearset_params = {
-        "id": gearset_id,
-    }
-    try:
-        build_result = client.action(schema, gearset_action, params=gearset_params)
-
-    except Exception as e:
-        return (
-            False,
-            f"Etro error: {e.error.title}",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
-
-    job_abbreviated = build_result["jobAbbrev"]
-    build_name = build_result["name"]
-
-    if job_abbreviated in ("WHM", "AST", "SGE", "SCH"):
-        build_role = "Healer"
-        main_stat_str = "MND"
-        speed_stat_str = "SPS"
-    elif job_abbreviated in ("WAR", "PLD", "DRK", "GNB"):
-        build_role = "Tank"
-        main_stat_str = "STR"
-        speed_stat_str = "SKS"
-    elif job_abbreviated in ("BLM", "SMN", "RDM", "PCT"):
-        build_role = "Magical Ranged"
-        main_stat_str = "INT"
-        speed_stat_str = "SPS"
-    elif job_abbreviated in ("MNK", "DRG", "SAM", "RPR", "NIN", "VPR"):
-        build_role = "Melee"
-        main_stat_str = "STR" if job_abbreviated not in ("NIN", "VPR") else "DEX"
-        speed_stat_str = "SKS"
-    elif job_abbreviated in ("BRD", "DNC", "MCH"):
-        build_role = "Physical Ranged"
-        main_stat_str = "DEX"
-        speed_stat_str = "SKS"
-
-    total_params = {}
-
-    for p in build_result["totalParams"]:
-        item = dict(p)
-        key = item.pop("name")
-        total_params[key] = item
-
-    primary_stat = total_params[main_stat_str]["value"]
-    dh = total_params["DH"]["value"]
-    ch = total_params["CRT"]["value"]
-    determination = total_params["DET"]["value"]
-    speed = total_params[speed_stat_str]["value"]
-    wd = total_params["Weapon Damage"]["value"]
-    etro_party_bonus = build_result["partyBonus"]
-
-    if build_role == "Tank":
-        secondary_stat = total_params["TEN"]["value"]
-
-    else:
-        secondary_stat = "None"
-
-    # Weapon delay is read differently for normal weapons and relics
-    # If normal weapon if the weapon key exists
-    if build_result["weapon"] is not None:
-        weapon_id = build_result["weapon"]
-        weapon_action = ["equipment", "read"]
-        weapon_params = {"id": weapon_id}
-        weapon_result = client.action(schema, weapon_action, params=weapon_params)
-        delay = weapon_result["delay"] / 1000
-
-    # Relic weapon if the relic key exists
-    elif build_result["relics"] is not None:
-        weapon_id = build_result["relics"]["weapon"]
-        weapon_action = ["relic", "read"]
-        weapon_params = {"id": weapon_id}
-        weapon_result = client.action(schema, weapon_action, params=weapon_params)
-        delay = weapon_result["baseItem"]["delay"] / 1000
-
-    # Fall back to hard-coded values by job if something goes wrong
-    else:
-        delay = weapon_delays[job_abbreviated]
-
-    return (
-        True,
-        "",
-        build_name,
-        build_role,
-        primary_stat,
-        secondary_stat,
-        determination,
-        speed,
-        ch,
-        dh,
-        wd,
-        delay,
-        etro_party_bonus,
-    )
 
 
 def validate_main_stat(

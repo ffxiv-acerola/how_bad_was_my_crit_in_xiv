@@ -1,0 +1,30 @@
+{
+  "name": "FRU + Chaotic BiS",
+  "computedStats": {
+    "hp": 149432,
+    "vitality": 5265,
+    "strength": 398,
+    "dexterity": 4886,
+    "intelligence": 373,
+    "mind": 351,
+    "piety": 440,
+    "crit": 3177,
+    "dhit": 1777,
+    "determination": 2448,
+    "tenacity": 420,
+    "skillspeed": 474,
+    "spellspeed": 420,
+    "wdPhys": 146,
+    "wdMag": 73,
+    "weaponDelay": 3.04,
+    "job": "BRD",
+    "jobStats": {
+      "role": "Ranged",
+      "mainStat": "dexterity",
+      "autoAttackStat": "dexterity",
+      "irrelevantSubstats": ["spellspeed", "tenacity", "piety"],
+      "excludedRelicSubstats": [],
+      "maxLevel": 100
+    }
+  }
+}
