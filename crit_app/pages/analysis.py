@@ -1720,7 +1720,18 @@ def analyze_and_register_rotation(
         fight_phase = fight_phase[0]
     else:
         fight_phase = int(fight_phase)
-    player_id = [x for x in player_id if x is not None][0]
+    player_id = [x for x in player_id if x is not None]
+
+    if len(player_id) == 0:
+        return (
+            updated_url,
+            ["Analyze rotation"],
+            False,
+            ["No player selected."],
+            False,
+        )
+
+    player_id = player_id[0]
     report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
 
     (
