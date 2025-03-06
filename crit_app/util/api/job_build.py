@@ -521,9 +521,9 @@ def parse_build_uuid(
             gearset_idx,
         ) = _parse_and_validate_xiv_gear_url(job_build_url)
         if (gearset_idx > -1) & (build_id is not None):
-            build_id += f"&onlySetIndex={gearset_idx}"
+            build_id += f"&selectedIndex={gearset_idx}"
         elif (fallback_gear_idx is not None) & (build_id is not None):
-            build_id += f"&onlySetIndex={fallback_gear_idx}"
+            build_id += f"&selectedIndex={fallback_gear_idx}"
 
     elif provider == "etro.gg":
         build_id, error_message = _parse_and_validate_etro_url(job_build_url)
@@ -543,7 +543,12 @@ def reconstruct_job_build_url(
 
     if job_build_provider == "xivgear.app":
         # Bis builds have / that need to be converted to |
-        job_build_url = f"https://xivgear.app/?page=sl|{job_build_id.replace('/', '|')}"
+        if "bis" in job_build_id:
+            job_build_url = (
+                f"https://xivgear.app/?page={job_build_id.replace('/', '|')}"
+            )
+        else:
+            job_build_url = f"https://xivgear.app/?page=sl|{job_build_id}"
 
     elif job_build_provider == "etro.gg":
         job_build_url = f"https://etro.gg/gearset/{job_build_id}"

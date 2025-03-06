@@ -153,13 +153,13 @@ def test_extract_xiv_gear_set(input_path, expected_build):
         (
             xiv_gear_url_1,
             2,
-            ("a8881f6f-9ab3-40cc-9931-7035021a3f1b&onlySetIndex=2", "xivgear.app"),
+            ("a8881f6f-9ab3-40cc-9931-7035021a3f1b&selectedIndex=2", "xivgear.app"),
         ),
         (xiv_gear_url_2, None, ("bis/sch/endwalker/anabaseios", "xivgear.app")),
         (
             xiv_gear_url_3,
             None,
-            ("ff8e55a8-a598-4bf3-abdd-bb40b66fa908&onlySetIndex=2", "xivgear.app"),
+            ("ff8e55a8-a598-4bf3-abdd-bb40b66fa908&selectedIndex=2", "xivgear.app"),
         ),
         (xiv_gear_url_4, None, ("bis/sch/endwalker/anabaseios", "xivgear.app")),
         (xiv_gear_url_5, None, (None, None)),
@@ -167,7 +167,7 @@ def test_extract_xiv_gear_set(input_path, expected_build):
         (
             xiv_gear_url_7,
             None,
-            ("ff8e55a8-a598-4bf3-abdd-bb40b66fa908&onlySetIndex=3", "xivgear.app"),
+            ("ff8e55a8-a598-4bf3-abdd-bb40b66fa908&selectedIndex=3", "xivgear.app"),
         ),
         (
             "https://etro.gg/gearset/db9c3700-7722-423a-a170-68c221d014b7",
@@ -205,7 +205,7 @@ def test_parse_build_uuid(input_url, fallback_gearset, expected):
         (
             "bis/sch/endwalker/anabaseios",
             "xivgear.app",
-            "https://xivgear.app/?page=sl|bis|sch|endwalker|anabaseios",
+            "https://xivgear.app/?page=bis|sch|endwalker|anabaseios",
         ),
         # Another normal build with setIndex
         (
