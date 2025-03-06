@@ -38,6 +38,21 @@ ERROR_CODE_MAP = {
 }
 
 
+def is_valid_domain(netloc, required_elements: list[str]) -> bool:
+    """
+    Check if the required domain elements are present in the given netloc.
+
+    Args:
+        netloc (str): The network location part of the URL (e.g., "xivgear.app").
+        required_elements (list[str], optional): A list of required domain parts. Defaults to ["xivgear", "app"].
+
+    Returns:
+        bool: `True` if all required elements are present in the domain, otherwise `False`.
+    """
+    netloc_elements = netloc.split(".")
+    return all([n in netloc_elements for n in required_elements])
+
+
 def job_build_provider(job_build_url: str) -> tuple[bool, str]:
     """Check if the required domain elements are present.
 
@@ -85,21 +100,6 @@ def _is_valid_uuid(uuid_to_test, version=4) -> bool:
     except ValueError:
         return False
     return str(uuid_obj) == uuid_to_test
-
-
-def is_valid_domain(netloc, required_elements: list[str]) -> bool:
-    """
-    Check if the required domain elements are present in the given netloc.
-
-    Args:
-        netloc (str): The network location part of the URL (e.g., "xivgear.app").
-        required_elements (list[str], optional): A list of required domain parts. Defaults to ["xivgear", "app"].
-
-    Returns:
-        bool: `True` if all required elements are present in the domain, otherwise `False`.
-    """
-    netloc_elements = netloc.split(".")
-    return all([n in netloc_elements for n in required_elements])
 
 
 def _parse_and_validate_etro_url(etro_url: str) -> tuple[Optional[str], str]:
@@ -220,94 +220,6 @@ def _extract_etro_build_stats(
         wd,
         etro_party_bonus,
         secondary_stat,
-    )
-
-
-def etro_build(
-    etro_url: str,
-) -> tuple[
-    bool,
-    str,
-    Optional[str],
-    Optional[str],
-    Optional[int],
-    Optional[int],
-    Optional[int],
-    Optional[int],
-    Optional[int],
-    Optional[int],
-    Optional[int],
-    Optional[float],
-    Optional[str],
-]:
-    """Extract job build from an etro URL.
-
-    Args:
-        etro_url (str): URL to the etro.gg build.
-
-    Returns:
-        Tuple[bool, str, Optional[str], Optional[str], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[float], Optional[str]]:
-            - Boolean indicating success or failure
-            - Error message if any, empty string if no error
-            - Build name
-            - Build role
-            - Primary stat
-            - Determination
-            - Speed
-            - Critical hit
-            - Direct hit
-            - Weapon damage
-            - Tenacity
-            - Delay
-            - Etro party bonus
-    """
-    invalid_return = [False, ""] + [None] * 11
-
-    # Get ID from url
-    gearset_id, error_message = _parse_and_validate_etro_url(etro_url)
-
-    # Return problem with etro URL
-    if error_message != "":
-        invalid_return[1] = error_message
-        return tuple(invalid_return)
-
-    build_result, etro_api_success = _query_etro_stats(gearset_id)
-
-    if not etro_api_success:
-        invalid_return[1] = build_result
-        return tuple(invalid_return)
-
-    (
-        job_abbreviated,
-        build_name,
-        build_role,
-        primary_stat,
-        dh,
-        ch,
-        determination,
-        speed,
-        wd,
-        etro_party_bonus,
-        tenacity,
-    ) = _extract_etro_build_stats(build_result)
-
-    # TODO: Try to get by weapon ID
-    delay = weapon_delays[job_abbreviated]
-
-    return (
-        True,
-        "",
-        build_name,
-        build_role,
-        primary_stat,
-        determination,
-        speed,
-        ch,
-        dh,
-        wd,
-        tenacity,
-        delay,
-        etro_party_bonus,
     )
 
 
@@ -456,6 +368,94 @@ def _extract_xiv_gear_set(
         wd,
         tenacity,
         1.0,
+    )
+
+
+def etro_build(
+    etro_url: str,
+) -> tuple[
+    bool,
+    str,
+    Optional[str],
+    Optional[str],
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[float],
+    Optional[str],
+]:
+    """Extract job build from an etro URL.
+
+    Args:
+        etro_url (str): URL to the etro.gg build.
+
+    Returns:
+        Tuple[bool, str, Optional[str], Optional[str], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[float], Optional[str]]:
+            - Boolean indicating success or failure
+            - Error message if any, empty string if no error
+            - Build name
+            - Build role
+            - Primary stat
+            - Determination
+            - Speed
+            - Critical hit
+            - Direct hit
+            - Weapon damage
+            - Tenacity
+            - Delay
+            - Etro party bonus
+    """
+    invalid_return = [False, ""] + [None] * 11
+
+    # Get ID from url
+    gearset_id, error_message = _parse_and_validate_etro_url(etro_url)
+
+    # Return problem with etro URL
+    if error_message != "":
+        invalid_return[1] = error_message
+        return tuple(invalid_return)
+
+    build_result, etro_api_success = _query_etro_stats(gearset_id)
+
+    if not etro_api_success:
+        invalid_return[1] = build_result
+        return tuple(invalid_return)
+
+    (
+        job_abbreviated,
+        build_name,
+        build_role,
+        primary_stat,
+        dh,
+        ch,
+        determination,
+        speed,
+        wd,
+        etro_party_bonus,
+        tenacity,
+    ) = _extract_etro_build_stats(build_result)
+
+    # TODO: Try to get by weapon ID
+    delay = weapon_delays[job_abbreviated]
+
+    return (
+        True,
+        "",
+        build_name,
+        build_role,
+        primary_stat,
+        determination,
+        speed,
+        ch,
+        dh,
+        wd,
+        tenacity,
+        delay,
+        etro_party_bonus,
     )
 
 
