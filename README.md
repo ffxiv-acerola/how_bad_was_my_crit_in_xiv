@@ -16,7 +16,7 @@ First, set up the necessary environment variables.
 
 ```bash
 export CRIT_APP_DIR="/path/to/your/repo" # Absolute repo directory
-export GUNICORN_PATH="/path/to/gunicorn" # Path to gunicorn in venv 
+export GUNICORN_PATH="/path/to/gunicorn" # Path to gunicorn in venv
 export CRIT_APP_WORKERS=5 # (2 * N_CPU + 1)
 export CRIT_APP_ERRORS_WORKERS=1
 ```

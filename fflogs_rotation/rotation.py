@@ -229,7 +229,7 @@ class ActionTable(FFLogsClient):
                         endTime: $endTime
                         dataType: DamageDone
                         sourceID: $sourceID
-				        useAbilityIDs: false                    
+				        useAbilityIDs: false
                         limit: 10000
                     ) {
                         data

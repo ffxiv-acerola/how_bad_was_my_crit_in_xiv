@@ -201,31 +201,31 @@ class ViperActions(BuffQuery):
                         dataType: Buffs
                         sourceID: $playerID
                         abilityID: $fellhuntersID
-                    )		
+                    )
                     grimhunters: table(
                         fightIDs: $id
                         dataType: Buffs
                         sourceID: $playerID
                         abilityID: $grimhuntersID
-                    )		
+                    )
                     grimskins: table(
                         fightIDs: $id
                         dataType: Buffs
                         sourceID: $playerID
                         abilityID: $grimskinsID
-                    )		
+                    )
                     honedReavers: table(
                         fightIDs: $id
                         dataType: Buffs
                         sourceID: $playerID
                         abilityID: $honedReaversID
-                    )		
+                    )
                     honedSteel: table(
                         fightIDs: $id
                         dataType: Buffs
                         sourceID: $playerID
                         abilityID: $honedSteelID
-                    )		
+                    )
                 }
             }
         }

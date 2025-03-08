@@ -82,9 +82,9 @@ create table if not exists party_report(
     analysis_id_2 TEXT NOT NULL,
     analysis_id_3 TEXT NOT NULL,
     analysis_id_4 TEXT NOT NULL,
-    analysis_id_5 TEXT, 
-    analysis_id_6 TEXT, 
-    analysis_id_7 TEXT, 
+    analysis_id_5 TEXT,
+    analysis_id_6 TEXT,
+    analysis_id_7 TEXT,
     analysis_id_8 TEXT,
     redo_analysis_flag INTEGER NOT NULL,
     primary key (party_analysis_id)

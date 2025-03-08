@@ -138,7 +138,7 @@ class MachinistActions(BuffQuery):
                         abilityID: 16500
                     ) {
                         data
-                    }	
+                    }
                     ChainSaw: events(
                         fightIDs: $id
                         dataType: Casts
@@ -165,7 +165,7 @@ class MachinistActions(BuffQuery):
                     ) {
                         data
                         nextPageTimestamp
-                    }                    
+                    }
                 }
             }
         }

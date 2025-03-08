@@ -57,7 +57,7 @@ def test_compute_battery_gauge_amounts():
         {"timestamp": 1000, "ability_name": "Air Anchor", "abilityGameID": 16500},
         {"timestamp": 1500, "ability_name": "Air Anchor", "abilityGameID": 16500},
         {"timestamp": 2000, "ability_name": "Chain Saw", "abilityGameID": 25788},
-        {"timestamp": 2500, "ability_name": "Air Anchor", "abilityGameID": 16500}, 
+        {"timestamp": 2500, "ability_name": "Air Anchor", "abilityGameID": 16500},
         {"timestamp": 3000, "ability_name": "Automaton Queen", "abilityGameID": 16501}, # 80
         {"timestamp": 4000, "ability_name": "Air Anchor", "abilityGameID": 16500},
         {"timestamp": 4500, "ability_name": "Chain Saw", "abilityGameID": 25788},
@@ -66,8 +66,8 @@ def test_compute_battery_gauge_amounts():
         {"timestamp": 6000, "ability_name": "Air Anchor", "abilityGameID": 16500},
         {"timestamp": 6500, "ability_name": "Chain Saw", "abilityGameID": 25788},
         {"timestamp": 7000, "ability_name": "Automaton Queen", "abilityGameID": 16501}, # 100 round down
-        {"timestamp": 7500, "ability_name": "Heated Clean Shot", "abilityGameID": 7413}, 
-        {"timestamp": 8000, "ability_name": "Air Anchor", "abilityGameID": 16500},       
+        {"timestamp": 7500, "ability_name": "Heated Clean Shot", "abilityGameID": 7413},
+        {"timestamp": 8000, "ability_name": "Air Anchor", "abilityGameID": 16500},
         {"timestamp": 8500, "ability_name": "Automaton Queen", "abilityGameID": 16501}, # 100, assume resource run
         ]
     # fmt: on

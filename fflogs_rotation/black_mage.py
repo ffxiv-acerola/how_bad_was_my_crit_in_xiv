@@ -329,7 +329,7 @@ class BlackMageActions(BuffQuery):
                         abilityID: 158
                     ) {
                         data
-                    }                    
+                    }
                     thundercloud: table(
                         fightIDs: $id
                         dataType: Buffs

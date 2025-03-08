@@ -881,7 +881,7 @@ def get_party_analysis_player_build(
         SELECT analysis_id_1 FROM party_report WHERE party_analysis_id = ?
         UNION ALL
         SELECT analysis_id_2 FROM party_report WHERE party_analysis_id = ?
-        UNION ALL 
+        UNION ALL
         SELECT analysis_id_3 FROM party_report WHERE party_analysis_id = ?
         UNION ALL
         SELECT analysis_id_4 FROM party_report WHERE party_analysis_id = ?

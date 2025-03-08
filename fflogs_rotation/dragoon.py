@@ -65,7 +65,7 @@ class DragoonActions(BuffQuery):
                         data
                         nextPageTimestamp
                     }
-                    
+
                     wheelMotion: events(
                         fightIDs: $id
                         dataType: Buffs
