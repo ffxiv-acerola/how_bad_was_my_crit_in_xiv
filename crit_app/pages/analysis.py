@@ -1,5 +1,4 @@
 import datetime
-import json
 import pickle
 import traceback
 from typing import Any, Dict, List, Optional, Tuple
@@ -11,11 +10,6 @@ from dash import Input, Output, Patch, State, callback, dcc, html
 from dash.exceptions import PreventUpdate
 from plotly.graph_objs import Figure
 
-from crit_app.api_queries import (
-    get_encounter_job_info,
-    headers,
-    parse_fflogs_url,
-)
 from crit_app.cards import (
     initialize_action_card,
     initialize_fflogs_card,
@@ -52,6 +46,7 @@ from crit_app.shared_elements import (
     validate_meldable_stat,
     validate_weapon_damage,
 )
+from crit_app.util.api.fflogs import encounter_information, headers, parse_fflogs_url
 from crit_app.util.api.job_build import (
     etro_build,
     job_build_provider,
@@ -317,6 +312,7 @@ def layout(analysis_id=None):
         return dash.html.Div(
             [
                 dcc.Store(id="xiv-gear-sheet-data"),
+                dcc.Store(id="fflogs-encounter"),
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -724,6 +720,7 @@ def layout(analysis_id=None):
         return dash.html.Div(
             [
                 dcc.Store(id="xiv-gear-sheet-data"),
+                dcc.Store(id="fflogs-encounter"),
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -1282,12 +1279,14 @@ def valid_tenacity(tenacity: int, role: str) -> tuple:
     Output("fflogs-url", "valid"),
     Output("fflogs-url", "invalid"),
     Output("encounter-info", "hidden"),
+    Output("fflogs-encounter", "data"),
     Input("fflogs-url-state", "n_clicks"),
     State("fflogs-url", "value"),
     State("role-select", "value"),
+    State("fflogs-encounter", "data"),
     prevent_initial_call=True,
 )
-def process_fflogs_url(n_clicks, url, role):
+def process_fflogs_url(n_clicks, url, role, fflogs_data):
     """Get the report/fight ID from an fflogs URL, then determine the encounter ID, start time, and jobs present."""
 
     if url is None:
@@ -1311,19 +1310,16 @@ def process_fflogs_url(n_clicks, url, role):
         False,
         True,
         True,
+        fflogs_data,
     ]
 
-    report_id, fight_id, error_code = parse_fflogs_url(url)
-    if error_code == 1:
-        return tuple(["This link isn't FFLogs..."] + error_return)
-    if error_code == 2:
-        feedback_text = """Please enter a log linked to a specific kill.\nfight=last in the URL is also currently unsupported."""
-        return tuple([feedback_text] + error_return)
-    if error_code == 3:
-        feedback_text = "Invalid report ID. The URL should look like https://www.fflogs.com/reports/{report}?fight={fight}"
-        return tuple([feedback_text] + error_return)
+    report_id, fight_id, error_message = parse_fflogs_url(url)
+    if error_message != "":
+        return tuple([error_message] + error_return)
 
     (
+        error_message,
+        fight_id,
         encounter_id,
         start_time,
         job_information,
@@ -1333,12 +1329,11 @@ def process_fflogs_url(n_clicks, url, role):
         start_time,
         furthest_phase_index,
         excluded_enemy_ids,
-        r,
-    ) = get_encounter_job_info(report_id, int(fight_id))
+    ) = encounter_information(report_id, fight_id)
 
-    if excluded_enemy_ids is not None:
-        excluded_enemy_ids = json.dumps(excluded_enemy_ids)
-    print(kill_time)
+    if error_message != "":
+        return tuple([error_message] + error_return)
+
     fight_time_str = format_kill_time_str(kill_time)
 
     # Encounter info
@@ -1394,6 +1389,8 @@ def process_fflogs_url(n_clicks, url, role):
     if not DRY_RUN:
         update_encounter_table(db_rows)
 
+    fflogs_data = {"fight_id": fight_id, "report_id": report_id}
+
     return (
         [],
         encounter_name_time,
@@ -1413,6 +1410,7 @@ def process_fflogs_url(n_clicks, url, role):
         True,
         False,
         False,
+        fflogs_data,
     )
 
 
@@ -1654,7 +1652,7 @@ def copy_analysis_link(n: int, selected: str) -> str:
     State("WD", "value"),
     State("xiv-gear-select", "value"),
     State("tincture-grade", "value"),
-    State("fflogs-url", "value"),
+    State("fflogs-encounter", "data"),
     State("phase-select", "value"),
     State("job-build-url", "value"),
     Input("healer-jobs", "value"),
@@ -1675,7 +1673,7 @@ def analyze_and_register_rotation(
     wd: int,
     job_build_idx,
     medication_amt: int,
-    fflogs_url: str,
+    fflogs_encounter_data: dict | None,
     fight_phase: Optional[int],
     job_build_url: str,
     healer_jobs: Optional[str] = None,
@@ -1720,8 +1718,10 @@ def analyze_and_register_rotation(
         fight_phase = fight_phase[0]
     else:
         fight_phase = int(fight_phase)
-    player_id = [x for x in player_id if x is not None]
 
+    # Noticed this was causing errors by selecting from empty list
+    # Couldn't repro, but it's easy to check.
+    player_id = [x for x in player_id if x is not None]
     if len(player_id) == 0:
         return (
             updated_url,
@@ -1732,7 +1732,8 @@ def analyze_and_register_rotation(
         )
 
     player_id = player_id[0]
-    report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
+    report_id = fflogs_encounter_data["report_id"]
+    fight_id = fflogs_encounter_data["fight_id"]
 
     (
         player_name,
