@@ -2,6 +2,7 @@ import json
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+import pandas as pd
 import requests
 
 from crit_app.config import FFLOGS_TOKEN
@@ -171,7 +172,10 @@ def _query_last_fight_id(report_id: str) -> tuple[int, str]:
         "operationName": "LastFightID",
     }
     r = requests.post(url=url, json=json_payload, headers=headers)
-    r.raise_for_status()
+    try:
+        r.raise_for_status()
+    except Exception as e:
+        return 0, str(e)
 
     response = r.json()
     query_errors = _encounter_query_error_messages(response)
@@ -225,7 +229,14 @@ def _query_encounter_info(
     r.raise_for_status()
     response_dict = r.json()
 
-    _encounter_query_error_messages(response_dict)
+    # Check report isn't private or gives some error message
+    # While still status 200
+    query_errors = _encounter_query_error_messages(response_dict)
+
+    if query_errors != "":
+        return 0, query_errors
+
+    # Check fight ID exists
     if not _encounter_query_fight_id_exists(response_dict):
         error_message = f"fight={fight_id} does not exist"
 
@@ -234,7 +245,7 @@ def _query_encounter_info(
 
 def _excluded_enemy_ids(
     encounter_info: dict, encounter_id: int, excluded_enemy_game_ids: dict
-) -> list[int] | None:
+) -> str | None:
     """Figure out the report IDs of certain enemies based off their.
 
     game ID. Damage to these enemies are excluded.
@@ -258,6 +269,9 @@ def _excluded_enemy_ids(
         ]
         if potential_exclusions:
             excluded_enemy_ids = potential_exclusions
+
+    if excluded_enemy_ids is not None:
+        excluded_enemy_ids = json.dumps(excluded_enemy_ids)
     return excluded_enemy_ids
 
 
@@ -461,24 +475,119 @@ def encounter_information(
     )
 
 
+def _query_lb_events(
+    report_id: str, fight_id: int, limit_break_id: int, phase: int | None = None
+):
+    error_message = ""
+    if (phase is None) or (phase == 0):
+        filter_slug = ""
+    else:
+        filter_slug = f"encounterPhase={phase}"
+
+    variables = {
+        "code": report_id,
+        "id": [fight_id],
+        "limitBreakID": limit_break_id,
+        "filterSlug": filter_slug,
+    }
+
+    json_payload = {
+        "query": """
+            query LimitBreakDamage(
+                $code: String!
+                $id: [Int]!
+                $limitBreakID: Int!
+                $filterSlug: String!
+            ) {
+                reportData {
+                    report(code: $code) {
+                        startTime
+                        events(
+                            fightIDs: $id
+                            sourceClass: "LimitBreak"
+                            sourceID: $limitBreakID
+                            filterExpression: $filterSlug
+                        ) {
+                            data
+                        }
+                    }
+                }
+            }
+    """,
+        "variables": variables,
+        "operationName": "LimitBreakDamage",
+    }
+    r = requests.post(url=url, json=json_payload, headers=headers)
+
+    try:
+        r.raise_for_status()
+
+    except Exception as e:
+        return [], None, str(e)
+    r = r.json()
+
+    start_time = r["data"]["reportData"]["report"]["startTime"]
+    lb_data = r["data"]["reportData"]["report"]["events"]["data"]
+    return lb_data, start_time, error_message
+
+
+def _filter_unpaired_and_overkill_events(lb_df: pd.DataFrame) -> pd.DataFrame:
+    """Handle overkill and unpaired LB events.
+
+        There are some edge cases:
+        1. Overkill damage event
+        2. Unpaired event (cast started, damage didn't go out)
+
+    Args:
+        unfiltered_df (pd.DataFrame): Limit break damage events DataFrame
+
+    Returns:
+        pd.DataFrame: Limit break damage event DataFrame with correct damage amounts and unpaired events filtered out.
+    """
+    return lb_df[lb_df["type"] == "damage"]
+
+
+def limit_break_damage_events(
+    report_id: str, fight_id: int, limit_break_id: int, phase=None
+) -> tuple[pd.DataFrame, str]:
+    lb_data, start_time, error_message = _query_lb_events(
+        report_id, fight_id, limit_break_id, phase
+    )
+
+    if error_message != "":
+        return pd.DataFrame([]), error_message
+
+    # No LB events for the selected phase
+    lb_data = [a for a in lb_data if a["type"] in ("damage", "calculateddamage")]
+    if len(lb_data) == 0:
+        return pd.DataFrame(
+            data=[],
+            columns=["report_id", "fight_id", "timestamp", "target_id", "amount"],
+        )
+
+    else:
+        lb_df = pd.DataFrame(lb_data).rename(columns={"targetID": "target_id"})
+        lb_df = _filter_unpaired_and_overkill_events(lb_df)
+
+        lb_df["fight_id"] = fight_id
+        lb_df["report_id"] = report_id
+        lb_df = lb_df[
+            ["report_id", "fight_id", "timestamp", "target_id", "amount", "packetID"]
+        ]
+        lb_df["timestamp"] += start_time
+        return lb_df, error_message
+
+
 if __name__ == "__main__":
     # print(
     #     # parse_fflogs_url("https://www.fflogs.com/reports/qrAnckMdyD68xzZN?fight=last")
     #     parse_fflogs_url("https://www.fflogs.com/reports/qrAnckMdyD68xzZN")
     # )
     # _query_encounter_info("qrAnckMdyD68xzZN", 100)
-    encounter_information("qrAnckMdyD68xzZN", 3)
-    # encounter_information("PFAWB3trqYNV1ZdX", 3)
-    # response = {
-    #     "errors": [
-    #         {
-    #             "message": "You do not have permission to view this report.",
-    #             "extensions": {"category": "graphql"},
-    #             "locations": [{"line": 3, "column": 3}],
-    #             "path": ["reportData", "report"],
-    #         }
-    #     ],
-    #     "data": {"reportData": {"report": None}},
-    # }
-
-    # _encounter_query_error_messages(response)
+    # encounter_information("qrAnckMdyD68xzZN", 3)
+    # Example with overkill
+    # dsr meteor lb
+    # limit_break_damage_events("KXth71AkbG8FcgfH", 26, 38)
+    # uwu
+    limit_break_damage_events("3rRW67Y9Vkjfdyz2", 3, 260)
+    # limit_break_damage_events("qrAnckMdyD68xzZN", 21, 78)

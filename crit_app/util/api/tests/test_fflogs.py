@@ -1,4 +1,8 @@
+import json
+
+import pandas as pd
 import pytest
+from pandas.testing import assert_frame_equal
 
 from crit_app.util.api.fflogs import (
     FFLOGS_ERROR_MAPPING,
@@ -6,6 +10,7 @@ from crit_app.util.api.fflogs import (
     _encounter_query_fight_id_exists,
     _fflogs_fight_id,
     _fflogs_report_id,
+    _filter_unpaired_and_overkill_events,
     parse_fflogs_url,
 )
 
@@ -181,3 +186,30 @@ def test_encounter_query_error_messages_with_errors(response, expected_error):
 def test_encounter_query_fight_id_exists(response_dict, exists):
     result = _encounter_query_fight_id_exists(response_dict)
     assert result is exists, f"Expected {exists} for fight id existence, got {result}"
+
+
+@pytest.mark.parametrize(
+    "test_data_path",
+    [
+        "crit_app/util/api/tests/test_data/lb_filter_1.json",
+        "crit_app/util/api/tests/test_data/lb_filter_2.json",
+    ],
+)
+def test_filter_unpaired_and_overkill_events(test_data_path):
+    """Test that overkill and unpaired lb events are correctly filtered out.
+
+    Args:
+        test_data_path (str): path to test data.
+    """
+    with open(test_data_path, "r") as f:
+        test_data = json.load(f)
+
+    input_df = pd.DataFrame(test_data["input"])
+
+    expected_output = pd.DataFrame(test_data["output"])
+
+    output = _filter_unpaired_and_overkill_events(input_df)
+
+    assert_frame_equal(
+        output.reset_index(drop=True), expected_output.reset_index(drop=True)
+    )
