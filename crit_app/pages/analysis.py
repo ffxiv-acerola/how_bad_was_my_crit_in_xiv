@@ -1774,7 +1774,7 @@ def analyze_and_register_rotation(
             updated_url,
             ["Analyze rotation"],
             False,
-            [error_alert("Resubmit Log URL, linked log changed.")],
+            [error_alert("Please resubmit Log URL, linked log changed.")],
             False,
         )
     # Edge case example: fight analyzing phase 5 is loaded
