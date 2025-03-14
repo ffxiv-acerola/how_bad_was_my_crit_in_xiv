@@ -46,7 +46,12 @@ from crit_app.shared_elements import (
     validate_meldable_stat,
     validate_weapon_damage,
 )
-from crit_app.util.api.fflogs import encounter_information, headers, parse_fflogs_url
+from crit_app.util.api.fflogs import (
+    _query_last_fight_id,
+    encounter_information,
+    headers,
+    parse_fflogs_url,
+)
 from crit_app.util.api.job_build import (
     etro_build,
     job_build_provider,
@@ -1653,6 +1658,7 @@ def copy_analysis_link(n: int, selected: str) -> str:
     State("xiv-gear-select", "value"),
     State("tincture-grade", "value"),
     State("fflogs-encounter", "data"),
+    State("fflogs-url", "value"),
     State("phase-select", "value"),
     State("job-build-url", "value"),
     Input("healer-jobs", "value"),
@@ -1674,6 +1680,7 @@ def analyze_and_register_rotation(
     job_build_idx,
     medication_amt: int,
     fflogs_encounter_data: dict | None,
+    fflogs_url: str,
     fight_phase: Optional[int],
     job_build_url: str,
     healer_jobs: Optional[str] = None,
@@ -1727,14 +1734,29 @@ def analyze_and_register_rotation(
             updated_url,
             ["Analyze rotation"],
             False,
-            ["No player selected."],
+            [error_alert("No player selected.")],
             False,
         )
 
     player_id = player_id[0]
-    report_id = fflogs_encounter_data["report_id"]
-    fight_id = fflogs_encounter_data["fight_id"]
+    try:
+        report_id = fflogs_encounter_data["report_id"]
+        fight_id = fflogs_encounter_data["fight_id"]
+        error_message = ""
+    except Exception:
+        report_id, fight_id, error_message = parse_fflogs_url(fflogs_url)
 
+        if fight_id == "last":
+            fight_id, error_message = _query_last_fight_id(report_id)
+
+    if error_message != "":
+        return (
+            updated_url,
+            ["Analyze rotation"],
+            False,
+            [error_alert(error_message)],
+            False,
+        )
     (
         player_name,
         pet_ids,
@@ -1746,6 +1768,15 @@ def analyze_and_register_rotation(
         last_phase_index,
     ) = read_player_analysis_info(report_id, fight_id, player_id)
 
+    # This happens if the log URL is changed, but not submitted.
+    if player_name is None:
+        return (
+            updated_url,
+            ["Analyze rotation"],
+            False,
+            [error_alert("Resubmit Log URL, linked log changed.")],
+            False,
+        )
     # Edge case example: fight analyzing phase 5 is loaded
     # user switches log url to a phase where phase 1 was reached
     # if they don't hit submit, phase 5 can still be selected, which is
