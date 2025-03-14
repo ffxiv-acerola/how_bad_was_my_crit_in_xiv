@@ -8,24 +8,9 @@ from uuid import uuid4
 
 import dash
 import pandas as pd
-from dash import (
-    ALL,
-    MATCH,
-    Input,
-    Output,
-    State,
-    callback,
-    html,
-)
+from dash import ALL, MATCH, Input, Output, State, callback, dcc, html
 from dash.exceptions import PreventUpdate
 from plotly.graph_objs._figure import Figure
-
-from crit_app.api_queries import (
-    get_encounter_job_info,
-    headers,
-    limit_break_damage_events,
-    parse_fflogs_url,
-)
 
 # from app import app
 from crit_app.config import BLOB_URI, DRY_RUN
@@ -64,6 +49,13 @@ from crit_app.shared_elements import (
     validate_meldable_stat,
     validate_speed_stat,
     validate_weapon_damage,
+)
+from crit_app.util.api.fflogs import (
+    _query_last_fight_id,
+    encounter_information,
+    headers,
+    limit_break_damage_events,
+    parse_fflogs_url,
 )
 from crit_app.util.api.job_build import (
     etro_build,
@@ -135,7 +127,7 @@ def layout(party_analysis_id=None):
         fflogs_card = create_fflogs_card(
             analysis_progress_children=[], analysis_progress_value=0
         )
-        return dash.html.Div([fflogs_card])
+        return dash.html.Div([dcc.Store(id="fflogs-party-encounter"), fflogs_card])
 
     else:
         valid_party_analysis_id = check_valid_party_analysis_id(party_analysis_id)
@@ -281,7 +273,14 @@ def layout(party_analysis_id=None):
             player_analysis_selector[0][2],
         )
 
-        return html.Div([fflogs_card, html.Br(), results_card])
+        return html.Div(
+            [
+                dcc.Store(id="fflogs-party-encounter"),
+                fflogs_card,
+                html.Br(),
+                results_card,
+            ]
+        )
 
 
 @callback(
@@ -401,41 +400,39 @@ def copy_party_analysis_link(n, selected):
     Output("quick-build-table", "data"),
     Output("party-accordion", "children"),
     Output("party-fflogs-hidden-div", "hidden"),
+    Output("fflogs-party-encounter", "data"),
     Input("fflogs-url-state2", "n_clicks"),
     State("fflogs-url2", "value"),
+    State("fflogs-party-encounter", "data"),
     prevent_initial_call=True,
 )
-def party_fflogs_process(n_clicks, url):
+def party_fflogs_process(n_clicks, url, fflogs_data):
     if url is None:
         raise PreventUpdate
 
-    invalid_return = [False, True, [], [], [], True, [], [], True]
+    invalid_return = [False, True, [], [], [], True, [], [], True, fflogs_data]
 
-    report_id, fight_id, error_code = parse_fflogs_url(url)
+    report_id, fight_id, error_message = parse_fflogs_url(url)
 
-    if error_code == 1:
-        return tuple(["This link isn't FFLogs..."], +invalid_return)
-    elif error_code == 2:
-        return tuple(
-            [
-                """Please enter a log linked to a specific kill.\nfight=last in the URL is also currently unsupported."""
-            ]
-            + invalid_return
-        )
-    elif error_code == 3:
-        return tuple(["Invalid report ID."] + invalid_return)
+    if error_message != "":
+        return tuple([error_message], +invalid_return)
+
     (
+        error_message,
+        fight_id,
         encounter_id,
         start_time,
         job_information,
         limit_break_information,
         kill_time,
         encounter_name,
-        report_start_time,
-        furthest_index_phase,
+        start_time,
+        furthest_phase_index,
         excluded_enemy_ids,
-        r,
-    ) = get_encounter_job_info(report_id, int(fight_id))
+    ) = encounter_information(report_id, int(fight_id))
+
+    if error_message != "":
+        return tuple([error_message], +invalid_return)
 
     if excluded_enemy_ids is not None:
         excluded_enemy_ids = json.dumps(excluded_enemy_ids)
@@ -449,7 +446,7 @@ def party_fflogs_process(n_clicks, url):
 
     # Phase selection
     phase_selector_options, phase_select_hidden = get_phase_selector_options(
-        furthest_index_phase, encounter_id
+        furthest_phase_index, encounter_id
     )
 
     # Sort by job, player name so the order will always be the same
@@ -466,7 +463,7 @@ def party_fflogs_process(n_clicks, url):
                 report_id,
                 fight_id,
                 encounter_id,
-                furthest_index_phase,
+                furthest_phase_index,
                 encounter_name,
                 kill_time,
                 k["player_name"],
@@ -480,6 +477,9 @@ def party_fflogs_process(n_clicks, url):
             for k in job_information + limit_break_information
         ]
         update_encounter_table(db_rows)
+
+    fflogs_data = {"fight_id": fight_id, "report_id": report_id}
+
     return (
         [],
         True,
@@ -491,6 +491,7 @@ def party_fflogs_process(n_clicks, url):
         quick_build_table,
         party_accordion_children,
         False,
+        fflogs_data,
     )
 
 
@@ -953,6 +954,7 @@ def job_progress(job_list, active_job):
     State("party-tincture-grade", "value"),
     State("party-encounter-name", "children"),
     State("fflogs-url2", "value"),
+    State("fflogs-party-encounter", "data"),
     running=[(Output("party-compute", "disabled"), True, False)],
     progress=[
         Output("party-progress", "value"),
@@ -980,6 +982,7 @@ def analyze_party_rotation(
     medication_amt,
     encounter_name,
     fflogs_url,
+    fflogs_data,
 ):
     """
     Analyze and compute the damage distribution of a whole party.
@@ -1009,18 +1012,37 @@ def analyze_party_rotation(
 
     # TODO: get etro URL
     set_progress((0, len(job), "Getting LB damage", "Analysis progress:"))
-    report_id, fight_id, _ = parse_fflogs_url(fflogs_url)
+
+    try:
+        report_id = fflogs_data["report_id"]
+        fight_id = fflogs_data["fight_id"]
+        error_message = ""
+    except Exception:
+        report_id, fight_id, error_message = parse_fflogs_url(fflogs_url)
+
+        if fight_id == "last":
+            fight_id, error_message = _query_last_fight_id(report_id)
+
+    if error_message != "":
+        return updated_url, [error_alert(error_message)]
+
     encounter_id, lb_player_id, pet_id_map = get_party_analysis_calculation_info(
         report_id, fight_id
     )
+
+    if encounter_id is None:
+        return updated_url, [error_alert("Log URL changed, please resubmit.")]
+
     level = encounter_level[encounter_id]
 
     # Get Limit Break instances
     # Check if LB was used, get its ID if it was
     if lb_player_id is not None:
-        lb_damage_events_df = limit_break_damage_events(
+        lb_damage_events_df, error_message = limit_break_damage_events(
             report_id, fight_id, lb_player_id, fight_phase
         )
+        if error_message != "":
+            return updated_url, [error_alert(error_message)]
         lb_damage = lb_damage_events_df["amount"].sum()
     else:
         lb_damage_events_df = pd.DataFrame(columns=["timestamp"])

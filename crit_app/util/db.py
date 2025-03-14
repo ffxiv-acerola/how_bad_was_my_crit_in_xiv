@@ -188,6 +188,20 @@ def read_player_analysis_info(
     """,
         (report_id, fight_id, player_id),
     )
+
+    # Ensure that results actually exist.
+    results = cur.fetchone()
+    if results is None:
+        return (
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
     (
         player_name,
         pet_ids,
@@ -197,7 +211,7 @@ def read_player_analysis_info(
         encounter_id,
         encounter_name,
         last_phase_index,
-    ) = cur.fetchone()
+    ) = results
     cur.close()
     con.close()
     if pet_ids is not None:
@@ -959,6 +973,9 @@ def get_party_analysis_calculation_info(
 
     cur.close()
     con.close()
+
+    if rows == []:
+        return None, None, None
     encounter_id = rows[0][0]
     lb_player_id = [r[2] for r in rows if r[1] == "LimitBreak"]
     if len(lb_player_id) == 0:
