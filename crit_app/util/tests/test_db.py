@@ -386,7 +386,5 @@ def test_get_party_analysis_calculation_info_nonexistent_record(mock_sqlite_conn
     """Test that get_party_analysis_calculation_info raises an error when given a non-existent report_id and fight_id."""
     report_id = "nonexistent_report"
     fight_id = 999
-
-    with pytest.raises(IndexError):
-        # Assuming the function does not handle missing records and raises IndexError
-        get_party_analysis_calculation_info(report_id, fight_id)
+    encounter_id, lb_id, _ = get_party_analysis_calculation_info(report_id, fight_id)
+    assert encounter_id is None

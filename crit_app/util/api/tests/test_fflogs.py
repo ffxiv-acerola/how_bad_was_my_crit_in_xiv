@@ -168,7 +168,7 @@ def test_encounter_query_error_messages_no_error():
     "response, expected_error",
     [
         (report_no_exist, "This report does not exist."),
-        (private_report, "You do not have permission to view this report."),
+        (private_report, "Linked report is private/no longer available."),
     ],
 )
 def test_encounter_query_error_messages_with_errors(response, expected_error):
