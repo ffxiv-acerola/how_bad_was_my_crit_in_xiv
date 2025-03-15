@@ -29,36 +29,6 @@ class BlackMageActions(BuffQuery):
 
         self.thundercloud_id = thundercloud_id
 
-        if self.level < 96:
-            self.enochian_buff = 1.23
-        elif (self.level >= 96) & (self.patch_number < 7.05):
-            self.enochian_buff = 1.3
-        elif (self.level >= 96) & (self.patch_number == 7.05):
-            self.enochian_buff = 1.33
-        else:
-            self.enochian_buff = 1.32
-
-        # Paradox and transpose are excluded because they affect both fire and ice
-        # Checks are explicitly applied for these actions
-        self.fire_granting_actions = {
-            "Despair": {"time": 15, "stacks": 3},
-            "Flare": {"time": 15, "stacks": 3},
-            "Fire": {"time": 15, "stacks": 1},
-            "Fire III": {"time": 15, "stacks": 3},
-            "High Fire II": {"time": 15, "stacks": 3},
-            "Manafont": {
-                "time": 15,
-                "stacks": 3,
-            },
-        }
-
-        self.ice_granting_actions = {
-            "Blizzard III": {"time": 15, "stacks": 3},
-            "Umbral Soul": {"time": 15, "stacks": 1},
-            "Blizzard": {"time": 15, "stacks": 1},
-            "High Blizzard II": {"time": 15, "stacks": 3},
-        }
-
         self.fire_actions = {
             141: "Fire",
             147: "Fire II",
@@ -78,11 +48,11 @@ class BlackMageActions(BuffQuery):
             25795: "High Blizzard II",
         }
 
-        self.other_granting_actions = {
-            "Paradox": {"time": 15, "stacks": 1},
-            "Transpose": {"time": 15, "stacks": 1},
-            "Manafont": {"time": 15, "stacks": 3},
-        }
+        # self.other_granting_actions = {
+        #     "Paradox": {"time": 15, "stacks": 1},
+        #     "Transpose": {"time": 15, "stacks": 1},
+        #     "Manafont": {"time": 15, "stacks": 3},
+        # }
         self.gauge_actions = {
             149: "Transpose",
             16506: "Umbral Soul",
@@ -99,6 +69,11 @@ class BlackMageActions(BuffQuery):
             "fire": {1: 0.9, 2: 0.8, 3: 0.7},
             "ice": {1: 1.0, 2: 1.0, 3: 1.0},
         }
+
+        self.enochian_buff = self._get_enochian_buffs(level, patch_number)
+        self.fire_granting_actions = self._get_fire_granting_actions(patch_number)
+        self.ice_granting_actions = self._get_ice_granting_actions(patch_number)
+        self.other_granting_actions = self._get_other_granting_actions(patch_number)
 
         self.thunder_application_names = {"Thunder III", "High Thunder"}
 
@@ -118,6 +93,100 @@ class BlackMageActions(BuffQuery):
         )
         self.enochian_times = self._enochian_times(self.elemental_state_changes)
         print("")
+
+    @staticmethod
+    def _get_enochian_buffs(level: int, patch_number: float) -> float:
+        """Get enochian buff strength based on level and patch number.
+
+        Args:
+            level (int): Level
+            patch_number (float): Patch
+
+        Returns:
+            float: Enochian buff strength multiplier
+        """
+        if level < 96:
+            return 1.23
+        elif (level >= 96) & (patch_number < 7.05):
+            return 1.3
+        elif (level >= 96) & (patch_number == 7.05):
+            return 1.33
+        else:
+            return 1.32
+
+    @staticmethod
+    def _get_fire_granting_actions(patch_number: float) -> dict[str, dict[str, int]]:
+        """Get dictionary of actions which exclusively grant astral fire,.
+
+        denoting how many stacks and how they affect the elemental gauge timer.
+
+        No gauge is simulated by very long timer values.
+
+        Args:
+            patch_number (float): Patch version
+
+        Returns:
+            dict[str, dict[str, int]]: Dictionary of fire granting actions.
+        """
+        TIMER_DURATION = 15
+
+        if patch_number >= 7.2:
+            # AF/UI timer is removed.
+            # Recreate this by setting timers to very big number
+            TIMER_DURATION = 500
+
+        MANAFONT_TIMER = TIMER_DURATION
+        MANAFONT_STACKS = 3
+
+        if patch_number < 7.0:
+            MANAFONT_TIMER = 0
+            MANAFONT_STACKS = 0
+
+        return {
+            "Despair": {"time": TIMER_DURATION, "stacks": 3},
+            "Flare": {"time": TIMER_DURATION, "stacks": 3},
+            "Fire": {"time": TIMER_DURATION, "stacks": 1},
+            "Fire III": {"time": TIMER_DURATION, "stacks": 3},
+            "High Fire II": {"time": TIMER_DURATION, "stacks": 3},
+            "Manafont": {
+                "time": MANAFONT_TIMER,
+                "stacks": MANAFONT_STACKS,
+            },
+        }
+
+    @staticmethod
+    def _get_ice_granting_actions(patch_number: float) -> dict:
+        TIMER_DURATION = 15
+
+        if patch_number >= 7.2:
+            # AF/UI timer is removed.
+            # Recreate this by setting timers to very big number
+            TIMER_DURATION = 500
+
+        return {
+            "Blizzard III": {"time": TIMER_DURATION, "stacks": 3},
+            "Umbral Soul": {"time": TIMER_DURATION, "stacks": 1},
+            "Blizzard": {"time": TIMER_DURATION, "stacks": 1},
+            "High Blizzard II": {"time": TIMER_DURATION, "stacks": 3},
+        }
+
+    @staticmethod
+    def _get_other_granting_actions(patch_number: float) -> dict:
+        TIMER_DURATION = 15
+        PARADOX_STACKS = 1
+
+        if patch_number >= 7.2:
+            # AF/UI timer is removed.
+            # Recreate this by setting timers to very big number
+            TIMER_DURATION = 500
+            # Paradox no longer gives stacks
+            PARADOX_STACKS = 0
+
+        return {
+            "Paradox": {"time": TIMER_DURATION, "stacks": PARADOX_STACKS},
+            "Transpose": {"time": TIMER_DURATION, "stacks": 1},
+            "Manafont": {"time": TIMER_DURATION, "stacks": 3},
+        }
 
     def _query_elemental_gauge_affecting_actions(self, headers: Dict[str, str]) -> None:
         """
@@ -442,10 +511,6 @@ class BlackMageActions(BuffQuery):
             proposed_time,
         )
 
-    def _ceiling_gauge_time(self, proposed_time) -> float:
-        """Take a proposed gauge time and cap it at 15 seconds."""
-        return min(15, proposed_time)
-
     def _ceiling_elemental_stack(self, proposed_stacks) -> int:
         """Take a proposed number of stacks and cap it at 3."""
         return min(3, proposed_stacks)
@@ -582,10 +647,20 @@ class BlackMageActions(BuffQuery):
             else:
                 return 1
 
-        # Both Paradox and Umbral Soul increase current stacks by 1
-        # Umbral Soul is just locked to Ice
-        elif current_action in ("Paradox", "Umbral Soul"):
-            return self._ceiling_elemental_stack(current_elemental_stacks + 1)
+        # Paradox incrementer. Pre 7.2 it increments, post 7.2 it
+        # does nothing
+        elif current_action == "Paradox":
+            return self._ceiling_elemental_stack(
+                current_elemental_stacks
+                + self.other_granting_actions["Paradox"]["stacks"]
+            )
+
+        # Umbral soul incrementer
+        elif current_action == "Umbral Soul":
+            return self._ceiling_elemental_stack(
+                current_elemental_stacks
+                + self.ice_granting_actions["Umbral Soul"]["stacks"]
+            )
 
         # Otherwise return the number of stacks for the specified action
         elif current_action in fire_ice.keys():

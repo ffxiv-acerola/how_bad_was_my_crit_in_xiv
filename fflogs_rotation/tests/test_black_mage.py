@@ -134,9 +134,6 @@ def test_elemental_status_granted(bm, action, active_input, expected):
     ],
 )
 def test_elemental_time_granted(bm, action):
-    # The merged dict is used in the helper:
-    #   (self.fire_granting_actions | self.ice_granting_actions | self.other_granting_actions)
-    # All values have "time":15 in your configuration.
     expected = 15
     result = bm._elemental_time_granted(action)
     assert result == expected
