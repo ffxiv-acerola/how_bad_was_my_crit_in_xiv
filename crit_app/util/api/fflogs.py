@@ -21,7 +21,7 @@ FFLOGS_ERROR_MAPPING = {
 }
 
 
-def _fflogs_report_id(url_path: str) -> tuple[str | None]:
+def _fflogs_report_id(url_path: str) -> str | None:
     """Get the report ID from an FFLogs URL.
 
     Requires "report" to be present and the ID to be 16 elements long.
@@ -46,7 +46,7 @@ def _fflogs_report_id(url_path: str) -> tuple[str | None]:
     return report_parts[1]
 
 
-def _fflogs_fight_id(url_query: dict[list] | None) -> int | str | None:
+def _fflogs_fight_id(url_query: dict[str, list] = {}) -> int | str | None:
     """Extract the fight ID from an fflogs URL.
 
     Args:
@@ -72,7 +72,7 @@ def _fflogs_fight_id(url_query: dict[list] | None) -> int | str | None:
         return None
 
 
-def parse_fflogs_url(fflogs_url: str) -> tuple[str | None, int | None, str]:
+def parse_fflogs_url(fflogs_url: str) -> tuple[str | None, int | str | None, str]:
     """Read the parts of an FFLogs URL to get report ID, fight ID, and error, if one occurred.
 
     Args:
@@ -179,12 +179,15 @@ def _query_last_fight_id(report_id: str) -> tuple[int, str]:
 
     response = r.json()
     query_errors = _encounter_query_error_messages(response)
+    no_error_message: str = ""
 
     if query_errors != "":
         return 0, query_errors
 
     try:
-        return len(response["data"]["reportData"]["report"].get("fights", [])), ""
+        return len(
+            response["data"]["reportData"]["report"].get("fights", [])
+        ), no_error_message
 
     except Exception as e:
         return 0, str(e)
@@ -234,7 +237,7 @@ def _query_encounter_info(
     query_errors = _encounter_query_error_messages(response_dict)
 
     if query_errors != "":
-        return 0, query_errors
+        return {}, query_errors
 
     # Check fight ID exists
     if not _encounter_query_fight_id_exists(response_dict):
@@ -257,7 +260,7 @@ def _excluded_enemy_ids(
         encounter_id (int): Encounter ID, used to figure out which Game IDs to use.
 
     Returns:
-        list[int] | None: List of enemy IDs if any are present, or None if not.
+        str | None: List of enemy IDs if any are present, or None if not.
     """
     excluded_enemy_ids = None
 
@@ -361,16 +364,16 @@ def encounter_information(
     report_id: str, fight_id: int | str
 ) -> tuple[
     str,  # error_message
-    int,  # fight_id
-    int,  # encounter_id
-    int,  # start_time
-    list[dict[str, Any]],  # jobs
-    list[dict[str, Any]],  # limit_break
-    float,  # fight_time in seconds
-    str,  # fight_name
-    int,  # report_start_time
-    int,  # furthest_phase_index
-    list[int],  # excluded_enemy_ids
+    int | None,  # fight_id
+    int | None,  # encounter_id
+    int | None,  # start_time
+    list[dict[str, Any]] | None,  # jobs
+    list[dict[str, Any]] | None,  # limit_break
+    float | None,  # fight_time in seconds
+    str | None,  # fight_name
+    int | None,  # report_start_time
+    int | None,  # furthest_phase_index
+    str | None,  # excluded_enemy_ids
 ]:
     """
     Retrieve essential information for a given FFLogs encounter.
@@ -412,8 +415,9 @@ def encounter_information(
               11) A list of excluded enemy IDs (or None).
     """
     # Find the actual ID of what fight=last is
+    fight_id_int: int = 0
     if fight_id == "last":
-        fight_id, error_message = _query_last_fight_id(report_id)
+        fight_id_int, error_message = _query_last_fight_id(report_id)
         if (fight_id == 0) | (error_message != ""):
             return (
                 error_message,
@@ -429,7 +433,7 @@ def encounter_information(
                 None,
             )
     # Do the actual query now that the true fight ID is known
-    r, error_message = _query_encounter_info(report_id, fight_id)
+    r, error_message = _query_encounter_info(report_id, fight_id_int)
 
     if error_message != "":
         return (
@@ -447,11 +451,11 @@ def encounter_information(
         )
     # Encounter info and whether kill happened
     encounter_info = r["data"]["reportData"]["report"]["fights"][0]
-    encounter_id = encounter_info["encounterID"]
-    start_time = encounter_info["startTime"]
-    furthest_phase_index = encounter_info["lastPhase"]
-    fight_name = r["data"]["reportData"]["report"]["fights"][0]["name"]
-    report_start_time = r["data"]["reportData"]["report"]["startTime"]
+    encounter_id: int = encounter_info["encounterID"]
+    start_time: int = encounter_info["startTime"]
+    furthest_phase_index: int = encounter_info["lastPhase"]
+    fight_name: str = r["data"]["reportData"]["report"]["fights"][0]["name"]
+    report_start_time: int = r["data"]["reportData"]["report"]["startTime"]
 
     # More involved encounter info
     jobs, limit_break = _encounter_jobs_and_lb(r)
@@ -462,7 +466,7 @@ def encounter_information(
 
     return (
         error_message,
-        fight_id,
+        fight_id_int,
         encounter_id,
         start_time,
         jobs,
@@ -523,7 +527,7 @@ def _query_lb_events(
         r.raise_for_status()
 
     except Exception as e:
-        return [], None, str(e)
+        return {}, None, str(e)
     r = r.json()
 
     start_time = r["data"]["reportData"]["report"]["startTime"]
@@ -544,25 +548,31 @@ def _filter_unpaired_and_overkill_events(lb_df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Limit break damage event DataFrame with correct damage amounts and unpaired events filtered out.
     """
-    return lb_df[lb_df["type"] == "damage"]
+    return lb_df.loc[lb_df["type"] == "damage"].copy()
 
 
 def limit_break_damage_events(
     report_id: str, fight_id: int, limit_break_id: int, phase=None
 ) -> tuple[pd.DataFrame, str]:
+    no_lb_df = pd.DataFrame(
+        data=[],
+        columns=pd.Index(["report_id", "fight_id", "timestamp", "target_id", "amount"]),
+    )
+    error_message: str = ""
+
     lb_data, start_time, error_message = _query_lb_events(
         report_id, fight_id, limit_break_id, phase
     )
 
     if error_message != "":
-        return pd.DataFrame([]), error_message
+        return no_lb_df, error_message
 
     # No LB events for the selected phase
     lb_data = [a for a in lb_data if a["type"] in ("damage", "calculateddamage")]
     if len(lb_data) == 0:
-        return pd.DataFrame(
-            data=[],
-            columns=["report_id", "fight_id", "timestamp", "target_id", "amount"],
+        return (
+            no_lb_df,
+            error_message,
         )
 
     else:
@@ -584,10 +594,10 @@ if __name__ == "__main__":
     #     parse_fflogs_url("https://www.fflogs.com/reports/qrAnckMdyD68xzZN")
     # )
     # _query_encounter_info("qrAnckMdyD68xzZN", 100)
-    # encounter_information("qrAnckMdyD68xzZN", 3)
+    encounter_information("PFAWB3trqYNV1ZdX", 3)
     # Example with overkill
     # dsr meteor lb
     # limit_break_damage_events("KXth71AkbG8FcgfH", 26, 38)
     # uwu
-    limit_break_damage_events("3rRW67Y9Vkjfdyz2", 3, 260)
+    # limit_break_damage_events("3rRW67Y9Vkjfdyz2", 3, 260)
     # limit_break_damage_events("qrAnckMdyD68xzZN", 21, 78)
