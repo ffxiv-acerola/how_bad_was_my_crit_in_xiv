@@ -32,6 +32,7 @@ pydocstringformatter = "^0.7.3"
 pytest = "^8.3.4"
 pytest-cov = "^6.0.0"
 nbformat = "^5.10.4"
+pyright = "^1.1.396"
 
 [tool.ruff]
 # Same as Black.
@@ -40,6 +41,12 @@ line-length = 88
 [tool.ruff.lint]
 ignore = ["E712"] # Pandas requires == True
 
+[tool.pyright]
+exclude = [
+    "**/tests/*",
+    "**/test_*",
+    "**/*_test.py"
+]
 
 [build-system]
 requires = ["poetry-core"]
