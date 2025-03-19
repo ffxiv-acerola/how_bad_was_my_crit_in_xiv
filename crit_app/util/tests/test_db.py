@@ -13,6 +13,7 @@ from crit_app.db_setup import (
 from crit_app.util.db import (
     compute_party_bonus,
     get_party_analysis_calculation_info,
+    get_party_analysis_encounter_info,
     get_party_analysis_player_build,
     read_player_analysis_info,
     retrieve_player_analysis_information,
@@ -258,6 +259,29 @@ def test_retrieve_player_analysis_information_all_fields(mock_sqlite_connect):
 # get_party_analysis_encounter_pet_info
 # get_party_analysis_player_build
 # get_party_analysis_encounter_info
+def test_get_party_analysis_encounter_info(mock_sqlite_connect):
+    (
+        report_id,
+        fight_id,
+        phase_id,
+        last_phase_index,
+        encounter_id,
+        encounter_name,
+        kill_time,
+        redo_analysis_flag,
+    ) = get_party_analysis_encounter_info("ccafe2ba-2433-43d2-92d7-361887ca3620")
+
+    assert report_id == "ZfnF8AqRaBbzxW3w"
+    assert fight_id == 5
+    assert phase_id == 0
+    assert encounter_id == 1079
+    assert encounter_name == "Futures Rewritten"
+    assert kill_time == 1119.081
+    assert redo_analysis_flag == 0
+
+    pass
+
+
 def test_get_party_analysis_player_build(mock_sqlite_connect):
     """
     Test that get_party_analysis_player_build correctly retrieves all player builds.
