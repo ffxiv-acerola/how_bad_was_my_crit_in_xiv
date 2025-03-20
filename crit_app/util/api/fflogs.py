@@ -560,9 +560,12 @@ def limit_break_damage_events(
     # No LB events for the selected phase
     lb_data = [a for a in lb_data if a["type"] in ("damage", "calculateddamage")]
     if len(lb_data) == 0:
-        return pd.DataFrame(
-            data=[],
-            columns=["report_id", "fight_id", "timestamp", "target_id", "amount"],
+        return (
+            pd.DataFrame(
+                data=[],
+                columns=["report_id", "fight_id", "timestamp", "target_id", "amount"],
+            ),
+            "",
         )
 
     else:

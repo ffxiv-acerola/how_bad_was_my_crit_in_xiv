@@ -1149,20 +1149,21 @@ def analyze_party_rotation(
         return updated_url, [error_alert(error_message)]
 
     if perform_kill_time_analysis:
-        # FIXME: surely I can do this less dumb
-        # P5 enrage requires offset to be found b/c of cutscene
-        furthest_phase = furthest_phase = max(
-            [i["id"] for i in job_rotation_analyses_list[0].phase_information]
-        )
-        if (
-            (encounter_id == 1079)
-            & ((fight_phase == 5) | ((fight_phase == 0) & (furthest_phase == 5)))
-            & (not job_rotation_analyses_list[0].kill)
-        ):
-            find_t_clip_offset = True
+        if job_rotation_analyses_list[0].phase_information is not None:
+            # FIXME: surely I can do this less dumb
+            # P5 enrage requires offset to be found b/c of cutscene
+            furthest_phase = max(
+                [i["id"] for i in job_rotation_analyses_list[0].phase_information]
+            )
+            if (
+                (encounter_id == 1079)
+                & ((fight_phase == 5) | ((fight_phase == 0) & (furthest_phase == 5)))
+                & (not job_rotation_analyses_list[0].kill)
+            ):
+                find_t_clip_offset = True
 
-        if find_t_clip_offset:
-            t_clip_offset = calculate_time_clip_offset(job_rotation_analyses_list)
+            if find_t_clip_offset:
+                t_clip_offset = calculate_time_clip_offset(job_rotation_analyses_list)
 
         clipping_success, clipping_results = create_rotation_clippings(
             report_id,
