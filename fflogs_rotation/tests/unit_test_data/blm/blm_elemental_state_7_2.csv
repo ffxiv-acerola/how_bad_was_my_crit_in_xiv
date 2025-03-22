@@ -1,0 +1,16 @@
+timestamp,elapsed_time,ability_name,elemental_status_active,n_stacks_active,remaining_time,elemental_status_granted,n_stacks_granted,time_granted
+0,0,Fire III,,0,500,Astral Fire,3,500
+5000,5,Despair,Astral Fire,3,495,Astral Fire,3,500
+10000,10,Manafont,Astral Fire,3,490,Astral Fire,3,500
+50000,50,Transpose,Astral Fire,3,460,Umbral Ice,1,500
+60000,60,Umbral Soul,Umbral Ice,1,490,Umbral Ice,2,500
+160000,160,Paradox,Umbral Ice,2,300,Umbral Ice,2,500
+170000,170,Blizzard III,Umbral Ice,2,490,Umbral Ice,3,500
+175000,175,Transpose,Umbral Ice,3,495,Astral Fire,1,500
+180000,180,Paradox,Astral Fire,1,496,Astral Fire,1,500
+185000,185,Manafont,Astral Fire,1,497,Astral Fire,3,500
+190000,190,Fire III,Astral Fire,3,498,Astral Fire,3,500
+195000,195,Fire,Astral Fire,3,499,Astral Fire,3,500
+200000,200,Transpose,Astral Fire,3,500,Umbral Ice,1,500
+205000,205,Transpose,Umbral Ice,1,501,Astral Fire,1,500
+210000,210,Fire,Astral Fire,1,502,Astral Fire,2,500

@@ -1,0 +1,11 @@
+timestamp,elemental_status_active,n_stacks_active,elemental_status_granted,n_stacks_granted,string_change,formatted_elapsed_time
+0,,0,Astral Fire,3,None 0 -> Astral Fire 3,00:00
+50000,Astral Fire,3,Umbral Ice,1,Astral Fire 3 -> Umbral Ice 1,00:50
+60000,Umbral Ice,1,Umbral Ice,2,Umbral Ice 1 -> Umbral Ice 2,01:00
+170000,Umbral Ice,2,Umbral Ice,3,Umbral Ice 2 -> Umbral Ice 3,02:50
+175000,Umbral Ice,3,Astral Fire,1,Umbral Ice 3 -> Astral Fire 1,02:55
+185000,Astral Fire,1,Astral Fire,3,Astral Fire 1 -> Astral Fire 3,03:05
+200000,Astral Fire,3,Umbral Ice,1,Astral Fire 3 -> Umbral Ice 1,03:20
+205000,Umbral Ice,1,Astral Fire,1,Umbral Ice 1 -> Astral Fire 1,03:25
+210000,Astral Fire,1,Astral Fire,2,Astral Fire 1 -> Astral Fire 2,03:30
+710000,Astral Fire,2,,0,Astral Fire 2 -> None 0,11:50

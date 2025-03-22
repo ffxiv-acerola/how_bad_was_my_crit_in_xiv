@@ -537,9 +537,6 @@ class BlackMageActions(BuffQuery):
         Returns:
             float: The updated remaining gauge time after subtracting time_delta.
         """
-        if previous_action == "Umbral Soul":
-            return 1000.0
-
         fire_ice_other = (
             self.fire_granting_actions
             | self.ice_granting_actions
