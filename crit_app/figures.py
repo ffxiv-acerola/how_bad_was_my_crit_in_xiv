@@ -39,7 +39,7 @@ def make_rotation_pdf_figure(
         density = rotation_obj.rotation_dps_distribution
     else:
         support = rotation_obj.rotation_dps_support / active_dps_time
-        density = rotation_obj.rotation_dps_distribution / np.trapz(
+        density = rotation_obj.rotation_dps_distribution / np.trapezoid(
             rotation_obj.rotation_dps_distribution, support
         )
 
@@ -116,7 +116,7 @@ def make_rotation_percentile_table(
 
     if t_div > 1:
         support /= t_div
-        density = density / np.trapz(density, support)
+        density = density / np.trapezoid(density, support)
 
     dx = support[1] - support[0]
     F = np.cumsum(density) * dx
@@ -224,7 +224,9 @@ def make_action_box_and_whisker_figure(
             support = v["support"]
         else:
             support = v["support"] / active_dps_time
-            density = v["dps_distribution"] / np.trapz(v["dps_distribution"], support)
+            density = v["dps_distribution"] / np.trapezoid(
+                v["dps_distribution"], support
+            )
 
         # Percentiles
         dx = support[1] - support[0]
@@ -353,7 +355,9 @@ def make_action_pdfs_figure(
             support = v["support"]
         else:
             support = v["support"] / active_dps_time
-            density = v["dps_distribution"] / np.trapz(v["dps_distribution"], support)
+            density = v["dps_distribution"] / np.trapezoid(
+                v["dps_distribution"], support
+            )
 
         dx = support[1] - support[0]
         F_percentile = np.cumsum(density) * dx
@@ -507,7 +511,7 @@ def make_party_rotation_pdf_figure(party_analysis_data: Any) -> Figure:
     t = party_analysis_data.active_dps_time
 
     party_support /= t
-    party_pdf = party_pdf / np.trapz(party_pdf, party_support)
+    party_pdf = party_pdf / np.trapezoid(party_pdf, party_support)
 
     max_density = party_pdf.max()
     x_lim = party_support[party_pdf > max_density * 5e-6]
