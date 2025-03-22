@@ -3,17 +3,19 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
+from ffxiv_stats.moments import _coarsened_boundaries
 from numpy.typing import ArrayLike
 from scipy.signal import fftconvolve
 
 from crit_app.util.player_dps_distribution import JobAnalysis
-from ffxiv_stats.moments import _coarsened_boundaries
 
 
 ## Data classes for party rotation ###
 @dataclass
 class KillTime:
-    def _compute_kill_time_percentile(self, boss_hp, damage_pdf, damage_support):
+    def _compute_kill_time_percentile(
+        self, boss_hp: int | float, damage_pdf: ArrayLike, damage_support: ArrayLike
+    ):
         """
         Compute the CDF from a PDF and support, then find the corresponding percentile a value has.
 
@@ -164,7 +166,7 @@ def rotation_dps_pdf(rotation_pdf_list, lb_dps=0, dmg_step=20):
 
     supp = np.arange(support_min, support_max + dmg_step, step=dmg_step) + lb_dps
 
-    party_dps_distribution /= np.trapz(party_dps_distribution, supp)
+    party_dps_distribution /= np.trapezoid(party_dps_distribution, supp)
     return party_dps_distribution, supp
 
 
@@ -202,7 +204,7 @@ def unconvovle_clipped_pdf(
     support = np.arange(lower, upper + dmg_step, dmg_step)
 
     pdf = fftconvolve(rotation_pdf, clipped_pdf)
-    pdf = pdf / np.trapz(pdf, support)
+    pdf = pdf / np.trapezoid(pdf, support)
 
     # Getting hacky here:
 
@@ -223,13 +225,13 @@ def unconvovle_clipped_pdf(
     # The difference in these means gives us how much damage the unconvolved damage PDF
     # support is off by and lets us correct the support.
     # I don't like it, but I also don't know how else to fix it.
-    approximate_truncated_mean = np.trapz(pdf * support, support)
+    approximate_truncated_mean = np.trapezoid(pdf * support, support)
     exact_truncated_mean = rotation_mean + limit_break_damage - clipped_mean
     mean_correction = int(exact_truncated_mean - approximate_truncated_mean)
 
     support += mean_correction
 
-    return pdf / np.trapz(pdf, support), support
+    return pdf / np.trapezoid(pdf, support), support
 
 
 def lb_damage_after_clipping(
