@@ -1,7 +1,5 @@
 """Create cards used to display content."""
 
-from typing import Dict, List, Optional
-
 import dash_bootstrap_components as dbc
 from dash import dash_table, dcc, html
 from plotly.graph_objs._figure import Figure
@@ -10,16 +8,16 @@ from crit_app.job_data.encounter_data import stat_ranges
 
 
 def initialize_job_build(
-    job_build_url: Optional[str] = None,
+    job_build_url: str | None = None,
     role: str = "Healer",
-    main_stat: Optional[int] = None,
-    tenacity: Optional[int] = None,
-    determination: Optional[int] = None,
-    speed: Optional[int] = None,
-    crit: Optional[int] = None,
-    direct_hit: Optional[int] = None,
-    weapon_damage: Optional[int] = None,
-    delay: Optional[float] = None,
+    main_stat: int | None = None,
+    tenacity: int | None = None,
+    determination: int | None = None,
+    speed: int | None = None,
+    crit: int | None = None,
+    direct_hit: int | None = None,
+    weapon_damage: int | None = None,
+    delay: int | None = None,
     party_bonus: float = 1.05,
     medication_amt: int = 392,
     build_selector_hidden: bool = True,
@@ -372,19 +370,19 @@ def initialize_job_build(
 
 
 def initialize_fflogs_card(
-    fflogs_url: Optional[str] = None,
-    encounter_name_time: List[str] = [],
-    phase_select_options: List[Dict[str, str]] = [],
+    fflogs_url: str | None = None,
+    encounter_name_time: list[str] = [],
+    phase_select_options: list[dict[str, str]] = [],
     phase_select_value: int = 0,
     phase_selector_hidden: bool = True,
-    job_radio_options_dict: Dict[str, List[Dict[str, str]]] = {
+    job_radio_options_dict: dict[str, list[dict[str, str]]] = {
         "Tank": [],
         "Healer": [],
         "Melee": [],
         "Physical Ranged": [],
         "Magical Ranged": [],
     },
-    job_radio_value_dict: Dict[str, Optional[str]] = {
+    job_radio_value_dict: dict[str, str | None] = {
         "Tank": None,
         "Healer": None,
         "Melee": None,
@@ -417,7 +415,7 @@ def initialize_fflogs_card(
     Returns:
         html.Div containing the complete FFLogs analysis card
     """
-    fflogs_url = dbc.Row(
+    fflogs_row = dbc.Row(
         [
             dbc.Label("Log URL", width=12, md=2),
             dbc.Col(
@@ -528,7 +526,7 @@ def initialize_fflogs_card(
                     html.H2("Enter log to analyze"),
                     dbc.Form(
                         [
-                            fflogs_url,
+                            fflogs_row,
                             html.H3(
                                 children=encounter_name_time, id="encounter-name-time"
                             ),
@@ -561,9 +559,9 @@ def initialize_fflogs_card(
 
 
 def initialize_rotation_card(
-    rotation_figure: Optional[Figure] = None,
-    rotation_percentile_table: Optional[dash_table.DataTable] = None,
-) -> html.Div:
+    rotation_figure: Figure | None = None,
+    rotation_percentile_table: dash_table.DataTable | None = None,
+) -> dbc.Card:
     """
     Create card displaying rotation DPS distribution and percentiles.
 
@@ -620,11 +618,11 @@ def initialize_rotation_card(
 
 
 def initialize_action_card(
-    action_figure: Optional[Figure] = None,
-    action_summary_table: Optional[dash_table.DataTable] = None,
-    action_options: List[dict] = [],
-    action_values: List[str] = [],
-) -> html.Div:
+    action_figure: Figure | None = None,
+    action_summary_table: dash_table.DataTable | None = None,
+    action_options: list[dict] = [],
+    action_values: list[str] = [],
+) -> dbc.Card:
     """
     Create card showing DPS distributions for individual actions.
 
@@ -686,7 +684,7 @@ def initialize_action_card(
     return action_dmg_pdf_card
 
 
-def initialize_new_action_card(action_figure: Optional[Figure] = None) -> html.Div:
+def initialize_new_action_card(action_figure: Figure | None = None) -> dbc.Card:
     """
     Create card showing box plots of action DPS distributions.
 
@@ -719,13 +717,13 @@ def initialize_new_action_card(action_figure: Optional[Figure] = None) -> html.D
 
 
 def initialize_results(
-    player_name: Optional[str] = None,
-    crit_text: Optional[str] = None,
-    job_alert: List[html.Div] = [],
-    rotation_card: List[html.Div] = [],
-    action_card: List[html.Div] = [],
-    analysis_url: Optional[str] = None,
-    xiv_analysis_url: Optional[str] = None,
+    player_name: str | None = None,
+    crit_text: str | None = None,
+    job_alert: list[html.Div] = [],
+    rotation_card: list[html.Div] = [],
+    action_card: list[html.Div] = [],
+    analysis_url: str | None = None,
+    xiv_analysis_url: str | None = None,
     results_hidden: bool = True,
 ) -> html.Div:
     """
