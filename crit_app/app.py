@@ -23,7 +23,6 @@ app = dash.Dash(
 )
 
 app.title = "How bad was my crit in FFXIV?"
-app.name = "Player analysis"
 app._favicon = "crit_app/assets/favicon.ico"
 server = app.server
 
@@ -81,7 +80,6 @@ header = html.Div(
 # Putting it all together
 app.layout = dbc.Container(
     [
-        # dcc.Location(id="url", refresh="callback-nav"),
         dcc.Location(id="url", refresh=True),
         header,
         dash.page_container,
