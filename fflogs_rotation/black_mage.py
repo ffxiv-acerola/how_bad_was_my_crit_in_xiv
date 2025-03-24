@@ -154,6 +154,7 @@ class BlackMageActions(BuffQuery):
     @staticmethod
     def _get_ice_granting_actions(patch_number: float) -> dict:
         TIMER_DURATION = 15
+        UMBRAL_TIMER_DURATION = 500
 
         if patch_number >= 7.2:
             # AF/UI timer is removed.
@@ -162,7 +163,7 @@ class BlackMageActions(BuffQuery):
 
         return {
             "Blizzard III": {"time": TIMER_DURATION, "stacks": 3},
-            "Umbral Soul": {"time": TIMER_DURATION, "stacks": 1},
+            "Umbral Soul": {"time": UMBRAL_TIMER_DURATION, "stacks": 1},
             "Blizzard": {"time": TIMER_DURATION, "stacks": 1},
             "High Blizzard II": {"time": TIMER_DURATION, "stacks": 3},
         }
