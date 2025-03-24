@@ -48,11 +48,6 @@ class BlackMageActions(BuffQuery):
             25795: "High Blizzard II",
         }
 
-        # self.other_granting_actions = {
-        #     "Paradox": {"time": 15, "stacks": 1},
-        #     "Transpose": {"time": 15, "stacks": 1},
-        #     "Manafont": {"time": 15, "stacks": 3},
-        # }
         self.gauge_actions = {
             149: "Transpose",
             16506: "Umbral Soul",
@@ -111,8 +106,10 @@ class BlackMageActions(BuffQuery):
             return 1.3
         elif (level >= 96) & (patch_number == 7.05):
             return 1.33
-        else:
+        elif (level >= 96) & (patch_number < 7.2):
             return 1.32
+        elif (level >= 96) & (patch_number >= 7.2):
+            return 1.27
 
     @staticmethod
     def _get_fire_granting_actions(patch_number: float) -> dict[str, dict[str, int]]:
@@ -1061,34 +1058,41 @@ class BlackMageActions(BuffQuery):
                 actions_df.loc[elemental_condition, "elemental_state"] = elemental_level
 
         # Apply enochian
+        # Patch 7.2 onwards, this is always active
+        if self.patch_number >= 7.2:
+            actions_df["buffs"].apply(lambda x: x + ["enochian"])
+            actions_df["enochian_multiplier"] = self.enochian_buff
 
-        # Exclude ticks, are snapshotted later
-        no_tick = actions_df["tick"] != True
+        # Pre-7.2 BLM where enochian status was tied to Astral Fire /
+        # Umbral Ice being active
+        else:
+            # Exclude ticks, are snapshotted later
+            no_tick = actions_df["tick"] != True
 
-        # Loop over all enochian time bounds
-        for elemental_level in self.enochian_times:
-            enochian_bounds = actions_df["timestamp"].between(
-                elemental_level[0], elemental_level[1], inclusive="right"
+            # Loop over all enochian time bounds
+            for elemental_level in self.enochian_times:
+                enochian_bounds = actions_df["timestamp"].between(
+                    elemental_level[0], elemental_level[1], inclusive="right"
+                )
+                # Update buff list
+                actions_df.loc[enochian_bounds & no_tick, "buffs"] = actions_df[
+                    "buffs"
+                ].apply(lambda x: x + ["enochian"])
+                # Enochian indicator
+                actions_df.loc[enochian_bounds & no_tick, "enochian_multiplier"] *= (
+                    self.enochian_buff
+                )
+
+            # Snapshot thunder ticks. Application and tick share the same packet ID
+            thunder_tick_ids = (36986, 1003871, 36987, 1003872)
+            actions_df.loc[
+                actions_df["abilityGameID"].isin(thunder_tick_ids),
+                ["buffs", "enochian_multiplier"],
+            ] = (
+                actions_df[actions_df["abilityGameID"].isin(thunder_tick_ids)]
+                .groupby("packetID")[["buffs", "enochian_multiplier"]]
+                .transform("first")
             )
-            # Update buff list
-            actions_df.loc[enochian_bounds & no_tick, "buffs"] = actions_df[
-                "buffs"
-            ].apply(lambda x: x + ["enochian"])
-            # Enochian indicator
-            actions_df.loc[enochian_bounds & no_tick, "enochian_multiplier"] *= (
-                self.enochian_buff
-            )
-
-        # Snapshot thunder ticks. Application and tick share the same packet ID
-        thunder_tick_ids = (36986, 1003871, 36987, 1003872)
-        actions_df.loc[
-            actions_df["abilityGameID"].isin(thunder_tick_ids),
-            ["buffs", "enochian_multiplier"],
-        ] = (
-            actions_df[actions_df["abilityGameID"].isin(thunder_tick_ids)]
-            .groupby("packetID")[["buffs", "enochian_multiplier"]]
-            .transform("first")
-        )
 
         # Update all the action names
         actions_df["action_name"] = (
