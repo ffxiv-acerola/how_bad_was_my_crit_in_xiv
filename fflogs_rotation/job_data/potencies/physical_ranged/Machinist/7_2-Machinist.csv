@@ -1,7 +1,7 @@
 ﻿job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
 Machinist,8,Shot,100,,80,auto,,,,,,,
 Machinist,2874,Gauss Round,100,,130,direct,,,,,,,
-Machinist,2890,Ricochet,100,,130,direct,,,,,,,1;0.5
+Machinist,2890,Ricochet,100,,130,direct,,,,,,,1;0.6
 Machinist,7410,Heat Blast,100,,220,direct,,,,,,,
 Machinist,7411,Heated Split Shot,100,,220,direct,,,,,,,
 Machinist,7412,Heated Slug Shot,100,,140,direct,56,320,,,,,
@@ -28,14 +28,14 @@ Machinist,17206,Roller Dash (Pet),100,gauge_70,336,pet,,,,,,,
 Machinist,17206,Roller Dash (Pet),100,gauge_80,384,pet,,,,,,,
 Machinist,17206,Roller Dash (Pet),100,gauge_90,432,pet,,,,,,,
 Machinist,17206,Roller Dash (Pet),100,gauge_100,480,pet,,,,,,,
-Machinist,25786,Scattergun,100,,160,direct,,,,,,,
+Machinist,25786,Scattergun,100,,130,direct,,,,,,,
 Machinist,25787,Crowned Collider (Pet),100,gauge_50,390,pet,,,,,,,
 Machinist,25787,Crowned Collider (Pet),100,gauge_60,468,pet,,,,,,,
 Machinist,25787,Crowned Collider (Pet),100,gauge_70,546,pet,,,,,,,
 Machinist,25787,Crowned Collider (Pet),100,gauge_80,624,pet,,,,,,,
 Machinist,25787,Crowned Collider (Pet),100,gauge_90,702,pet,,,,,,,
 Machinist,25787,Crowned Collider (Pet),100,gauge_100,780,pet,,,,,,,
-Machinist,25788,Chain Saw,100,,600,direct,,,,,,,1;0.35
+Machinist,25788,Chain Saw,100,,600,direct,,,,,,,1;0.5
 Machinist,1000861,Wildfire (tick),100,wildfire_1,240,physical-dot,,,,,,,
 Machinist,1000861,Wildfire (tick),100,wildfire_2,480,physical-dot,,,,,,,
 Machinist,1000861,Wildfire (tick),100,wildfire_3,720,physical-dot,,,,,,,
@@ -44,8 +44,8 @@ Machinist,1000861,Wildfire (tick),100,wildfire_5,1200,physical-dot,,,,,,,
 Machinist,1000861,Wildfire (tick),100,wildfire_6,1440,physical-dot,,,,,,,
 Machinist,1001205,Flamethrower (tick),100,,100,physical-dot,,,,,,,
 Machinist,1001866,Bioblaster (tick),100,,50,physical-dot,,,,,,,
-Machinist,36979,Double Check,100,,170,direct,,,,,,,1;0.5
-Machinist,36980,Checkmate,100,,160,direct,,,,,,,1;0.5
-Machinist,36981,Excavator,100,,600,direct,,,,,,,1;0.35
-Machinist,36982,Full Metal Field,100,,900,direct,,,,,,,1;0.5
+Machinist,36979,Double Check,100,,170,direct,,,,,,,1;0.6
+Machinist,36980,Checkmate,100,,160,direct,,,,,,,1;0.6
+Machinist,36981,Excavator,100,,600,direct,,,,,,,1;0.5
+Machinist,36982,Full Metal Field,100,,900,direct,,,,,,,1;0.6
 Machinist,36978,Blazing Shot,100,,260,direct,,,,,,,
