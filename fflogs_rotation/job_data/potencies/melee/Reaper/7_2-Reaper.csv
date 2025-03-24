@@ -1,9 +1,9 @@
 ﻿job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
 Reaper,7,Attack,100,,90,auto,,,,,,,
 Reaper,24389,Blood Stalk,100,,340,direct,,,,,,,
-Reaper,24398,Communio,100,,1100,direct,,,,,,,1;0.4
-Reaper,24396,Cross Reaping,100,,500,direct,,,,,,,
-Reaper,24396,Cross Reaping,100,1002591,560,direct,,,,,,,
+Reaper,24398,Communio,100,,1100,direct,,,,,,,1;0.6
+Reaper,24396,Cross Reaping,100,,540,direct,,,,,,,
+Reaper,24396,Cross Reaping,100,1002591,600,direct,,,,,,,
 Reaper,24383,Gallows,100,,500,direct,,,10,560,,,
 Reaper,24383,Gallows,100,1002589,560,direct,,,9,620,,,
 Reaper,24382,Gibbet,100,,500,direct,,,10,560,,,
@@ -13,19 +13,19 @@ Reaper,24397,Grim Reaping,100,,200,direct,,,,,,,
 Reaper,24392,Grim Swathe,100,,140,direct,,,,,,,
 Reaper,24384,Guillotine,100,,200,direct,,,,,,,
 Reaper,24386,Harpe,100,,300,direct,,,,,,,
-Reaper,24388,Harvest Moon,100,,800,direct,,,,,,,1;0.5
+Reaper,24388,Harvest Moon,100,,800,direct,,,,,,,1;0.6
 Reaper,24375,Infernal Slice,100,,280,direct,53,600,,,,,
 Reaper,24400,Lemure's Scythe,100,,100,direct,,,,,,,
 Reaper,24399,Lemure's Slice,100,,280,direct,,,,,,,
 Reaper,24377,Nightmare Scythe,100,,140,direct,30,200,,,,,
-Reaper,24385,Plentiful Harvest,100,immortal_sac_1,720,direct,,,,,,,1;0.4
-Reaper,24385,Plentiful Harvest,100,immortal_sac_2,760,direct,,,,,,,1;0.4
-Reaper,24385,Plentiful Harvest,100,immortal_sac_3,800,direct,,,,,,,1;0.4
-Reaper,24385,Plentiful Harvest,100,immortal_sac_4,840,direct,,,,,,,1;0.4
-Reaper,24385,Plentiful Harvest,100,immortal_sac_5,880,direct,,,,,,,1;0.4
-Reaper,24385,Plentiful Harvest,100,immortal_sac_6,920,direct,,,,,,,1;0.4
-Reaper,24385,Plentiful Harvest,100,immortal_sac_7,960,direct,,,,,,,1;0.4
-Reaper,24385,Plentiful Harvest,100,immortal_sac_8,1000,direct,,,,,,,1;0.4
+Reaper,24385,Plentiful Harvest,100,immortal_sac_1,720,direct,,,,,,,1;0.6
+Reaper,24385,Plentiful Harvest,100,immortal_sac_2,760,direct,,,,,,,1;0.6
+Reaper,24385,Plentiful Harvest,100,immortal_sac_3,800,direct,,,,,,,1;0.6
+Reaper,24385,Plentiful Harvest,100,immortal_sac_4,840,direct,,,,,,,1;0.6
+Reaper,24385,Plentiful Harvest,100,immortal_sac_5,880,direct,,,,,,,1;0.6
+Reaper,24385,Plentiful Harvest,100,immortal_sac_6,920,direct,,,,,,,1;0.6
+Reaper,24385,Plentiful Harvest,100,immortal_sac_7,960,direct,,,,,,,1;0.6
+Reaper,24385,Plentiful Harvest,100,immortal_sac_8,1000,direct,,,,,,,1;0.6
 Reaper,24378,Shadow of Death,100,,300,direct,,,,,,,
 Reaper,24373,Slice,100,,420,direct,,,,,,,
 Reaper,24381,Soul Scythe,100,,180,direct,,,,,,,
@@ -33,14 +33,14 @@ Reaper,24380,Soul Slice,100,,520,direct,,,,,,,
 Reaper,24376,Spinning Scythe,100,,160,direct,,,,,,,
 Reaper,24391,Unveiled Gallows,100,,440,direct,,,,,,,
 Reaper,24390,Unveiled Gibbet,100,,440,direct,,,,,,,
-Reaper,24395,Void Reaping,100,,500,direct,,,,,,,
-Reaper,24395,Void Reaping,100,1002590,560,direct,,,,,,,
+Reaper,24395,Void Reaping,100,,540,direct,,,,,,,
+Reaper,24395,Void Reaping,100,1002590,600,direct,,,,,,,
 Reaper,24374,Waxing Slice,100,,260,direct,48,500,,,,,
 Reaper,24379,Whorl of Death,100,,100,direct,,,,,,,
 Reaper,36971,Executioner's Gallows,100,,700,direct,7,760,,,,,
 Reaper,36971,Executioner's Gallows,100,1002589,760,direct,7,820,,,,,
 Reaper,36970,Executioner's Gibbet,100,,700,direct,7,760,,,,,
 Reaper,36970,Executioner's Gibbet,100,1002589,760,direct,7,820,,,,,
-Reaper,36972,Executioner's Guillotine,100,,300,direct,,,,,,,
-Reaper,36969,Sacrificium,100,,530,direct,,,,,,,1;0.5
-Reaper,36973,Perfectio,100,,1300,direct,,,,,,,1;0.4
+Reaper,36972,Executioner's Guillotine,100,,260,direct,,,,,,,
+Reaper,36969,Sacrificium,100,,600,direct,,,,,,,1;0.6
+Reaper,36973,Perfectio,100,,1300,direct,,,,,,,1;0.6

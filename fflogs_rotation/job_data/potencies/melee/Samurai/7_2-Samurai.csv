@@ -6,28 +6,28 @@ Samurai,25780,Fuko,100,,100,direct,,,,,,,
 Samurai,7481,Gekko,100,,160,direct,56,370,23,210,61,420,
 Samurai,7489,Higanbana,100,,200,direct,,,,,,,
 Samurai,1001228,Higanbana (tick),100,,50,physical-dot,,,,,,,
-Samurai,7496,Hissatsu: Guren,100,,500,direct,,,,,,,1;0.75
+Samurai,7496,Hissatsu: Guren,100,,400,direct,,,,,,,1;0.75
 Samurai,7492,Hissatsu: Gyoten,100,,100,direct,,,,,,,
-Samurai,7491,Hissatsu: Kyuten,100,,120,direct,,,,,,,
+Samurai,7491,Hissatsu: Kyuten,100,,100,direct,,,,,,,
 Samurai,16481,Hissatsu: Senei,100,,800,direct,,,,,,,
 Samurai,7490,Hissatsu: Shinten,100,,250,direct,,,,,,,
 Samurai,7493,Hissatsu: Yaten,100,,100,direct,,,,,,,
 Samurai,7478,Jinpu,100,,140,direct,53,300,,,,,
 Samurai,16485,Kaeshi: Goken,100,,300,direct,,,,,,,
-Samurai,25782,Kaeshi: Namikiri,100,,900,direct,,,,,,,1;0.25
+Samurai,25782,Kaeshi: Namikiri,100,,1000,direct,,,,,,,1;0.5
 Samurai,16486,Kaeshi: Setsugekka,100,,640,direct,,,,,,,
 Samurai,7482,Kasha,100,,160,direct,56,370,23,210,61,420,
 Samurai,7484,Mangetsu,100,,100,direct,16,120,,,,,
 Samurai,7487,Midare Setsugekka,100,,640,direct,,,,,,,
-Samurai,25781,Ogi Namikiri,100,,900,direct,,,,,,,1;0.25
+Samurai,25781,Ogi Namikiri,100,,1000,direct,,,,,,,1;0.5
 Samurai,7485,Oka,100,,100,direct,16,120,,,,,
 Samurai,7479,Shifu,100,,140,direct,53,300,,,,,
-Samurai,16487,Shoha,100,,640,direct,,,,,,,1;0.35
+Samurai,16487,Shoha,100,,640,direct,,,,,,,1;0.5
 Samurai,7488,Tenka Goken,100,,300,direct,,,,,,,
 Samurai,7480,Yukikaze,100,,160,direct,52,340,,,,,
 Samurai,36963,Gyofu,100,,240,direct,,,,,,,
-Samurai,36966,Tendo Setsugekka,100,,1020,direct,,,,,,,
+Samurai,36966,Tendo Setsugekka,100,,1100,direct,,,,,,,
 Samurai,36965,Tendo Goken,100,,410,direct,,,,,,,
-Samurai,36968,Tendo Kaeshi Setsugekka,100,,1020,direct,,,,,,,
+Samurai,36968,Tendo Kaeshi Setsugekka,100,,1100,direct,,,,,,,
 Samurai,36967,Tendo Kaeshi Goken,100,,410,direct,,,,,,,
-Samurai,36964,Zanshin,100,,900,direct,,,,,,,1;0.4
+Samurai,36964,Zanshin,100,,940,direct,,,,,,,1;0.5
