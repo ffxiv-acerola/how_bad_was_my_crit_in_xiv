@@ -21,7 +21,7 @@ def initialize_job_build(
     weapon_damage: Optional[int] = None,
     delay: Optional[float] = None,
     party_bonus: float = 1.05,
-    medication_amt: int = 392,
+    medication_amt: int = 461,
     build_selector_hidden: bool = True,
 ) -> html.Div:
     """
@@ -158,6 +158,7 @@ def initialize_job_build(
                         name="POT:",
                         id="tincture-grade",
                         options=[
+                            {"label": "Grade 3 Gemdraught (+461)", "value": 461},
                             {"label": "Grade 2 Gemdraught (+392)", "value": 392},
                             {"label": "Grade 1 Gemdraught (+361)", "value": 351},
                             {

@@ -77,7 +77,7 @@ def create_fflogs_card(
     phase_selector_value="0",
     phase_selector_options: list = [],
     phase_select_hidden: bool = False,
-    medication_amount: int = 392,
+    medication_amount: int = 461,
     quick_build_table_data: list = [],
     party_accordion_items: list = [],
     hide_fflogs_div: bool = True,
@@ -860,7 +860,7 @@ def create_job_build_content(
 
 
 def create_tincture_input(
-    medication_amt: int = 392, id_name: str = "party-tincture-grade"
+    medication_amt: int = 461, id_name: str = "party-tincture-grade"
 ) -> html.Div:
     """
     Create medication (tincture) selection component.
@@ -886,6 +886,10 @@ def create_tincture_input(
                                 name="POT:",
                                 id=id_name,
                                 options=[
+                                    {
+                                        "label": "Grade 3 Gemdraught (+461)",
+                                        "value": 461,
+                                    },
                                     {
                                         "label": "Grade 2 Gemdraught (+392)",
                                         "value": 392,
