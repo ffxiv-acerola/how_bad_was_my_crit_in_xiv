@@ -11,81 +11,122 @@ dash.register_page(
 data = [
     {
         "Expansion": "Dawntrail",
+        "Category": "Unreal",
+        "Content": "Byakko",
+        "Supported": "✔",
+        "order": 0,
+    },
+    {
+        "Expansion": "Dawntrail",
+        "Category": "Unreal",
+        "Content": "Suzaku",
+        "Supported": "✔",
+        "order": 1,
+    },
+    {
+        "Expansion": "Dawntrail",
         "Category": "Ultimates",
         "Content": "FRU",
         "Supported": "✔",
+        "order": 0,
     },
     {
         "Expansion": "Dawntrail",
         "Category": "Savage",
-        "Content": "Light-heavyweight",
+        "Content": "Arcadion: Light-heavyweight",
         "Supported": "✔",
+        "order": 0,
+    },
+    {
+        "Expansion": "Dawntrail",
+        "Category": "Savage",
+        "Content": "Arcadion: Cruiserweight",
+        "Supported": "✔",
+        "order": 1,
     },
     {
         "Expansion": "Dawntrail",
         "Category": "Extreme trials",
         "Content": "EX1",
         "Supported": "✔",
+        "order": 0,
     },
     {
         "Expansion": "Dawntrail",
         "Category": "Extreme trials",
         "Content": "EX2",
         "Supported": "✖",
+        "order": 1,
     },
     {
         "Expansion": "Dawntrail",
         "Category": "Extreme trials",
         "Content": "EX3",
         "Supported": "✔",
+        "order": 2,
+    },
+    {
+        "Expansion": "Dawntrail",
+        "Category": "Extreme trials",
+        "Content": "EX4",
+        "Supported": "✔",
+        "order": 3,
     },
     {
         "Expansion": "Endwalker",
         "Category": "Savage",
         "Content": "Asphodelos",
         "Supported": "✖",
+        "order": 0,
     },
     {
         "Expansion": "Endwalker",
         "Category": "Savage",
         "Content": "Abyssos",
         "Supported": "✖",
+        "order": 1,
     },
     {
         "Expansion": "Endwalker",
         "Category": "Savage",
         "Content": "Anabaseios",
         "Supported": "✔",
+        "order": 2,
     },
     {
         "Expansion": "Endwalker",
         "Category": "Extreme trials",
         "Content": "EX5 and earlier",
         "Supported": "✖",
+        "order": 0,
     },
     {
         "Expansion": "Endwalker",
         "Category": "Extreme trials",
         "Content": "EX6",
         "Supported": "✔",
+        "order": 1,
     },
     {
         "Expansion": "Endwalker",
         "Category": "Extreme trials",
         "Content": "EX7",
         "Supported": "✔",
+        "order": 2,
     },
     {
         "Expansion": "Endwalker",
         "Category": "Ultimates",
         "Content": "DSR",
         "Supported": "✖",
+        "order": 0,
     },
     {
         "Expansion": "Endwalker",
         "Category": "Ultimates",
         "Content": "TOP",
         "Supported": "✖",
+        "order": 1,
     },
 ]
 
@@ -93,11 +134,11 @@ data = [
 compatibility_df = pd.DataFrame(data)
 
 # Order categories
-category_order = ["Savage", "Extreme trials", "Ultimates"]
+category_order = ["Savage", "Extreme trials", "Ultimates", "Unreal"]
 compatibility_df["Category"] = pd.Categorical(
     compatibility_df["Category"], categories=category_order, ordered=True
 )
-compatibility_df = compatibility_df.sort_values(["Expansion", "Category"])
+compatibility_df = compatibility_df.sort_values(["Expansion", "Category", "order"])
 
 
 # Generate dbc tables by expansion and category
@@ -152,9 +193,9 @@ def generate_tables_by_expansion(expansion: str) -> list:
 
 compatibility_div = html.Div(
     [
-        html.H4("Dawntrail"),
+        html.H3("Dawntrail"),
         *generate_tables_by_expansion("Dawntrail"),
-        html.H4("Endwalker"),
+        html.H3("Endwalker"),
         *generate_tables_by_expansion("Endwalker"),
     ]
 )

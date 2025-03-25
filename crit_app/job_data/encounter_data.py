@@ -7,14 +7,20 @@ valid_encounters = [
     93,
     94,
     95,
-    96,
+    96,  # Start cruiserweight
+    97,
+    98,
+    99,
+    100,
     1069,
     1070,
     1072,
     # 1077,
     1078,
     1079,
+    1080,
     3009,  # Byakko
+    3010,
 ]
 valid_encounter_text = ""
 
@@ -29,6 +35,9 @@ encounter_level = {
     95: 100,
     96: 100,
     97: 100,
+    98: 100,
+    99: 100,
+    100: 100,
     1069: 90,
     1070: 90,
     # 1077: 90,
@@ -36,7 +45,9 @@ encounter_level = {
     1072: 100,
     1078: 100,
     1079: 100,
+    1080: 100,
     3009: 100,  # Byakko
+    3010: 100,
 }
 
 encounter_phases = {
@@ -80,11 +91,12 @@ patch_times = {
     7.0: {"start": 1719565200000, "end": 1721109699999},
     7.01: {"start": 1721109600000, "end": 1722322899999},
     7.05: {"start": 1722322800000, "end": 1731427199999},
-    7.1: {"start": 1731427200000, "end": 1741791600000},
+    7.1: {"start": 1731427200000, "end": 1742882399999},
+    7.2: {"start": 1742882400000, "end": 1766101600000},
 }
 
 stat_ranges = {
-    "main_stat": {"lower": 3200, "upper": 6000},
+    "main_stat": {"lower": 3200, "upper": 6700},
     "DET": {"lower": 380, "upper": 5000},
     "SPEED": {"lower": 380, "upper": 5000},
     "CRT": {"lower": 380, "upper": 5000},
@@ -128,25 +140,49 @@ encounter_information = [
         "encounter_id": 93,
         "encounter_name": "Black Cat",
         "content_type": "Raid",
-        "relevant_patch": "7.0 - 7.2",
+        "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 94,
         "encounter_name": "Honey B. Lovely",
         "content_type": "Raid",
-        "relevant_patch": "7.0 - 7.2",
+        "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 95,
         "encounter_name": "Brute Bomber",
         "content_type": "Raid",
-        "relevant_patch": "7.0 - 7.2",
+        "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 96,
         "encounter_name": "Wicked Thunder",
         "content_type": "Raid",
-        "relevant_patch": "7.0 - 7.2",
+        "relevant_patch": "7.0 - 7.1",
+    },
+    {
+        "encounter_id": 97,
+        "encounter_name": "Dancing Green",
+        "content_type": "Raid",
+        "relevant_patch": "7.2 - 7.3",
+    },
+    {
+        "encounter_id": 98,
+        "encounter_name": "Sugar Riot",
+        "content_type": "Raid",
+        "relevant_patch": "7.2 - 7.3",
+    },
+    {
+        "encounter_id": 99,
+        "encounter_name": "Brute Abominator",
+        "content_type": "Raid",
+        "relevant_patch": "7.2 - 7.3",
+    },
+    {
+        "encounter_id": 100,
+        "encounter_name": "Howling Blade",
+        "content_type": "Raid",
+        "relevant_patch": "7.2 - 7.3",
     },
     {
         "encounter_id": 1069,
@@ -164,25 +200,25 @@ encounter_information = [
         "encounter_id": 1072,
         "encounter_name": "Zoraal Ja",
         "content_type": "Extreme",
-        "relevant_patch": "7.0 - 7.2",
+        "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 1078,
         "encounter_name": "Queen Eternal",
         "content_type": "Extreme",
-        "relevant_patch": "7.0 - 7.2",
+        "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 1079,
         "encounter_name": "Futures Rewritten",
         "content_type": "Ultimate",
-        "relevant_patch": "7.0 - 7.2",
+        "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 3009,
         "encounter_name": "Byakko",
         "content_type": "Unreal",
-        "relevant_patch": "7.0 - 7.2",
+        "relevant_patch": "7.0 - 7.1",
     },
 ]
 

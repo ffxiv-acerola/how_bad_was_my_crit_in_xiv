@@ -1,0 +1,27 @@
+﻿job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
+Pictomancer,34680,Polishing Hammer,100,,560,direct,,,,,,,1;0.3
+Pictomancer,34679,Hammer Brush,100,,520,direct,,,,,,,1;0.3
+Pictomancer,34678,Hammer Stamp,100,,480,direct,,,,,,,1;0.3
+Pictomancer,34663,Comet in Black,100,,980,direct,,,,,,,1;0.35
+Pictomancer,34662,Holy in White,100,,600,direct,,,,,,,1;0.35
+Pictomancer,34653,Blizzard in Cyan,100,,900,direct,,,,,,,
+Pictomancer,34655,Thunder in Magenta,100,,980,direct,,,,,,,
+Pictomancer,34654,Stone in Yellow,100,,940,direct,,,,,,,
+Pictomancer,34681,Star Prism,100,,1100,direct,,,,,,,1;0.3
+Pictomancer,34676,Mog of the Ages,100,,1000,direct,,,,,,,1;0.3
+Pictomancer,34672,Clawed Muse,100,,800,direct,,,,,,,1;0.3
+Pictomancer,34670,Pom Muse,100,,800,direct,,,,,,,1;0.3
+Pictomancer,34677,Retribution of the Madeen,100,,1100,direct,,,,,,,1;0.3
+Pictomancer,34673,Fanged Muse,100,,800,direct,,,,,,,1;0.3
+Pictomancer,34650,Fire in Red,100,,520,direct,,,,,,,
+Pictomancer,34671,Winged Muse,100,,800,direct,,,,,,,1;0.3
+Pictomancer,34651,Aero in Green,100,,560,direct,,,,,,,
+Pictomancer,34652,Water in Blue,100,,600,direct,,,,,,,
+Pictomancer,34688,Rainbow Drip,100,,1000,direct,,,,,,,1;0.15
+Pictomancer,34660,Stone II in Yellow,100,,380,direct,,,,,,,
+Pictomancer,34656,Fire II in Red,100,,180,direct,,,,,,,
+Pictomancer,34658,Water II in Blue,100,,220,direct,,,,,,,
+Pictomancer,34661,Thunder II in Magenta,100,,400,direct,,,,,,,
+Pictomancer,34657,Aero II in Green,100,,200,direct,,,,,,,
+Pictomancer,7,Attack,100,,90,auto,,,,,,,
+Pictomancer,34659,Blizzard in Cyan II,100,,360,direct,,,,,,,
