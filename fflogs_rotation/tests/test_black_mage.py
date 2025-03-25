@@ -135,6 +135,8 @@ def test_elemental_status_granted(bm, action, active_input, expected):
 )
 def test_elemental_time_granted(bm, action):
     expected = 15
+    if action == "Umbral Soul":
+        expected = 500
     result = bm._elemental_time_granted(action)
     assert result == expected
 
