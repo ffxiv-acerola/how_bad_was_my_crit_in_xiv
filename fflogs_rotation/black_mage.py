@@ -270,15 +270,6 @@ class BlackMageActions(BuffQuery):
                     ) {
                         data
                     }
-                    Freeze: events(
-                        fightIDs: $id
-                        dataType: Casts
-                        sourceID: $playerID
-                        viewOptions: 1
-                        abilityID: 159
-                    ) {
-                        data
-                    }
                     HighBlizzard: events(
                         fightIDs: $id
                         dataType: Casts
