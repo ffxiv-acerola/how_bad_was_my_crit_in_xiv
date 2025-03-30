@@ -73,7 +73,7 @@ def bm():
         ("Manafont", 5.0),
     ],
 )
-def test_elemental_time_remaining(bm, action, time_delta, expected):
+def test_elemental_time_remaining(bm, action, time_delta):
     """
     Test _elemental_time_remaining using parameterization.
 
@@ -209,16 +209,16 @@ def test_get_elemental_state_changes_csv(bm, input_file, expected_file):
 #         ),
 #     ],
 # )
-def test_apply_blm_buffs(bm, input_file, expected_file):
-    """
-    Test apply_blm_buffs using external parquet test data.
+# def test_apply_blm_buffs(bm, input_file, expected_file):
+#     """
+#     Test apply_blm_buffs using external parquet test data.
 
-    Only the following columns are compared:
-        - "action_name"
-        - "multiplier"
-        - "elemental_type"
-        - "elemental_state"
-        - "enochian_multiplier"
-        - "elemental_multiplier"
-    """
-    assert True
+#     Only the following columns are compared:
+#         - "action_name"
+#         - "multiplier"
+#         - "elemental_type"
+#         - "elemental_state"
+#         - "enochian_multiplier"
+#         - "elemental_multiplier"
+#     """
+#     assert True
