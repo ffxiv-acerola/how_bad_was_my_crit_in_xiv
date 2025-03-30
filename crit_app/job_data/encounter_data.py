@@ -215,6 +215,12 @@ encounter_information = [
         "relevant_patch": "7.0 - 7.1",
     },
     {
+        "encounter_id": 1080,
+        "encounter_name": "Zelenia",
+        "content_type": "Extreme",
+        "relevant_patch": "7.2 - 7.3",
+    },
+    {
         "encounter_id": 3009,
         "encounter_name": "Byakko",
         "content_type": "Unreal",

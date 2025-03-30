@@ -736,13 +736,13 @@ devel = ["colorama", "json-spec", "jsonschema", "pylint", "pytest", "pytest-benc
 
 [[package]]
 name = "ffxiv-stats"
-version = "0.5.5"
-description = "Compute damage variability in the critically acclaimed MMORPG Final Fantasy XIV."
+version = "0.6.0"
+description = "A stats analysis tool for FFXIV."
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 files = [
-    {file = "ffxiv_stats-0.5.5-py3-none-any.whl", hash = "sha256:567005307c56ebee642679bcab7ba282358108e4c5e8f3b4444cdc30489e917c"},
-    {file = "ffxiv_stats-0.5.5.tar.gz", hash = "sha256:1377ff660e78eb5e96a6a32c27345b03a59b18a6764f9ef18eb9038b88886fff"},
+    {file = "ffxiv_stats-0.6.0-py3-none-any.whl", hash = "sha256:4e0719ade352aa2839cae741636cf8c1b2d821293033a1f1340556e61f976a2f"},
+    {file = "ffxiv_stats-0.6.0.tar.gz", hash = "sha256:2c680e2608a9c2ae18e51d4056623d512e6473937162c6f8a8a751fb873c07a5"},
 ]
 
 [package.dependencies]
@@ -2752,4 +2752,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "6b2e73e70b25a7ac8768c39abe08cd8dac2e8ddc42d6ebf0728fb1988d6c6425"
+content-hash = "b904caef1fbbd3070a4eea4734516904ab89b8604b042e838e4cee8acc19926f"
