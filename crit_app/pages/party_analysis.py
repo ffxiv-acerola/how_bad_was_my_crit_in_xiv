@@ -414,8 +414,11 @@ def party_fflogs_process(n_clicks, url, fflogs_data):
 
     report_id, fight_id, error_message = parse_fflogs_url(url)
 
+    if fight_id != "last":
+        fight_id = int(fight_id)
+
     if error_message != "":
-        return tuple([error_message], +invalid_return)
+        return tuple([error_message] + invalid_return)
 
     (
         error_message,
@@ -429,10 +432,10 @@ def party_fflogs_process(n_clicks, url, fflogs_data):
         start_time,
         furthest_phase_index,
         excluded_enemy_ids,
-    ) = encounter_information(report_id, int(fight_id))
+    ) = encounter_information(report_id, fight_id)
 
     if error_message != "":
-        return tuple([error_message], +invalid_return)
+        return tuple([error_message] + invalid_return)
 
     if excluded_enemy_ids is not None:
         excluded_enemy_ids = json.dumps(excluded_enemy_ids)
