@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from ffxiv_stats.jobs import Melee
 from pandas.testing import assert_frame_equal
 
 from crit_app.job_data.encounter_data import encounter_phases
@@ -13,11 +14,10 @@ from fflogs_rotation.job_data.data import (
 )
 from fflogs_rotation.rotation import RotationTable
 from fflogs_rotation.tests.config import headers
-from ffxiv_stats.jobs import PhysicalRanged
 
 
-class TestBardActions:
-    """Tests for Bard job actions and rotations.
+class TestNinjaActions:
+    """Tests for Ninja job actions and rotations.
 
     Based of Reality's speed kill for m1s
     https://www.fflogs.com/reports/B3gxKdn4j1W8NML9#fight=3
@@ -29,28 +29,28 @@ class TestBardActions:
         self.fight_id = 3
         self.level = 100
         self.phase = 0
-        self.player_id = 3
-        self.pet_ids = None
+        self.player_id = 7
+        self.pet_ids = [15]
 
-        self.main_stat = 5130
+        self.main_stat = 5105
         self.pet_attack_power = self.main_stat // 1.05
-        self.det = 2091
-        self.speed = 474
+        self.det = 2387
+        self.speed = 420
 
-        self.crt = 3177
-        self.dh = 2080
+        self.crt = 3173
+        self.dh = 1482
         self.wd = 146
 
-        self.delay = 3.04
+        self.delay = 2.56
         self.medication = 392
 
         self.t = 393.947
 
-        self.brd_rotation_7_05 = RotationTable(
+        self.nin_rotation_7_05 = RotationTable(
             headers,
             self.report_id,
             self.fight_id,
-            "Bard",
+            "Ninja",
             self.player_id,
             self.crt,
             self.dh,
@@ -68,7 +68,7 @@ class TestBardActions:
             pet_ids=self.pet_ids,
         )
 
-        self.brd_analysis_7_05 = PhysicalRanged(
+        self.nin_analysis_7_05 = Melee(
             self.main_stat,
             self.det,
             self.speed,
@@ -76,46 +76,53 @@ class TestBardActions:
             self.dh,
             self.wd,
             self.delay,
+            "Ninja",
             self.pet_attack_power,
             level=self.level,
         )
         # self.black_cat_ast.attach_rotation(self.black_cat_rotation.rotation_df, self.t)
 
     @pytest.fixture
-    def expected_brd_7_05_action_counts(self) -> pd.DataFrame:
+    def expected_sam_7_05_action_counts(self) -> pd.DataFrame:
         """Fixture providing expected action count data."""
         return (
             pd.DataFrame(
                 [
-                    {"base_action": "Burst Shot", "n": 96},
-                    {"base_action": "Refulgent Arrow", "n": 41},
-                    {"base_action": "Heartbreak Shot", "n": 50},
-                    {"base_action": "Shot", "n": 133},
-                    {"base_action": "Pitch Perfect", "n": 19},
-                    {"base_action": "Empyreal Arrow", "n": 26},
-                    {"base_action": "Blast Arrow", "n": 6},
-                    {"base_action": "Radiant Encore", "n": 4},
-                    {"base_action": "Apex Arrow", "n": 6},
-                    {"base_action": "Resonant Arrow", "n": 4},
-                    {"base_action": "Stormbite (tick)", "n": 129},
-                    {"base_action": "Sidewinder", "n": 7},
-                    {"base_action": "Caustic Bite (tick)", "n": 128},
-                    {"base_action": "Iron Jaws", "n": 10},
-                    {"base_action": "Caustic Bite", "n": 1},
-                    {"base_action": "Stormbite", "n": 1},
+                    {"base_action": "Attack", "n": 167},
+                    {"base_action": "Spinning Edge", "n": 38},
+                    {"base_action": "Gust Slash", "n": 37},
+                    {"base_action": "Aeolian Edge", "n": 26},
+                    {"base_action": "Bhavacakra", "n": 22},
+                    {"base_action": "Dream Within a Dream", "n": 21},
+                    {"base_action": "Fleeting Raiju", "n": 18},
+                    {"base_action": "Raiton", "n": 18},
+                    {"base_action": "Armor Crush", "n": 13},
+                    {"base_action": "Fleeting Raiju (Pet)", "n": 11},
+                    {"base_action": "Hyosho Ranryu", "n": 7},
+                    {"base_action": "Kunai's Bane", "n": 7},
+                    {"base_action": "Suiton", "n": 11},
+                    {"base_action": "Tenri Jindo", "n": 4},
+                    {"base_action": "Zesho Meppo", "n": 4},
+                    {"base_action": "Fuma Shuriken", "n": 4},
+                    {"base_action": "Dokumori", "n": 4},
+                    {"base_action": "Phantom Kamaitachi (Pet)", "n": 3},
+                    {"base_action": "Aeolian Edge (Pet)", "n": 3},
+                    {"base_action": "Gust Slash (Pet)", "n": 3},
+                    {"base_action": "Spinning Edge (Pet)", "n": 2},
+                    {"base_action": "Armor Crush (Pet)", "n": 1},
                 ]
             )
             .sort_values(["n", "base_action"], ascending=[False, True])
             .reset_index(drop=True)
         )
 
-    def test_brd_7_05_action_counts(
-        self, expected_brd_7_05_action_counts: pd.DataFrame
+    def test_nin_7_05_action_counts(
+        self, expected_sam_7_05_action_counts: pd.DataFrame
     ):
         """Test that action counts match expected values for Black Cat log."""
         # Arrange
         actual_counts = (
-            self.brd_rotation_7_05.rotation_df.groupby("base_action")
+            self.nin_rotation_7_05.rotation_df.groupby("base_action")
             .sum("n")
             .reset_index()[["base_action", "n"]]
             .sort_values(["n", "base_action"], ascending=[False, True])
@@ -123,4 +130,4 @@ class TestBardActions:
         )
 
         # Assert
-        assert_frame_equal(actual_counts, expected_brd_7_05_action_counts)
+        assert_frame_equal(actual_counts, expected_sam_7_05_action_counts)

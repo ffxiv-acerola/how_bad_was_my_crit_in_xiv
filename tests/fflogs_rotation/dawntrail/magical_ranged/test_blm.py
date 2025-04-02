@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from ffxiv_stats.jobs import MagicalRanged
 from pandas.testing import assert_frame_equal
 
 from crit_app.job_data.encounter_data import encounter_phases
@@ -13,44 +14,43 @@ from fflogs_rotation.job_data.data import (
 )
 from fflogs_rotation.rotation import RotationTable
 from fflogs_rotation.tests.config import headers
-from ffxiv_stats.jobs import Healer
 
 
-class TestSageActions:
-    """Tests for Sage job actions and rotations.
+class TestBlackMageActions:
+    """Tests for Black Mage job actions and rotations.
 
-    Based off m2s
-    https://www.fflogs.com/reports/Nj9P7gHwM6C1KAtQ?fight=18
+    Based off
+    https://www.fflogs.com/reports/yWvADHcK8XJCj4pF?fight=19
     """
 
     def setup_method(self):
         """Setup method to initialize common variables and RotationTable."""
-        self.report_id = "Nj9P7gHwM6C1KAtQ"
-        self.fight_id = 18
+        self.report_id = "yWvADHcK8XJCj4pF"
+        self.fight_id = 19
         self.level = 100
         self.phase = 0
-        self.player_id = 16
+        self.player_id = 104
         self.pet_ids = None
 
-        self.main_stat = 5394 - 392  # potion up
+        self.main_stat = 5126
         self.pet_attack_power = self.main_stat // 1.05
-        self.det = 2845
-        self.speed = 420
+        self.det = 1572
+        self.speed = 1047
 
-        self.crt = 3160
-        self.dh = 1374
+        self.crt = 3321
+        self.dh = 1882
         self.wd = 146
 
-        self.delay = 2.8
+        self.delay = 3.28
         self.medication = 392
 
-        self.t = 503
+        self.t = 432
 
-        self.sge_rotation_7_05 = RotationTable(
+        self.blm_rotation_7_05 = RotationTable(
             headers,
             self.report_id,
             self.fight_id,
-            "Sage",
+            "BlackMage",
             self.player_id,
             self.crt,
             self.dh,
@@ -68,7 +68,7 @@ class TestSageActions:
             pet_ids=self.pet_ids,
         )
 
-        self.sge_analysis_7_05 = Healer(
+        self.blm_analysis_7_05 = MagicalRanged(
             self.main_stat,
             400,
             self.det,
@@ -83,30 +83,34 @@ class TestSageActions:
         # self.black_cat_ast.attach_rotation(self.black_cat_rotation.rotation_df, self.t)
 
     @pytest.fixture
-    def expected_sge_7_05_action_counts(self) -> pd.DataFrame:
+    def expected_blm_7_05_action_counts(self) -> pd.DataFrame:
         """Fixture providing expected action count data."""
         return (
             pd.DataFrame(
                 [
-                    {"base_action": "Dosis III", "n": 164},
-                    {"base_action": "Eukrasian Dosis III (tick)", "n": 166},
-                    {"base_action": "Phlegma III", "n": 14},
-                    {"base_action": "Psyche", "n": 9},
-                    {"base_action": "Pneuma", "n": 4},
-                    {"base_action": "Toxikon II", "n": 1},
+                    {"base_action": "Fire IV", "n": 73},
+                    {"base_action": "Paradox", "n": 20},
+                    {"base_action": "Xenoglossy", "n": 18},
+                    {"base_action": "High Thunder", "n": 15},
+                    {"base_action": "Despair", "n": 13},
+                    {"base_action": "Flare Star", "n": 11},
+                    {"base_action": "Fire III", "n": 10},
+                    {"base_action": "Blizzard IV", "n": 8},
+                    {"base_action": "Blizzard III", "n": 8},
+                    {"base_action": "High Thunder (tick)", "n": 143},
                 ]
             )
             .sort_values(["n", "base_action"], ascending=[False, True])
             .reset_index(drop=True)
         )
 
-    def test_sge_7_05_action_counts(
-        self, expected_sge_7_05_action_counts: pd.DataFrame
+    def test_blm_7_05_action_counts(
+        self, expected_blm_7_05_action_counts: pd.DataFrame
     ):
-        """Test that action counts match expected values against FFLogs."""
+        """Test that action counts match expected values for 7.05 log."""
         # Arrange
         actual_counts = (
-            self.sge_rotation_7_05.rotation_df.groupby("base_action")
+            self.blm_rotation_7_05.rotation_df.groupby("base_action")
             .sum("n")
             .reset_index()[["base_action", "n"]]
             .sort_values(["n", "base_action"], ascending=[False, True])
@@ -114,4 +118,4 @@ class TestSageActions:
         )
 
         # Assert
-        assert_frame_equal(actual_counts, expected_sge_7_05_action_counts)
+        assert_frame_equal(actual_counts, expected_blm_7_05_action_counts)

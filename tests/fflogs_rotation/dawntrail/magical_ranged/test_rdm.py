@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from ffxiv_stats.jobs import MagicalRanged
 from pandas.testing import assert_frame_equal
 
 from crit_app.job_data.encounter_data import encounter_phases
@@ -13,44 +14,42 @@ from fflogs_rotation.job_data.data import (
 )
 from fflogs_rotation.rotation import RotationTable
 from fflogs_rotation.tests.config import headers
-from ffxiv_stats.jobs import Melee
 
 
-class TestDragoonActions:
-    """Tests for Dragoon job actions and rotations.
+class TestRedMageActions:
+    """Tests for Red Mage job actions and rotations.
 
-    Eepy Oinkers m3s kill
-    https://www.fflogs.com/reports/Fqar3gDdAK79bMWx?fight=10
+    Based off https://www.fflogs.com/reports/bXCKzB4DYgN6jfVr?fight=7
     """
 
     def setup_method(self):
         """Setup method to initialize common variables and RotationTable."""
-        self.report_id = "Fqar3gDdAK79bMWx"
-        self.fight_id = 10
+        self.report_id = "bXCKzB4DYgN6jfVr"
+        self.fight_id = 7
         self.level = 100
         self.phase = 0
         self.player_id = 2
         self.pet_ids = None
 
-        self.main_stat = 5130
+        self.main_stat = 5127
         self.pet_attack_power = self.main_stat // 1.05
-        self.det = 2150
-        self.speed = 420
+        self.det = 2108
+        self.speed = 474
 
-        self.crt = 3120
-        self.dh = 2132
+        self.crt = 3061
+        self.dh = 2179
         self.wd = 146
 
-        self.delay = 2.80
+        self.delay = 3.44
         self.medication = 392
 
-        self.t = 507
+        self.t = 545
 
-        self.drg_rotation_7_05 = RotationTable(
+        self.rdm_rotation_7_05 = RotationTable(
             headers,
             self.report_id,
             self.fight_id,
-            "Dragoon",
+            "RedMage",
             self.player_id,
             self.crt,
             self.dh,
@@ -68,59 +67,59 @@ class TestDragoonActions:
             pet_ids=self.pet_ids,
         )
 
-        self.drg_analysis_7_05 = Melee(
+        self.rdm_analysis_7_05 = MagicalRanged(
             self.main_stat,
+            400,
             self.det,
             self.speed,
             self.crt,
             self.dh,
             self.wd,
             self.delay,
-            "Dragoon",
             self.pet_attack_power,
             level=self.level,
         )
         # self.black_cat_ast.attach_rotation(self.black_cat_rotation.rotation_df, self.t)
 
     @pytest.fixture
-    def expected_drg_7_05_action_counts(self) -> pd.DataFrame:
+    def expected_rdm_7_05_action_counts(self) -> pd.DataFrame:
         """Fixture providing expected action count data."""
         return (
             pd.DataFrame(
                 [
-                    {"base_action": "Drakesbane", "n": 40},
-                    {"base_action": "Attack", "n": 178},
-                    {"base_action": "Nastrond", "n": 27},
-                    {"base_action": "Raiden Thrust", "n": 40},
-                    {"base_action": "Starcross", "n": 9},
-                    {"base_action": "Heavens' Thrust", "n": 20},
-                    {"base_action": "Stardiver", "n": 9},
-                    {"base_action": "Wyrmwind Thrust", "n": 19},
-                    {"base_action": "Chaotic Spring (tick)", "n": 159},
-                    {"base_action": "High Jump", "n": 17},
-                    {"base_action": "Lance Barrage", "n": 20},
-                    {"base_action": "Chaotic Spring", "n": 20},
-                    {"base_action": "Wheeling Thrust", "n": 20},
-                    {"base_action": "Fang and Claw", "n": 20},
-                    {"base_action": "Spiral Blow", "n": 20},
-                    {"base_action": "Rise of the Dragon", "n": 5},
-                    {"base_action": "Dragonfire Dive", "n": 5},
-                    {"base_action": "Mirage Dive", "n": 17},
-                    {"base_action": "Geirskogul", "n": 9},
-                    {"base_action": "True Thrust", "n": 1},
+                    {"base_action": "Veraero III", "n": 39},
+                    {"base_action": "Verthunder III", "n": 34},
+                    {"base_action": "Verfire", "n": 24},
+                    {"base_action": "Fleche", "n": 22},
+                    {"base_action": "Verstone", "n": 20},
+                    {"base_action": "Engagement", "n": 17},
+                    {"base_action": "Resolution", "n": 16},
+                    {"base_action": "Scorch", "n": 16},
+                    {"base_action": "Enchanted Redoublement", "n": 16},
+                    {"base_action": "Contre Sixte", "n": 16},
+                    {"base_action": "Enchanted Zwerchhau", "n": 16},
+                    {"base_action": "Enchanted Riposte", "n": 16},
+                    {"base_action": "Corps-a-Corps", "n": 16},
+                    {"base_action": "Grand Impact", "n": 11},
+                    {"base_action": "Verflare", "n": 8},
+                    {"base_action": "Verholy", "n": 8},
+                    {"base_action": "Prefulgence", "n": 5},
+                    {"base_action": "Vice of Thorns", "n": 5},
+                    {"base_action": "Enchanted Reprise", "n": 5},
+                    {"base_action": "Jolt III", "n": 5},
                 ]
             )
             .sort_values(["n", "base_action"], ascending=[False, True])
             .reset_index(drop=True)
         )
 
-    def test_drg_7_05_action_counts(
-        self, expected_drg_7_05_action_counts: pd.DataFrame
+    def test_rdm_7_05_action_counts(
+        self, expected_rdm_7_05_action_counts: pd.DataFrame
     ):
-        """Test that action counts match expected values against FFLogs aggregation."""
+        """Test that action counts match expected values for 7.05 log."""
         # Arrange
         actual_counts = (
-            self.drg_rotation_7_05.rotation_df.groupby("base_action")
+            self.rdm_rotation_7_05.rotation_df.groupby("base_action")
             .sum("n")
             .reset_index()[["base_action", "n"]]
             .sort_values(["n", "base_action"], ascending=[False, True])
@@ -128,4 +127,4 @@ class TestDragoonActions:
         )
 
         # Assert
-        assert_frame_equal(actual_counts, expected_drg_7_05_action_counts)
+        assert_frame_equal(actual_counts, expected_rdm_7_05_action_counts)

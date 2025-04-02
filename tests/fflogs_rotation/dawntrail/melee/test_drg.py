@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from ffxiv_stats.jobs import Melee
 from pandas.testing import assert_frame_equal
 
 from crit_app.job_data.encounter_data import encounter_phases
@@ -13,43 +14,43 @@ from fflogs_rotation.job_data.data import (
 )
 from fflogs_rotation.rotation import RotationTable
 from fflogs_rotation.tests.config import headers
-from ffxiv_stats.jobs import Melee
 
 
-class TestReaperActions:
-    """Tests for Reaper job actions and rotations.
+class TestDragoonActions:
+    """Tests for Dragoon job actions and rotations.
 
-    Based off https://www.fflogs.com/reports/tGJzXfrxPjNwWB9p?fight=12
+    Eepy Oinkers m3s kill
+    https://www.fflogs.com/reports/Fqar3gDdAK79bMWx?fight=10
     """
 
     def setup_method(self):
         """Setup method to initialize common variables and RotationTable."""
-        self.report_id = "tGJzXfrxPjNwWB9p"
-        self.fight_id = 12
+        self.report_id = "Fqar3gDdAK79bMWx"
+        self.fight_id = 10
         self.level = 100
         self.phase = 0
-        self.player_id = 6
+        self.player_id = 2
         self.pet_ids = None
 
-        self.main_stat = 5129
+        self.main_stat = 5130
         self.pet_attack_power = self.main_stat // 1.05
-        self.det = 2258
+        self.det = 2150
         self.speed = 420
 
-        self.crt = 1320
-        self.dh = 2024
+        self.crt = 3120
+        self.dh = 2132
         self.wd = 146
 
-        self.delay = 3.2
+        self.delay = 2.80
         self.medication = 392
 
-        self.t = 401
+        self.t = 507
 
-        self.rpr_rotation_7_05 = RotationTable(
+        self.drg_rotation_7_05 = RotationTable(
             headers,
             self.report_id,
             self.fight_id,
-            "Reaper",
+            "Dragoon",
             self.player_id,
             self.crt,
             self.dh,
@@ -67,7 +68,7 @@ class TestReaperActions:
             pet_ids=self.pet_ids,
         )
 
-        self.rpr_analysis_7_05 = Melee(
+        self.drg_analysis_7_05 = Melee(
             self.main_stat,
             self.det,
             self.speed,
@@ -75,53 +76,51 @@ class TestReaperActions:
             self.dh,
             self.wd,
             self.delay,
-            "Reaper",
+            "Dragoon",
             self.pet_attack_power,
             level=self.level,
         )
         # self.black_cat_ast.attach_rotation(self.black_cat_rotation.rotation_df, self.t)
 
     @pytest.fixture
-    def expected_rpr_7_05_action_counts(self) -> pd.DataFrame:
+    def expected_drg_7_05_action_counts(self) -> pd.DataFrame:
         """Fixture providing expected action count data."""
         return (
             pd.DataFrame(
                 [
-                    {"base_action": "Attack", "n": 121},
-                    {"base_action": "Cross Reaping", "n": 20},
-                    {"base_action": "Void Reaping", "n": 20},
-                    {"base_action": "Lemure's Slice", "n": 20},
-                    {"base_action": "Infernal Slice", "n": 18},
-                    {"base_action": "Waxing Slice", "n": 18},
-                    {"base_action": "Slice", "n": 18},
-                    {"base_action": "Soul Slice", "n": 15},
-                    {"base_action": "Shadow of Death", "n": 14},
-                    {"base_action": "Communio", "n": 10},
-                    {"base_action": "Sacrificium", "n": 10},
-                    {"base_action": "Unveiled Gallows", "n": 10},
-                    {"base_action": "Gibbet", "n": 9},
-                    {"base_action": "Gallows", "n": 9},
-                    {"base_action": "Unveiled Gibbet", "n": 9},
-                    {"base_action": "Executioner's Gibbet", "n": 7},
-                    {"base_action": "Executioner's Gallows", "n": 7},
-                    {"base_action": "Gluttony", "n": 7},
-                    {"base_action": "Perfectio", "n": 4},
-                    {"base_action": "Plentiful Harvest", "n": 4},
-                    {"base_action": "Harvest Moon", "n": 1},
-                    {"base_action": "Harpe", "n": 1},
+                    {"base_action": "Drakesbane", "n": 40},
+                    {"base_action": "Attack", "n": 178},
+                    {"base_action": "Nastrond", "n": 27},
+                    {"base_action": "Raiden Thrust", "n": 40},
+                    {"base_action": "Starcross", "n": 9},
+                    {"base_action": "Heavens' Thrust", "n": 20},
+                    {"base_action": "Stardiver", "n": 9},
+                    {"base_action": "Wyrmwind Thrust", "n": 19},
+                    {"base_action": "Chaotic Spring (tick)", "n": 159},
+                    {"base_action": "High Jump", "n": 17},
+                    {"base_action": "Lance Barrage", "n": 20},
+                    {"base_action": "Chaotic Spring", "n": 20},
+                    {"base_action": "Wheeling Thrust", "n": 20},
+                    {"base_action": "Fang and Claw", "n": 20},
+                    {"base_action": "Spiral Blow", "n": 20},
+                    {"base_action": "Rise of the Dragon", "n": 5},
+                    {"base_action": "Dragonfire Dive", "n": 5},
+                    {"base_action": "Mirage Dive", "n": 17},
+                    {"base_action": "Geirskogul", "n": 9},
+                    {"base_action": "True Thrust", "n": 1},
                 ]
             )
             .sort_values(["n", "base_action"], ascending=[False, True])
             .reset_index(drop=True)
         )
 
-    def test_rpr_7_05_action_counts(
-        self, expected_rpr_7_05_action_counts: pd.DataFrame
+    def test_drg_7_05_action_counts(
+        self, expected_drg_7_05_action_counts: pd.DataFrame
     ):
         """Test that action counts match expected values against FFLogs aggregation."""
         # Arrange
         actual_counts = (
-            self.rpr_rotation_7_05.rotation_df.groupby("base_action")
+            self.drg_rotation_7_05.rotation_df.groupby("base_action")
             .sum("n")
             .reset_index()[["base_action", "n"]]
             .sort_values(["n", "base_action"], ascending=[False, True])
@@ -129,4 +128,4 @@ class TestReaperActions:
         )
 
         # Assert
-        assert_frame_equal(actual_counts, expected_rpr_7_05_action_counts)
+        assert_frame_equal(actual_counts, expected_drg_7_05_action_counts)

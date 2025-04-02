@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from ffxiv_stats.jobs import Tank
 from pandas.testing import assert_frame_equal
 
 from crit_app.job_data.encounter_data import encounter_phases
@@ -13,7 +14,6 @@ from fflogs_rotation.job_data.data import (
 )
 from fflogs_rotation.rotation import RotationTable
 from fflogs_rotation.tests.config import headers
-from ffxiv_stats.jobs import Tank
 
 
 class TestDarkKnightActions:
