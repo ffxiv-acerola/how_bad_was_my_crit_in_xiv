@@ -25,6 +25,8 @@ class ReaperActions(BuffQuery):
         enhanced_void_reaping_id: int = 1002590,
         immortal_sacrifice_id: int = 1002592,
     ) -> None:
+        super().__init__()
+
         self.report_id = report_id
         self.fight_id = fight_id
         self.player_id = player_id
@@ -44,7 +46,13 @@ class ReaperActions(BuffQuery):
         self.enhanced_void_reaping_id = enhanced_void_reaping_id
         self.immortal_sacrifice_id = immortal_sacrifice_id
 
-        self.set_enhanced_times(headers)
+        (
+            self.enhanced_cross_reaping_times,
+            self.enhanced_gallows_times,
+            self.enhanced_gibbet_times,
+            self.enhanced_void_reaping_times,
+            self.immortal_sacrifice_times,
+        ) = self.set_enhanced_times(headers)
         pass
 
     def set_enhanced_times(self, headers: Dict[str, str]) -> None:
@@ -119,46 +127,61 @@ class ReaperActions(BuffQuery):
             "immortalSacrificeID": self.immortal_sacrifice_id,
         }
 
-        self._perform_graph_ql_query(headers, query, variables, "reaperEnhanced")
-        self.enhanced_cross_reaping_times = self._get_buff_times("enhancedCrossReaping")
-        self.enhanced_gallows_times = self._get_buff_times("enhancedGallows")
-        self.enhanced_gibbet_times = self._get_buff_times("enhancedGibbet")
-        self.enhanced_void_reaping_times = self._get_buff_times("enhancedVoidReaping")
+        rpr_buff_response = self.gql_query(headers, query, variables, "reaperEnhanced")
+        # self._perform_graph_ql_query(headers, query, variables, "reaperEnhanced")
+        enhanced_cross_reaping_times = self._get_buff_times(
+            rpr_buff_response, "enhancedCrossReaping", add_report_start=True
+        )
+        enhanced_gallows_times = self._get_buff_times(
+            rpr_buff_response, "enhancedGallows", add_report_start=True
+        )
+        enhanced_gibbet_times = self._get_buff_times(
+            rpr_buff_response, "enhancedGibbet", add_report_start=True
+        )
+        enhanced_void_reaping_times = self._get_buff_times(
+            rpr_buff_response, "enhancedVoidReaping", add_report_start=True
+        )
 
+        immortal_sacrifice_times = self._immortal_sacrifice_counter(rpr_buff_response)
+        return (
+            enhanced_cross_reaping_times,
+            enhanced_gallows_times,
+            enhanced_gibbet_times,
+            enhanced_void_reaping_times,
+            immortal_sacrifice_times,
+        )
+
+    def _immortal_sacrifice_counter(self, rpr_buff_response: pd.DataFrame):
         # Track immortal sacrifice stacks because sometimes dancer doesn't proc it.
-        self.immortal_sacrifice_times = pd.DataFrame(
-            self.request_response["data"]["reportData"]["report"]["immortalSacrifice"][
+        report_start = self._get_report_start_time(rpr_buff_response)
+        immortal_sacrifice_times = pd.DataFrame(
+            rpr_buff_response["data"]["reportData"]["report"]["immortalSacrifice"][
                 "data"
             ]
         )
-        self.immortal_sacrifice_times["prior_stacks"] = self.immortal_sacrifice_times[
+        immortal_sacrifice_times["prior_stacks"] = immortal_sacrifice_times[
             "stack"
         ].shift(1)
         # Get number of stacks
-        self.immortal_sacrifice_times = self.immortal_sacrifice_times[
-            self.immortal_sacrifice_times["type"].isin(["applybuff", "removebuff"])
+        immortal_sacrifice_times = immortal_sacrifice_times[
+            immortal_sacrifice_times["type"].isin(["applybuff", "removebuff"])
         ][["timestamp", "type", "stack", "prior_stacks"]]
 
         # Get time bands
-        self.immortal_sacrifice_times["prior_timestamp"] = (
-            self.immortal_sacrifice_times["timestamp"].shift(1)
-        )
+        immortal_sacrifice_times["prior_timestamp"] = immortal_sacrifice_times[
+            "timestamp"
+        ].shift(1)
 
-        self.immortal_sacrifice_times = self.immortal_sacrifice_times[
-            self.immortal_sacrifice_times["type"] == "removebuff"
+        immortal_sacrifice_times = immortal_sacrifice_times[
+            immortal_sacrifice_times["type"] == "removebuff"
         ][["prior_timestamp", "timestamp", "prior_stacks"]]
         # Absolute timing
-        self.immortal_sacrifice_times[["timestamp", "prior_timestamp"]] += (
-            self.report_start
-        )
-        self.immortal_sacrifice_times = self.immortal_sacrifice_times.fillna(
-            self.immortal_sacrifice_times["timestamp"].iloc[-1] + 30000
+        immortal_sacrifice_times[["timestamp", "prior_timestamp"]] += report_start
+        immortal_sacrifice_times = immortal_sacrifice_times.fillna(
+            immortal_sacrifice_times["timestamp"].iloc[-1] + 30000
         )
 
-        self.immortal_sacrifice_times = self.immortal_sacrifice_times.astype(
-            int
-        ).to_numpy()
-        pass
+        return immortal_sacrifice_times.astype(int).to_numpy()
 
     def apply_enhanced_buffs(self, actions_df: pd.DataFrame) -> pd.DataFrame:
         """

@@ -8,40 +8,20 @@ import requests
 from ffxiv_stats import Rate
 
 from fflogs_rotation.bard import BardActions
+from fflogs_rotation.base import FFLogsClient
 from fflogs_rotation.black_mage import BlackMageActions
+from fflogs_rotation.dark_knight import DarkKnightActions
 from fflogs_rotation.dragoon import DragoonActions
 from fflogs_rotation.job_data.game_data import patch_times
 from fflogs_rotation.machinist import MachinistActions
 from fflogs_rotation.monk import MonkActions
 from fflogs_rotation.ninja import NinjaActions
+from fflogs_rotation.paladin import PaladinActions
 from fflogs_rotation.reaper import ReaperActions
-from fflogs_rotation.rotation_jobs import (
-    DarkKnightActions,
-    PaladinActions,
-    SamuraiActions,
-)
+from fflogs_rotation.samurai import SamuraiActions
 from fflogs_rotation.viper import ViperActions
 
 url = "https://www.fflogs.com/api/v2/client"
-
-
-class FFLogsClient(object):
-    """Responsible for FFLogs API calls."""
-
-    def __init__(self, api_url: str = "https://www.fflogs.com/api/v2/client"):
-        self.api_url = api_url
-
-    def gql_query(
-        self, headers, query: str, variables: dict, operation_name: str
-    ) -> dict:
-        json_payload = {
-            "query": query,
-            "variables": variables,
-            "operationName": operation_name,
-        }
-        response = requests.post(headers=headers, url=self.api_url, json=json_payload)
-        response.raise_for_status()
-        return response.json()
 
 
 class ActionTable(FFLogsClient):

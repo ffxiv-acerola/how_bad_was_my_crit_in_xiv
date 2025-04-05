@@ -1,5 +1,3 @@
-from typing import Dict, Set
-
 import numpy as np
 import pandas as pd
 
@@ -9,11 +7,11 @@ from fflogs_rotation.base import BuffQuery, disjunction
 class MachinistActions(BuffQuery):
     def __init__(
         self,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         report_id: str,
         fight_id: int,
         player_id: int,
-        weaponskill_ids: Set[int] = {
+        weaponskill_ids: set[int] = {
             7410,
             7411,
             7412,
@@ -28,7 +26,7 @@ class MachinistActions(BuffQuery):
             36982,
             36978,
         },
-        battery_gauge_amount: Dict[int, int] = {
+        battery_gauge_amount: dict[int, int] = {
             7413: 10,
             16500: 20,
             25788: 20,
@@ -42,15 +40,17 @@ class MachinistActions(BuffQuery):
         Initialize the MachinistActions class.
 
         Parameters:
-        headers (Dict[str, str]): Headers for the GraphQL query.
+        headers (dict[str, str]): Headers for the GraphQL query.
         report_id (str): Report ID for the fight.
         fight_id (int): Fight ID.
         player_id (int): Player ID.
         weaponskill_ids (Set[int]): Set of weaponskill IDs.
-        battery_gauge_amount (Dict[int, int]): Dictionary mapping ability IDs to battery gauge amounts.
+        battery_gauge_amount (dict[int, int]): dictionary mapping ability IDs to battery gauge amounts.
         wildfire_id (int): Wildfire ability ID.
         queen_automaton_id (int): Queen Automaton ability ID.
         """
+        super().__init__()
+
         self.report_id = report_id
         self.fight_id = fight_id
         self.player_id = player_id
@@ -68,7 +68,7 @@ class MachinistActions(BuffQuery):
             16501: "Automaton Queen",
         }
 
-        self._set_wildfire_timings(headers)
+        self.wildfire_times = self.get_wildfire_timings(headers)
         self.battery_gauge_actions = self._set_battery_gauge_actions(headers)
 
         self.queen_battery_levels = self._compute_battery_gauge_amounts(
@@ -78,15 +78,19 @@ class MachinistActions(BuffQuery):
             self.queen_battery_levels
         )
 
-    # Query wildfire and queen bands
-    def _query_wildfire_bands(self, headers: Dict[str, str]):
+    def get_wildfire_timings(self, headers: dict[str, str]) -> None:
+        """
+        Set the timings for Wildfire and Queen Automaton based on the provided headers.
+
+        Parameters:
+            headers (dict[str, str]): Headers for the GraphQL query.
+        """
         query = """
-                query QueenWildfire(
+                query machinistBuffs(
                     $code: String!
                     $id: [Int]!
                     $playerID: Int!
                     $wildfireID: Float!
-                    $queenAutomatonID: Float!
                 ) {
                     reportData {
                         report(code: $code) {
@@ -106,12 +110,14 @@ class MachinistActions(BuffQuery):
             "id": [self.fight_id],
             "playerID": self.player_id,
             "wildfireID": self.wildfire_id,
-            # "queenAutomatonID": self.queen_automaton_id,
         }
 
-        return self.gql_query(headers, query, variables, "QueenWildfire")
+        wildfire_response = self.gql_query(headers, query, variables, "machinistBuffs")
+        return self._get_buff_times(
+            wildfire_response, "wildfire", add_report_start=True
+        )
 
-    def _query_battery_actions(self, headers: Dict[str, str]):
+    def _query_battery_actions(self, headers: dict[str, str]):
         query = """
         query MachinistBatteryCasts(
             $code: String!
@@ -204,7 +210,7 @@ class MachinistActions(BuffQuery):
 
         return df
 
-    def _set_battery_gauge_actions(self, headers: Dict[str, str]) -> None:
+    def _set_battery_gauge_actions(self, headers: dict[str, str]) -> None:
         battery_actions = self._query_battery_actions(headers)
         start_time = battery_actions["data"]["reportData"]["report"].pop("startTime")
         self.start_time = start_time
@@ -220,44 +226,6 @@ class MachinistActions(BuffQuery):
             self.battery_gauge_id_map
         )
         return battery_df
-
-    def _set_wildfire_timings(self, headers: Dict[str, str]) -> None:
-        """
-        Set the timings for Wildfire and Queen Automaton based on the provided headers.
-
-        Parameters:
-            headers (Dict[str, str]): Headers for the GraphQL query.
-        """
-        query = """
-                query machinistBuffs(
-                    $code: String!
-                    $id: [Int]!
-                    $playerID: Int!
-                    $wildfireID: Float!
-                ) {
-                    reportData {
-                        report(code: $code) {
-                            startTime
-                            wildfire: table(
-                                fightIDs: $id
-                                dataType: Buffs
-                                sourceID: $playerID
-                                abilityID: $wildfireID
-                            )
-                        }
-                    }
-                }
-        """
-        variables = {
-            "code": self.report_id,
-            "id": [self.fight_id],
-            "playerID": self.player_id,
-            "wildfireID": self.wildfire_id,
-            # "queenAutomatonID": self.queen_automaton_id,
-        }
-
-        self._perform_graph_ql_query(headers, query, variables, "machinistBuffs")
-        self.wildfire_times = self._get_buff_times("wildfire")
 
     def _compute_battery_gauge_amounts(
         self, battery_gauge_df: pd.DataFrame

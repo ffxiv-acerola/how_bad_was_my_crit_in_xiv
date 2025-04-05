@@ -15,6 +15,8 @@ class BardActions(BuffQuery):
         burst_shot_id: int = 16495,
         radiant_encore_id: int = 36977,
     ) -> None:
+        super().__init__()
+
         self.pitch_perfect_potencies = pitch_perfect_potencies
         self.burst_shot_potency = burst_shot_potency
 

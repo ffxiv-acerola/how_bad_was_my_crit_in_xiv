@@ -6,6 +6,9 @@ import numpy as np
 import pandas as pd
 import requests
 
+# from fflogs_rotation.rotation import FFLogsClient
+
+
 url = "https://www.fflogs.com/api/v2/client"
 
 
@@ -17,7 +20,26 @@ def disjunction(*conditions):
     return reduce(np.logical_or, conditions)
 
 
-class BuffQuery(object):
+class FFLogsClient(object):
+    """Responsible for FFLogs API calls."""
+
+    def __init__(self, api_url: str = "https://www.fflogs.com/api/v2/client"):
+        self.api_url = api_url
+
+    def gql_query(
+        self, headers, query: str, variables: dict, operation_name: str
+    ) -> dict:
+        json_payload = {
+            "query": query,
+            "variables": variables,
+            "operationName": operation_name,
+        }
+        response = requests.post(headers=headers, url=self.api_url, json=json_payload)
+        response.raise_for_status()
+        return response.json()
+
+
+class BuffQuery(FFLogsClient):
     """
     Helper class to perform GraphQL queries, get buff timings, and apply buffs to actions.
 
@@ -25,23 +47,24 @@ class BuffQuery(object):
     """
 
     def __init__(self, api_url: str = "https://www.fflogs.com/api/v2/client") -> None:
+        super().__init__()
         self.api_url = api_url
-        self.report_start: int = 0
-        self.request_response: Dict[str, Any] = {}
+        # self.report_start: int = 0
+        # self.request_response: Dict[str, Any] = {}
 
-    def gql_query(self, headers, query, variables, operation_name):
-        json_payload = {
-            "query": query,
-            "variables": variables,
-            "operationName": operation_name,
-        }
-        response = requests.post(
-            headers=headers,
-            url="https://www.fflogs.com/api/v2/client",
-            json=json_payload,
-        )
-        response.raise_for_status()
-        return response.json()
+    # def gql_query(self, headers, query, variables, operation_name):
+    #     json_payload = {
+    #         "query": query,
+    #         "variables": variables,
+    #         "operationName": operation_name,
+    #     }
+    #     response = requests.post(
+    #         headers=headers,
+    #         url="https://www.fflogs.com/api/v2/client",
+    #         json=json_payload,
+    #     )
+    #     response.raise_for_status()
+    #     return response.json()
 
     # FIXME: WTF was I thinking here
     def _perform_graph_ql_query(
@@ -76,16 +99,18 @@ class BuffQuery(object):
                 "startTime"
             ]
 
-    def _get_buff_times(self, buff_name: str, absolute_time: bool = True) -> np.ndarray:
+    def _get_buff_times_old(
+        self, buff_name: str, absolute_time: bool = True
+    ) -> np.ndarray:
         """
-        Get buff duration intervals from API response.
+        Get buff application timing windows.
 
         Args:
-            buff_name: Name of buff in API response
-            absolute_time: Whether to convert to absolute timestamps
+            buff_name: Name of buff to get timings for
+            absolute_time: If True, add report start time to values
 
         Returns:
-            Array of [start_time, end_time] intervals
+            Array of buff timing windows [[start, end], ...]
         """
         aura = self.request_response["data"]["reportData"]["report"][buff_name]["data"][
             "auras"
@@ -95,7 +120,36 @@ class BuffQuery(object):
                 pd.DataFrame(aura[0]["bands"]) + (self.report_start * absolute_time)
             ).to_numpy()
         else:
-            return np.array([[0, 0]])
+            return np.array([[]])
+
+    def _get_buff_times(
+        self,
+        buff_response: dict[str, dict],
+        buff_name: str,
+        report_start: int = 0,
+        add_report_start: bool = True,
+    ) -> np.ndarray:
+        """
+        Get buff application timing windows.
+
+        Args:
+            buff_response: Request response containing aura bands.
+            buff_name: Name of buff to get timings for.
+            report_start: start time of the report, shifting aura bands to absolute time instead of relative.
+
+        Returns:
+            Array of buff timing windows [[start, end], ...]
+        """
+        if add_report_start:
+            report_start = buff_response["data"]["reportData"]["report"]["startTime"]
+        aura = buff_response["data"]["reportData"]["report"][buff_name]["data"]["auras"]
+        if len(aura) > 0:
+            return (pd.DataFrame(aura[0]["bands"]) + report_start).to_numpy()
+        else:
+            return np.array([[-1, -1]])
+
+    def _get_report_start_time(self, response: dict[str, dict]) -> int:
+        return response["data"]["reportData"]["report"]["startTime"]
 
     def _apply_buffs(
         self, actions_df: pd.DataFrame, condition: pd.Series, buff_id: Union[str, int]
