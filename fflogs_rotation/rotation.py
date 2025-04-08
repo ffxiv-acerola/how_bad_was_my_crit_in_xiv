@@ -4,7 +4,6 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-import requests
 from ffxiv_stats import Rate
 
 from fflogs_rotation.bard import BardActions
@@ -1151,9 +1150,9 @@ class ActionTable(FFLogsClient):
             )
             return actions_df
 
-        # Apply Groove buff, 5%
+        # Apply Groove buff, 3%
         if self.encounter_id == 97:
-            GROOVE_BUFF_STRENGTH = 1.05
+            GROOVE_BUFF_STRENGTH = 1.03
 
             query = """
             query groove(
