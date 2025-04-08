@@ -1,9 +1,11 @@
 import warnings
+from functools import reduce
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import requests
+from ffxiv_stats import Rate
 
 from fflogs_rotation.bard import BardActions
 from fflogs_rotation.black_mage import BlackMageActions
@@ -19,7 +21,6 @@ from fflogs_rotation.rotation_jobs import (
     SamuraiActions,
 )
 from fflogs_rotation.viper import ViperActions
-from ffxiv_stats import Rate
 
 url = "https://www.fflogs.com/api/v2/client"
 
@@ -124,7 +125,7 @@ class ActionTable(FFLogsClient):
         self.actions_df = self.create_action_df()
         # Apply job-specific mechanics
         self._apply_job_specifics(headers)
-
+        self._apply_encounter_specifics(headers)
         # Final cleanup of actions DataFrame
         # Remove unpaired actions, which still count towards gauge generation
         if "unpaired" in self.actions_df.columns:
@@ -1152,6 +1153,114 @@ class ActionTable(FFLogsClient):
             self.actions_df = self.actions_df[
                 self.actions_df["ability_name"].str.lower() != "attack"
             ]
+        self.actions_df = self.actions_df.reset_index(drop=True)
+
+    def _apply_encounter_specifics(self, headers: dict[str, str]) -> None:
+        def disjunction(*conditions):
+            return reduce(np.logical_or, conditions)
+
+        def _apply_buffs(actions_df, condition, buff_id):
+            actions_df.loc[condition, "buffs"] = actions_df.loc[
+                condition, "buffs"
+            ].apply(lambda x: x + [str(buff_id)])
+
+            actions_df["action_name"] = (
+                actions_df["action_name"].str.split("-").str[0]
+                + "-"
+                + actions_df["buffs"].sort_values().str.join("_")
+            )
+            return actions_df
+
+        # Apply Groove buff, 5%
+        if self.encounter_id == 97:
+            GROOVE_BUFF_STRENGTH = 1.05
+
+            query = """
+            query groove(
+                $code: String!
+                $id: [Int]!
+                ) {
+                reportData {
+                    report(code: $code) {
+                    startTime
+                    inTheGroove: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        abilityID: 1004464
+                    )
+                    }
+                }
+            }
+            """
+            variables = {"code": self.report_id, "id": [self.fight_id]}
+            response = self.gql_query(headers, query, variables, "groove")
+
+            df = pd.DataFrame(
+                response["data"]["reportData"]["report"]["inTheGroove"]["data"]["auras"]
+            )
+
+            # Set empty if no Perfect Groove buff
+            if df.empty:
+                player_buffs = pd.DataFrame()
+            else:
+                player_buffs = df[df["id"] == self.player_id]
+
+            # Set empty if no pets or no perfect groove buff
+            if (self.pet_ids is None) | (df.empty):
+                pet_buffs = pd.DataFrame()
+            else:
+                pet_buffs = df[df["id"].isin(self.pet_ids)]
+
+            if not player_buffs.empty:
+                player_buff_times = player_buffs.iloc[0]["bands"]
+                player_buff_times = (
+                    pd.DataFrame(player_buff_times).to_numpy() + self.report_start_time
+                )
+                groove_betweens = list(
+                    self.actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+                    for b in player_buff_times
+                )
+                groove_condition = (
+                    self.actions_df["sourceID"] == self.player_id
+                ) & disjunction(*groove_betweens)
+
+                # Update buff list and action name
+                self.actions_df = _apply_buffs(
+                    self.actions_df, groove_condition, "groove"
+                )
+                # Apply buff to multiplier
+                self.actions_df.loc[groove_condition, "multiplier"] *= (
+                    GROOVE_BUFF_STRENGTH
+                )
+                # TODO: snapshot dots
+
+            # Multiple pets (SMN) can get the buff
+            pet_buff_times_dict = {}
+            if not pet_buffs.empty:
+                for _, row in pet_buffs.iterrows():
+                    pet_id = row["id"]
+                    pet_buff_times_dict[pet_id] = (
+                        pd.DataFrame(row["bands"]).to_numpy() + self.report_start_time
+                    )
+                    groove_betweens = list(
+                        self.actions_df["timestamp"].between(
+                            b[0], b[1], inclusive="right"
+                        )
+                        for b in pet_buff_times_dict[pet_id]
+                    )
+                    groove_condition = (
+                        self.actions_df["sourceID"] == pet_id
+                    ) & disjunction(*groove_betweens)
+
+                    # Update buff list and action name
+                    self.actions_df = _apply_buffs(
+                        self.actions_df, groove_condition, "groove"
+                    )
+                    # Apply buff to multiplier
+                    self.actions_df.loc[groove_condition, "multiplier"] *= (
+                        GROOVE_BUFF_STRENGTH
+                    )
+        pass
 
 
 class RotationTable(ActionTable):
@@ -1929,10 +2038,10 @@ if __name__ == "__main__":
     RotationTable(
         # fflogs_client,
         headers,
-        "PtgXF1Q4j6K9wWnx",
+        "37RhavcnAxYrCBK1",
         7,
-        "BlackMage",
-        5,
+        "Summoner",
+        31,
         3174,
         1542,
         2310,
@@ -1946,5 +2055,5 @@ if __name__ == "__main__":
         guaranteed_hits_by_buff_table,
         potency_table,
         encounter_phases,
-        # [33],
+        pet_ids=[36, 35, 38, 34, 32, 37],
     )
