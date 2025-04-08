@@ -414,12 +414,11 @@ def party_fflogs_process(n_clicks, url, fflogs_data):
 
     report_id, fight_id, error_message = parse_fflogs_url(url)
 
-    if fight_id != "last":
-        fight_id = int(fight_id)
-
     if error_message != "":
         return tuple([error_message] + invalid_return)
 
+    if fight_id != "last":
+        fight_id = int(fight_id)
     (
         error_message,
         fight_id,
