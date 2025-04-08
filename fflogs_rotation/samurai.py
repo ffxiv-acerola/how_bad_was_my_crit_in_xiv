@@ -94,9 +94,6 @@ class SamuraiActions(BuffQuery):
             pd.DataFrame: Actions DataFrame with enhanced Enpi buff applied.
         """
 
-        if self.enhanced_enpi_times.size == 0:
-            return actions_df
-
         enhanced_enpi_betweens = list(
             actions_df["timestamp"].between(b[0], b[1], inclusive="right")
             for b in self.enhanced_enpi_times
