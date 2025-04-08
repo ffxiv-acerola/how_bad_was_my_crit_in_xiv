@@ -57,7 +57,11 @@ encounter_phases = {
         3: "P3: Oracle of Darkness",
         4: "P4: Enter the Dragon",
         5: "P5: Pandora",
-    }
+    },
+    100: {
+        1: "Phase 1",
+        2: "Phase 2",
+    },
 }
 
 # These phases have downtime between them, so a new t_clip needs to be found
