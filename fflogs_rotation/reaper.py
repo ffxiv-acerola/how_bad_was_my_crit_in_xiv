@@ -1,5 +1,6 @@
 from typing import Dict
 
+import numpy as np
 import pandas as pd
 
 from fflogs_rotation.base import BuffQuery, disjunction
@@ -142,6 +143,7 @@ class ReaperActions(BuffQuery):
             rpr_buff_response, "enhancedVoidReaping", add_report_start=True
         )
 
+        self.report_start = self._get_report_start_time(rpr_buff_response)
         immortal_sacrifice_times = self._immortal_sacrifice_counter(rpr_buff_response)
         return (
             enhanced_cross_reaping_times,
@@ -153,12 +155,15 @@ class ReaperActions(BuffQuery):
 
     def _immortal_sacrifice_counter(self, rpr_buff_response: pd.DataFrame):
         # Track immortal sacrifice stacks because sometimes dancer doesn't proc it.
-        report_start = self._get_report_start_time(rpr_buff_response)
+        # report_start = self._get_report_start_time(rpr_buff_response)
         immortal_sacrifice_times = pd.DataFrame(
             rpr_buff_response["data"]["reportData"]["report"]["immortalSacrifice"][
                 "data"
             ]
         )
+        if immortal_sacrifice_times.empty:
+            return np.array([[0, 0]])
+
         immortal_sacrifice_times["prior_stacks"] = immortal_sacrifice_times[
             "stack"
         ].shift(1)
@@ -176,7 +181,7 @@ class ReaperActions(BuffQuery):
             immortal_sacrifice_times["type"] == "removebuff"
         ][["prior_timestamp", "timestamp", "prior_stacks"]]
         # Absolute timing
-        immortal_sacrifice_times[["timestamp", "prior_timestamp"]] += report_start
+        immortal_sacrifice_times[["timestamp", "prior_timestamp"]] += self.report_start
         immortal_sacrifice_times = immortal_sacrifice_times.fillna(
             immortal_sacrifice_times["timestamp"].iloc[-1] + 30000
         )
