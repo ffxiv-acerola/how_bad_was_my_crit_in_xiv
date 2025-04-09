@@ -29,7 +29,7 @@ class DummyMachinistActions(MachinistActions):
         # For the purpose of testing _compute_battery_gauge_amounts, we only need battery_gauge_df.
 
     # Override remote methods if needed.
-    def _set_wildfire_timings(self, headers):
+    def get_wildfire_timings(self, headers):
         pass
 
     def _set_battery_gauge_actions(self, headers):
