@@ -327,12 +327,7 @@ def test_immortal_sacrifice_counter(
 
     result = reaper._immortal_sacrifice_counter(mock_response)
 
-    # For empty results, check the shape
-    if len(expected_result) == 0:
-        assert result.shape == (0, 3)
-        assert isinstance(result, np.ndarray)
-    else:
-        # For non-empty results, check the values
-        expected_array = np.array(expected_result)
-        assert result.shape == expected_array.shape
-        assert result.tolist() == expected_array.tolist()
+    # For non-empty results, check the values
+    expected_array = np.array(expected_result)
+    assert result.shape == expected_array.shape
+    assert result.tolist() == expected_array.tolist()
