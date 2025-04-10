@@ -1,0 +1,18 @@
+[
+    {"base_action": "Attack", "n": 51},
+    {"base_action": "Saber Dance", "n": 11},
+    {"base_action": "Last Dance", "n": 8},
+    {"base_action": "Double Standard Finish", "n": 6},
+    {"base_action": "Cascade", "n": 7},
+    {"base_action": "Fountainfall", "n": 6},
+    {"base_action": "Fan Dance III", "n": 6},
+    {"base_action": "Fountain", "n": 5},
+    {"base_action": "Reverse Cascade", "n": 4},
+    {"base_action": "Fan Dance", "n": 4},
+    {"base_action": "Finishing Move", "n": 3},
+    {"base_action": "Quadruple Technical Finish", "n": 3},
+    {"base_action": "Tillana", "n": 3},
+    {"base_action": "Fan Dance IV", "n": 3},
+    {"base_action": "Dance of the Dawn", "n": 2},
+    {"base_action": "Starfall Dance", "n": 2}
+]

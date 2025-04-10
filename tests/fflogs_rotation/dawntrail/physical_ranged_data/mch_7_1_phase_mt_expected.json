@@ -1,0 +1,20 @@
+[
+    {"base_action": "Shot", "n": 44},
+    {"base_action": "Checkmate", "n": 29},
+    {"base_action": "Double Check", "n": 27},
+    {"base_action": "Blazing Shot", "n": 20},
+    {"base_action": "Arm Punch (Pet)", "n": 11},
+    {"base_action": "Drill", "n": 7},
+    {"base_action": "Chain Saw", "n": 6},
+    {"base_action": "Excavator", "n": 6},
+    {"base_action": "Heated Clean Shot", "n": 5},
+    {"base_action": "Heated Split Shot", "n": 5},
+    {"base_action": "Full Metal Field", "n": 4},
+    {"base_action": "Air Anchor", "n": 4},
+    {"base_action": "Heated Slug Shot", "n": 4},
+    {"base_action": "Crowned Collider (Pet)", "n": 3},
+    {"base_action": "Pile Bunker (Pet)", "n": 3},
+    {"base_action": "Roller Dash (Pet)", "n": 2},
+    {"base_action": "Wildfire (tick)", "n": 1},
+    {"base_action": "Scattergun", "n": 1}
+]

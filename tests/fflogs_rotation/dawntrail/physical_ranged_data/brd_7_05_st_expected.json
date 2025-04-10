@@ -1,0 +1,18 @@
+[
+    {"base_action": "Burst Shot", "n": 96},
+    {"base_action": "Refulgent Arrow", "n": 41},
+    {"base_action": "Heartbreak Shot", "n": 50},
+    {"base_action": "Shot", "n": 133},
+    {"base_action": "Pitch Perfect", "n": 19},
+    {"base_action": "Empyreal Arrow", "n": 26},
+    {"base_action": "Blast Arrow", "n": 6},
+    {"base_action": "Radiant Encore", "n": 4},
+    {"base_action": "Apex Arrow", "n": 6},
+    {"base_action": "Resonant Arrow", "n": 4},
+    {"base_action": "Stormbite (tick)", "n": 129},
+    {"base_action": "Sidewinder", "n": 7},
+    {"base_action": "Caustic Bite (tick)", "n": 128},
+    {"base_action": "Iron Jaws", "n": 10},
+    {"base_action": "Caustic Bite", "n": 1},
+    {"base_action": "Stormbite", "n": 1}
+]

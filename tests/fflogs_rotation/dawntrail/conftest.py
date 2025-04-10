@@ -2,7 +2,9 @@ import json
 
 import pytest
 
+from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.dragoon import DragoonActions
+from fflogs_rotation.machinist import MachinistActions
 from fflogs_rotation.monk import MonkActions
 from fflogs_rotation.ninja import NinjaActions
 
@@ -63,6 +65,8 @@ def mock_gql_query_integration(monkeypatch, request):
         ReaperActions,
         SamuraiActions,
         ViperActions,
+        BlackMageActions,
+        MachinistActions,
     ]
 
     for job_class in job_action_classes:
