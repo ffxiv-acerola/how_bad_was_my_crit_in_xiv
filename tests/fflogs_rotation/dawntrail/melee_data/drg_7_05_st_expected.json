@@ -1,0 +1,22 @@
+[
+    {"base_action": "Drakesbane", "n": 40},
+    {"base_action": "Attack", "n": 178},
+    {"base_action": "Nastrond", "n": 27},
+    {"base_action": "Raiden Thrust", "n": 40},
+    {"base_action": "Starcross", "n": 9},
+    {"base_action": "Heavens' Thrust", "n": 20},
+    {"base_action": "Stardiver", "n": 9},
+    {"base_action": "Wyrmwind Thrust", "n": 19},
+    {"base_action": "Chaotic Spring (tick)", "n": 159},
+    {"base_action": "High Jump", "n": 17},
+    {"base_action": "Lance Barrage", "n": 20},
+    {"base_action": "Chaotic Spring", "n": 20},
+    {"base_action": "Wheeling Thrust", "n": 20},
+    {"base_action": "Fang and Claw", "n": 20},
+    {"base_action": "Spiral Blow", "n": 20},
+    {"base_action": "Rise of the Dragon", "n": 5},
+    {"base_action": "Dragonfire Dive", "n": 5},
+    {"base_action": "Mirage Dive", "n": 17},
+    {"base_action": "Geirskogul", "n": 9},
+    {"base_action": "True Thrust", "n": 1}
+]
