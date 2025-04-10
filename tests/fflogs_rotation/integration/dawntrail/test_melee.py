@@ -15,7 +15,7 @@ from fflogs_rotation.job_data.data import (
 )
 from fflogs_rotation.rotation import RotationTable
 
-data_path = Path("tests/fflogs_rotation/dawntrail/melee_data/")
+data_path = Path("tests/fflogs_rotation/integration/dawntrail/melee_data/")
 
 
 @pytest.mark.parametrize(

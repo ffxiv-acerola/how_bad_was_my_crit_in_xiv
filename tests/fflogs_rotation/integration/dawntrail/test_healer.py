@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
@@ -13,103 +15,105 @@ from fflogs_rotation.job_data.data import (
 )
 from fflogs_rotation.rotation import RotationTable
 
+data_path = Path("tests/fflogs_rotation/integration/dawntrail/healer_data/")
+
 
 @pytest.mark.parametrize(
     "mock_action_table_api_via_file, params",
     [
         (
-            "tests/fflogs_rotation/dawntrail/healer_data/ast_7_05_st.json",
+            data_path / "ast_7_05_st.json",
             {
                 "phase": 0,
                 "player_id": 8,
                 "pet_ids": [12],
                 "excluded_enemy_ids": None,
                 "job": "Astrologian",
-                "expected_output_file": "tests/fflogs_rotation/dawntrail/healer_data/ast_7_05_st_expected.json",
+                "expected_output_file": data_path / "ast_7_05_st_expected.json",
                 "log_url": "https://www.fflogs.com/reports/B3gxKdn4j1W8NML9#fight=3",
             },
         ),
         (
-            "tests/fflogs_rotation/dawntrail/healer_data/ast_7_1_phase_mt.json",
+            data_path / "ast_7_1_phase_mt.json",
             {
                 "phase": 2,
                 "player_id": 27,
                 "pet_ids": [30],
                 "excluded_enemy_ids": [52],
                 "job": "Astrologian",
-                "expected_output_file": "tests/fflogs_rotation/dawntrail/healer_data/ast_7_1_phase_mt_expected.json",
+                "expected_output_file": data_path / "ast_7_1_phase_mt_expected.json",
                 "log_url": "https://www.fflogs.com/reports/ZfnF8AqRaBbzxW3w?fight=5",
             },
         ),
         (
-            "tests/fflogs_rotation/dawntrail/healer_data/ast_7_1_phase_mt_2.json",
+            data_path / "ast_7_1_phase_mt_2.json",
             {
                 "phase": 4,
                 "player_id": 27,
                 "pet_ids": [30],
                 "excluded_enemy_ids": [52],
                 "job": "Astrologian",
-                "expected_output_file": "tests/fflogs_rotation/dawntrail/healer_data/ast_7_1_phase_mt_2_expected.json",
+                "expected_output_file": data_path / "ast_7_1_phase_mt_2_expected.json",
                 "log_url": "https://www.fflogs.com/reports/ZfnF8AqRaBbzxW3w?fight=5",
             },
         ),
         (
-            "tests/fflogs_rotation/dawntrail/healer_data/sch_7_05_st.json",
+            data_path / "sch_7_05_st.json",
             {
                 "phase": 0,
                 "player_id": 5,
                 "pet_ids": None,
                 "excluded_enemy_ids": None,
                 "job": "Scholar",
-                "expected_output_file": "tests/fflogs_rotation/dawntrail/healer_data/sch_7_05_st_expected.json",
+                "expected_output_file": data_path / "sch_7_05_st_expected.json",
                 "log_url": "https://www.fflogs.com/reports/B3gxKdn4j1W8NML9#fight=38",
             },
         ),
         (
-            "tests/fflogs_rotation/dawntrail/healer_data/sge_7_05_st.json",
+            data_path / "sge_7_05_st.json",
             {
                 "phase": 0,
                 "player_id": 16,
                 "pet_ids": None,
                 "excluded_enemy_ids": None,
                 "job": "Sage",
-                "expected_output_file": "tests/fflogs_rotation/dawntrail/healer_data/sge_7_05_st_expected.json",
+                "expected_output_file": data_path / "sge_7_05_st_expected.json",
                 "log_url": "https://www.fflogs.com/reports/Nj9P7gHwM6C1KAtQ?fight=18",
             },
         ),
         (
-            "tests/fflogs_rotation/dawntrail/healer_data/whm_7_05_st.json",
+            data_path / "whm_7_05_st.json",
             {
                 "phase": 0,
                 "player_id": 24,
                 "pet_ids": None,
                 "excluded_enemy_ids": None,
                 "job": "WhiteMage",
-                "expected_output_file": "tests/fflogs_rotation/dawntrail/healer_data/whm_7_05_st_expected.json",
+                "expected_output_file": data_path / "whm_7_05_st_expected.json",
                 "log_url": "https://www.fflogs.com/reports/8k7xvmRyg6AVMTW1?fight=12",
             },
         ),
         (
-            "tests/fflogs_rotation/dawntrail/healer_data/whm_7_1_mt_phase.json",
+            data_path / "whm_7_1_mt_phase.json",
             {
                 "phase": 2,
                 "player_id": 5,
                 "pet_ids": None,
                 "excluded_enemy_ids": [35],
                 "job": "WhiteMage",
-                "expected_output_file": "tests/fflogs_rotation/dawntrail/healer_data/whm_7_1_mt_phase_expected.json",
+                "expected_output_file": data_path / "whm_7_1_mt_phase_expected.json",
                 "log_url": "https://www.fflogs.com/reports/v2ZnTdW67wfXN3gQ?fight=11&type=damage-done&source=5",
             },
         ),
         (
-            "tests/fflogs_rotation/dawntrail/healer_data/whm_7_1_mt_phase.json",
+            data_path / "whm_7_1_mt_phase.json",
             {
                 "phase": 4,
                 "player_id": 5,
                 "pet_ids": None,
                 "excluded_enemy_ids": [35],
                 "job": "WhiteMage",
-                "expected_output_file": "tests/fflogs_rotation/dawntrail/healer_data/whm_7_1_mt_phase_expected.json",
+                "expected_output_file": data_path / "whm_7_1_mt_phase_expected.json",
                 "log_url": "https://www.fflogs.com/reports/v2ZnTdW67wfXN3gQ?fight=11&type=damage-done&source=5",
             },
         ),
