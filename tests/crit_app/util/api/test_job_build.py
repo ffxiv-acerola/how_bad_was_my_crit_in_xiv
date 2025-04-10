@@ -77,7 +77,7 @@ def test_parse_and_validate_xiv_gear_url(input_url, expected):
     "input_path, expected_build",
     [
         (
-            "crit_app/util/api/tests/test_data/xiv_gear_test_data.json",
+            "tests/crit_app/util/api/test_data/xiv_gear_test_data.json",
             (
                 "BRD",
                 "FRU + Chaotic BiS",
@@ -93,7 +93,7 @@ def test_parse_and_validate_xiv_gear_url(input_url, expected):
             ),
         ),
         (
-            "crit_app/util/api/tests/test_data/xiv_gear_test_data_2.json",
+            "tests/crit_app/util/api/test_data/xiv_gear_test_data_2.json",
             (
                 "PCT",
                 "2.50 FRU Weapon + Chaotic Legs",
@@ -109,7 +109,7 @@ def test_parse_and_validate_xiv_gear_url(input_url, expected):
             ),
         ),
         (
-            "crit_app/util/api/tests/test_data/xiv_gear_test_data_3.json",
+            "tests/crit_app/util/api/test_data/xiv_gear_test_data_3.json",
             (
                 "DRK",
                 "2.50 BiS Edenmorn",

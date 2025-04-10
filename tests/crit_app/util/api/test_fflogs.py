@@ -191,8 +191,8 @@ def test_encounter_query_fight_id_exists(response_dict, exists):
 @pytest.mark.parametrize(
     "test_data_path",
     [
-        "crit_app/util/api/tests/test_data/lb_filter_1.json",
-        "crit_app/util/api/tests/test_data/lb_filter_2.json",
+        "tests/crit_app/util/api/test_data/lb_filter_1.json",
+        "tests/crit_app/util/api/test_data/lb_filter_2.json",
     ],
 )
 def test_filter_unpaired_and_overkill_events(test_data_path):
