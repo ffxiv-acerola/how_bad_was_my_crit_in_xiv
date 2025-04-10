@@ -1,0 +1,16 @@
+[
+    {"base_action": "Attack", "n": 159},
+    {"base_action": "Fell Cleave", "n": 48},
+    {"base_action": "Heavy Swing", "n": 44},
+    {"base_action": "Maim", "n": 43},
+    {"base_action": "Storm's Path", "n": 27},
+    {"base_action": "Onslaught", "n": 20},
+    {"base_action": "Upheaval", "n": 18},
+    {"base_action": "Inner Chaos", "n": 16},
+    {"base_action": "Storm's Eye", "n": 16},
+    {"base_action": "Primal Ruination", "n": 9},
+    {"base_action": "Primal Rend", "n": 9},
+    {"base_action": "Primal Wrath", "n": 9},
+    {"base_action": "Damnation", "n": 32},
+    {"base_action": "Tomahawk", "n": 2}
+]

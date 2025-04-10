@@ -1,0 +1,21 @@
+[
+    {"base_action": "Attack", "n": 238},
+    {"base_action": "Holy Spirit", "n": 27},
+    {"base_action": "Supplication", "n": 25},
+    {"base_action": "Atonement", "n": 25},
+    {"base_action": "Royal Authority", "n": 25},
+    {"base_action": "Riot Blade", "n": 25},
+    {"base_action": "Fast Blade", "n": 25},
+    {"base_action": "Sepulchre", "n": 24},
+    {"base_action": "Intervene", "n": 20},
+    {"base_action": "Expiacion", "n": 19},
+    {"base_action": "Circle of Scorn", "n": 19},
+    {"base_action": "Confiteor", "n": 10},
+    {"base_action": "Blade of Honor", "n": 10},
+    {"base_action": "Blade of Valor", "n": 10},
+    {"base_action": "Blade of Truth", "n": 10},
+    {"base_action": "Blade of Faith", "n": 10},
+    {"base_action": "Goring Blade", "n": 10},
+    {"base_action": "Imperator", "n": 10},
+    {"base_action": "Circle of Scorn (tick)", "n": 91}
+]
