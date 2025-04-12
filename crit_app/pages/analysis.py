@@ -6,9 +6,8 @@ from uuid import uuid4
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, Patch, State, callback, dcc, html
+from dash import Input, Output, State, callback, dcc, html
 from dash.exceptions import PreventUpdate
-from plotly.graph_objs import Figure
 
 from crit_app.cards import (
     initialize_action_card,
@@ -31,13 +30,16 @@ from crit_app.figures import (
 from crit_app.job_data.encounter_data import (
     encounter_level,
     encounter_phases,
-    patch_times,
     stat_ranges,
     valid_encounters,
 )
 from crit_app.job_data.job_data import weapon_delays
 from crit_app.job_data.job_warnings import job_warnings
 from crit_app.job_data.roles import abbreviated_job_map, role_stat_dict
+from crit_app.player_elements import (
+    rotation_percentile_text_map,
+    show_job_options,
+)
 from crit_app.shared_elements import (
     format_kill_time_str,
     get_phase_selector_options,
@@ -154,152 +156,6 @@ dash.register_page(
     name=page_title,
     meta_tags=metas,
 )
-
-
-### Helper functions ###
-
-
-def rotation_percentile_text_map(rotation_percentile: float) -> str:
-    """
-    Fun text to display depending on the percentile.
-
-    Parameters:
-    rotation_percentile (float): The percentile value to map to a text description.
-
-    Returns:
-    str: A text description corresponding to the given percentile.
-    """
-    if rotation_percentile <= 0.2:
-        return "On second thought, let's pretend this run never happened..."
-    elif (rotation_percentile > 0.2) and (rotation_percentile <= 0.4):
-        return "BADBADNOTGOOD."
-    elif (rotation_percentile > 0.4) and (rotation_percentile <= 0.65):
-        return "Mid."
-    elif (rotation_percentile > 0.65) and (rotation_percentile <= 0.85):
-        return "Actually pretty good."
-    elif (rotation_percentile > 0.85) and (rotation_percentile <= 0.95):
-        return "Really good."
-    elif (rotation_percentile > 0.95) and (rotation_percentile <= 0.99):
-        return "Incredibly good."
-    elif rotation_percentile > 0.99:
-        return "Personally blessed by Yoshi-P himself."
-
-
-def ad_hoc_job_invalid(job: str, log_time: int) -> bool:
-    """Collection of various conditions to make certain jobs un-analyzable.
-
-    For example, 7.0 - 7.01 Monk's job gauge is not modeled, so it cannot be analyzed.
-
-    These *should* be fairly rare.
-
-    Args:
-        job (str): Job name, FFLogs case style
-        time (int): Start time of the log, to determine patch number.
-    """
-
-    if (
-        (job == "Monk")
-        & (log_time > patch_times[7.0]["start"])
-        & (log_time < patch_times[7.0]["end"])
-    ):
-        return True
-    else:
-        return False
-
-
-def show_job_options(
-    job_information: List[Dict[str, Any]], role: str, start_time: int
-) -> Tuple[
-    List[Dict[str, Any]],
-    List[Dict[str, Any]],
-    List[Dict[str, Any]],
-    List[Dict[str, Any]],
-    List[Dict[str, Any]],
-]:
-    """
-    Show which jobs are available to analyze with radio buttons.
-
-    Parameters:
-    job_information (List[Dict[str, Any]]): List of job information dictionaries. Must contain keys: `player_name`, `job`, `player_id`, `role`.
-    role (str): Role of the job.
-    start_time (int): Start time of the log.
-
-    Returns:
-    Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
-    A tuple containing lists of radio items for each job role.
-    """
-    tank_radio_items = []
-    healer_radio_items = []
-    melee_radio_items = []
-    physical_ranged_radio_items = []
-    magical_ranged_radio_items = []
-
-    for d in job_information:
-        invalid = ad_hoc_job_invalid(d["job"], start_time)
-        label_text = html.P(
-            [
-                html.Span(
-                    [abbreviated_job_map[d["job"]]],
-                    style={
-                        "font-family": "job-icons",
-                        "font-size": "1.4em",
-                        "position": "relative",
-                        "top": "4px",
-                    },
-                ),
-                f" {d['player_name']}",
-                " [Unsupported]" if invalid else "",
-            ],
-            style={"position": "relative", "bottom": "9px"},
-        )
-        if d["role"] == "Tank":
-            tank_radio_items.append(
-                {
-                    "label": label_text,
-                    "value": d["player_id"],
-                    "disabled": ("Tank" != role) or invalid,
-                }
-            )
-        elif d["role"] == "Healer":
-            healer_radio_items.append(
-                {
-                    "label": label_text,
-                    "value": d["player_id"],
-                    "disabled": ("Healer" != role) or invalid,
-                }
-            )
-        elif d["role"] == "Melee":
-            melee_radio_items.append(
-                {
-                    "label": label_text,
-                    "value": d["player_id"],
-                    "disabled": ("Melee" != role) or invalid,
-                }
-            )
-        elif d["role"] == "Physical Ranged":
-            physical_ranged_radio_items.append(
-                {
-                    "label": label_text,
-                    "value": d["player_id"],
-                    "disabled": ("Physical Ranged" != role) or invalid,
-                }
-            )
-        elif d["role"] == "Magical Ranged":
-            magical_ranged_radio_items.append(
-                {
-                    "label": label_text,
-                    "value": d["player_id"],
-                    "disabled": ("Magical Ranged" != role) or invalid,
-                }
-            )
-
-    return (
-        tank_radio_items,
-        healer_radio_items,
-        melee_radio_items,
-        physical_ranged_radio_items,
-        magical_ranged_radio_items,
-    )
 
 
 def layout(analysis_id=None):
@@ -735,53 +591,53 @@ def layout(analysis_id=None):
         )
 
 
-@callback(
-    Output("action-pdf-fig", "figure"),
-    Input("action-dropdown", "value"),
-    State("action-pdf-fig", "figure"),
-)
-def select_actions(actions: List[str], action_graph: Dict[str, Any]) -> Figure:
-    """
-    Update the visibility of actions in the action graph based on the selected actions.
+# @callback(
+#     Output("action-pdf-fig", "figure"),
+#     Input("action-dropdown", "value"),
+#     State("action-pdf-fig", "figure"),
+# )
+# def select_actions(actions: List[str], action_graph: Dict[str, Any]) -> Figure:
+#     """
+#     Update the visibility of actions in the action graph based on the selected actions.
 
-    Parameters:
-    actions (List[str]): List of selected actions.
-    action_graph (Dict[str, Any]): The current state of the action graph.
+#     Parameters:
+#     actions (List[str]): List of selected actions.
+#     action_graph (Dict[str, Any]): The current state of the action graph.
 
-    Returns:
-    Figure: The updated action graph with the visibility of actions set.
-    """
-    actions_actual_dps = [a + " (Actual DPS)" for a in actions]
-    patched_action_figure = Patch()
-    new_data = action_graph["data"]
+#     Returns:
+#     Figure: The updated action graph with the visibility of actions set.
+#     """
+#     actions_actual_dps = [a + " (Actual DPS)" for a in actions]
+#     patched_action_figure = Patch()
+#     new_data = action_graph["data"]
 
-    for n in new_data:
-        if (n["name"] in actions) or (n["name"] in actions_actual_dps):
-            n["visible"] = True
-        else:
-            n["visible"] = False
+#     for n in new_data:
+#         if (n["name"] in actions) or (n["name"] in actions_actual_dps):
+#             n["visible"] = True
+#         else:
+#             n["visible"] = False
 
-    patched_action_figure["data"] = new_data
-    return patched_action_figure
+#     patched_action_figure["data"] = new_data
+#     return patched_action_figure
 
 
-@callback(
-    Output("action-dropdown", "value"),
-    State("action-dropdown", "options"),
-    Input("action-reset", "n_clicks"),
-)
-def reset_action_filters(action_list: List[Dict[str, Any]], n: int) -> List[str]:
-    """
-    Reset the action filters to the full list of actions.
+# @callback(
+#     Output("action-dropdown", "value"),
+#     State("action-dropdown", "options"),
+#     Input("action-reset", "n_clicks"),
+# )
+# def reset_action_filters(action_list: List[Dict[str, Any]], n: int) -> List[str]:
+#     """
+#     Reset the action filters to the full list of actions.
 
-    Parameters:
-    action_list (List[Dict[str, Any]]): List of action options.
-    n (int): Number of times the reset button has been clicked.
+#     Parameters:
+#     action_list (List[Dict[str, Any]]): List of action options.
+#     n (int): Number of times the reset button has been clicked.
 
-    Returns:
-    List[str]: The full list of action values.
-    """
-    return [action["value"] for action in action_list]
+#     Returns:
+#     List[str]: The full list of action values.
+#     """
+#     return [action["value"] for action in action_list]
 
 
 @callback(
@@ -845,7 +701,6 @@ def fill_role_stat_labels(role: str) -> Tuple[str, str, str, str]:
     Output("DH", "value"),
     Output("WD", "value"),
     Output("TEN", "value"),
-    Output("party-bonus-warning", "children"),
     Output("xiv-gear-sheet-data", "data"),
     Input("job-build-url-button", "n_clicks"),
     State("job-build-url", "value"),
@@ -853,8 +708,8 @@ def fill_role_stat_labels(role: str) -> Tuple[str, str, str, str]:
     prevent_initial_call=True,
 )
 def process_job_build_url(
-    n_clicks: int, url: str, default_role: str
-) -> Tuple[Any, ...]:
+    n_clicks: int, url: str, selected_role: str
+) -> tuple[Any, ...]:
     """
     Get the report/fight ID from an etro.gg/xivgear.app URL, then determine the encounter ID, start time, and jobs present.
 
@@ -869,15 +724,12 @@ def process_job_build_url(
     if n_clicks is None:
         raise PreventUpdate
 
-    xiv_gear_sets = []
-    gear_idx = -1
-    xiv_gear_sets_store = {"gear_index": gear_idx, "data": xiv_gear_sets}
     invalid_return = [
         True,
         False,
         True,
         [],
-        default_role,
+        selected_role,
         [],
         [],
         [],
@@ -885,8 +737,7 @@ def process_job_build_url(
         [],
         [],
         [],
-        [],
-        xiv_gear_sets_store,
+        {"gear_index": -1, "data": []},
     ]
 
     # Check if job build is etro or xivgear
@@ -896,13 +747,15 @@ def process_job_build_url(
         return tuple([provider] + invalid_return)
 
     elif provider == "etro.gg":
-        hide_xiv_gear_set_selector = True
         # Get the build if everything checks out
         (
-            etro_call_successful,
-            etro_error,
-            build_name,
-            build_role,
+            job_build_call_successful,
+            feedback,
+            hide_xiv_gear_set_selector,
+            job_build_valid,
+            job_build_invalid,
+            build_name_html,
+            selected_role,
             primary_stat,
             determination,
             speed,
@@ -910,79 +763,40 @@ def process_job_build_url(
             dh,
             wd,
             tenacity,
-            delay,
-            etro_party_bonus,
+            gear_set_store,
         ) = etro_build(url)
-
-        if not etro_call_successful:
-            return tuple([etro_error] + invalid_return)
-
-        if etro_party_bonus > 1.0:
-            bonus_fmt = etro_party_bonus - 1
-            warning_row = dbc.Alert(
-                [
-                    html.I(className="bi bi-exclamation-triangle-fill me-2"),
-                    f"Warning! The linked etro build has already applied a {bonus_fmt:.0%} bonus to its main stats. Values shown here have the party bonus removed.",
-                ],
-                color="warning",
-                className="d-flex align-items-center",
-            )
-            primary_stat = int(primary_stat / etro_party_bonus)
-        else:
-            warning_row = []
 
     # xivgear is more complicated because it returns sheets with multiple jobs.
     # Also create a new dropdown with the different options
     elif provider == "xivgear.app":
-        hide_xiv_gear_set_selector = False
-        xiv_gear_success, error_message, xiv_gear_sets, gear_idx = xiv_gear_build(url)
+        (
+            job_build_call_successful,
+            feedback,
+            hide_xiv_gear_set_selector,
+            job_build_valid,
+            job_build_invalid,
+            build_name_html,
+            selected_role,
+            primary_stat,
+            determination,
+            speed,
+            ch,
+            dh,
+            wd,
+            tenacity,
+            gear_set_store,
+        ) = xiv_gear_build(url)
 
-        if not xiv_gear_success:
-            return tuple([error_message] + invalid_return)
+    if not job_build_call_successful:
+        return tuple([feedback] + invalid_return)
 
-        # Handle three behaviors
-        # 1. Gear set specified, select and fill that in.
-        # 2. Sheet only has 1 gear set, select and fill that in.
-        # 3. Whole sheet linked, fill nothing in.
-        if len(xiv_gear_sets) == 1:
-            gear_idx = 0
-        if gear_idx >= 0:
-            (
-                job_name,
-                build_name,
-                build_role,
-                primary_stat,
-                determination,
-                speed,
-                ch,
-                dh,
-                wd,
-                etro_party_bonus,
-                tenacity,
-            ) = xiv_gear_sets[gear_idx]
-        else:
-            build_name = (None,)
-            build_role = xiv_gear_sets[0][2]
-            primary_stat = 0
-            dh = None
-            ch = None
-            determination = None
-            speed = None
-            wd = None
-            etro_party_bonus = None
-            tenacity = None
-
-        warning_row = []
-        xiv_gear_sets_store = {"gear_index": gear_idx, "data": xiv_gear_sets}
-
-    build_children = [html.H4(f"Build name: {build_name}")]
     return (
         [],
         hide_xiv_gear_set_selector,
-        True,
-        False,
-        build_children,
-        build_role,
+        job_build_valid,
+        job_build_invalid,
+        build_name_html,
+        selected_role,
         primary_stat,
         determination,
         speed,
@@ -990,8 +804,7 @@ def process_job_build_url(
         dh,
         wd,
         tenacity,
-        warning_row,
-        xiv_gear_sets_store,
+        gear_set_store,
     )
 
 
@@ -1035,7 +848,7 @@ def fill_job_build_via_xiv_gear_select(xiv_gear_sheet_data, index):
     gear_fill = xiv_gear_sheet_data["data"][index]
 
     job_build_name = [html.H4(f"Build name: {gear_fill[1]}")]
-    return tuple(job_build_name + gear_fill[3:-1])
+    return tuple(job_build_name + gear_fill[3:])
 
 
 @callback(
@@ -1083,186 +896,6 @@ def job_build_defined(
             weapon_damage,
         ]
     )
-
-
-@callback(
-    Output("main-stat", "valid"),
-    Output("main-stat", "invalid"),
-    Input("main-stat", "value"),
-)
-def valid_main_stat(main_stat_value: int) -> tuple[bool, bool]:
-    """
-    Validate the main stat input.
-
-    Parameters:
-    main_stat_value (int): The value of the main stat to validate.
-
-    Returns:
-    tuple[bool, bool]: A tuple containing the validation results for the main stat.
-    """
-    if main_stat_value is None:
-        raise PreventUpdate
-    if validate_meldable_stat(
-        "test",
-        main_stat_value,
-        stat_ranges["main_stat"]["lower"],
-        stat_ranges["main_stat"]["upper"],
-    )[0]:
-        return valid_stat_return
-    else:
-        return invalid_stat_return
-
-
-@callback(Output("DET", "valid"), Output("DET", "invalid"), Input("DET", "value"))
-def valid_determination(determination: int) -> tuple[bool, bool]:
-    """
-    Validate the determination stat input.
-
-    Parameters:
-    determination (int): The value of the determination stat to validate.
-
-    Returns:
-    tuple[bool, bool]: A tuple containing the validation results for the determination stat.
-    """
-    if determination is None:
-        raise PreventUpdate
-    if validate_meldable_stat(
-        "test",
-        determination,
-        stat_ranges["DET"]["lower"],
-        stat_ranges["DET"]["upper"],
-    )[0]:
-        return valid_stat_return
-    else:
-        return invalid_stat_return
-
-
-@callback(
-    Output("speed-stat", "valid"),
-    Output("speed-stat", "invalid"),
-    Input("speed-stat", "value"),
-)
-def valid_speed(speed: int) -> tuple:
-    """
-    Validate the speed stat input.
-
-    Parameters:
-    speed (int): The value of the speed stat to validate.
-
-    Returns:
-    tuple: A tuple containing the validation results for the speed stat.
-    """
-    if speed is None:
-        raise PreventUpdate
-    if validate_meldable_stat(
-        "test",
-        speed,
-        stat_ranges["SPEED"]["lower"],
-        stat_ranges["SPEED"]["upper"],
-    )[0]:
-        return valid_stat_return
-    else:
-        return invalid_stat_return
-
-
-@callback(Output("CRT", "valid"), Output("CRT", "invalid"), Input("CRT", "value"))
-def valid_critical_hit(critical_hit: int) -> tuple:
-    """
-    Validate the critical hit stat input.
-
-    Parameters:
-    critical_hit (int): The value of the critical hit stat to validate.
-
-    Returns:
-    tuple: A tuple containing the validation results for the critical hit stat.
-    """
-    if critical_hit is None:
-        raise PreventUpdate
-    if validate_meldable_stat(
-        "test",
-        critical_hit,
-        stat_ranges["CRT"]["lower"],
-        stat_ranges["CRT"]["upper"],
-    )[0]:
-        return valid_stat_return
-    else:
-        return invalid_stat_return
-
-
-@callback(Output("DH", "valid"), Output("DH", "invalid"), Input("DH", "value"))
-def valid_direct_hit(direct_hit: int) -> tuple:
-    """
-    Validate the direct hit stat input.
-
-    Parameters:
-    direct_hit (int): The value of the direct hit stat to validate.
-
-    Returns:
-    tuple: A tuple containing the validation results for the direct hit stat.
-    """
-    if direct_hit is None:
-        raise PreventUpdate
-    if validate_meldable_stat(
-        "test",
-        direct_hit,
-        stat_ranges["DH"]["lower"],
-        stat_ranges["DH"]["upper"],
-    )[0]:
-        return valid_stat_return
-    else:
-        return invalid_stat_return
-
-
-@callback(Output("WD", "valid"), Output("WD", "invalid"), Input("WD", "value"))
-def valid_weapon_damage(weapon_damage: int) -> tuple:
-    """
-    Validate the weapon damage stat input.
-
-    Parameters:
-    weapon_damage (int): The value of the weapon damage stat to validate.
-
-    Returns:
-    tuple: A tuple containing the validation results for the weapon damage stat.
-    """
-    if weapon_damage is None:
-        raise PreventUpdate
-    if validate_weapon_damage(weapon_damage)[0]:
-        return valid_stat_return
-    else:
-        return invalid_stat_return
-
-
-@callback(
-    Output("TEN", "valid"),
-    Output("TEN", "invalid"),
-    Input("TEN", "value"),
-    Input("role-select", "value"),
-)
-def valid_tenacity(tenacity: int, role: str) -> tuple:
-    """
-    Validate the direct hit stat input.
-
-    Parameters:
-    direct_hit (int): The value of the direct hit stat to validate.
-
-    Returns:
-    tuple: A tuple containing the validation results for the direct hit stat.
-    """
-    if role != "Tank":
-        return valid_stat_return
-
-    if tenacity is None:
-        return invalid_stat_return
-
-    if validate_meldable_stat(
-        "test",
-        tenacity,
-        stat_ranges["TEN"]["lower"],
-        stat_ranges["TEN"]["upper"],
-    )[0]:
-        return valid_stat_return
-    else:
-        return invalid_stat_return
 
 
 @callback(
@@ -1986,3 +1619,183 @@ def analyze_and_register_rotation(
         )
     updated_url = f"/analysis/{analysis_id}"
     return (updated_url, ["Analyze rotation"], False, [], False)
+
+
+@callback(
+    Output("main-stat", "valid"),
+    Output("main-stat", "invalid"),
+    Input("main-stat", "value"),
+)
+def valid_main_stat(main_stat_value: int) -> tuple[bool, bool]:
+    """
+    Validate the main stat input.
+
+    Parameters:
+    main_stat_value (int): The value of the main stat to validate.
+
+    Returns:
+    tuple[bool, bool]: A tuple containing the validation results for the main stat.
+    """
+    if main_stat_value is None:
+        raise PreventUpdate
+    if validate_meldable_stat(
+        "test",
+        main_stat_value,
+        stat_ranges["main_stat"]["lower"],
+        stat_ranges["main_stat"]["upper"],
+    )[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
+
+
+@callback(Output("DET", "valid"), Output("DET", "invalid"), Input("DET", "value"))
+def valid_determination(determination: int) -> tuple[bool, bool]:
+    """
+    Validate the determination stat input.
+
+    Parameters:
+    determination (int): The value of the determination stat to validate.
+
+    Returns:
+    tuple[bool, bool]: A tuple containing the validation results for the determination stat.
+    """
+    if determination is None:
+        raise PreventUpdate
+    if validate_meldable_stat(
+        "test",
+        determination,
+        stat_ranges["DET"]["lower"],
+        stat_ranges["DET"]["upper"],
+    )[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
+
+
+@callback(
+    Output("speed-stat", "valid"),
+    Output("speed-stat", "invalid"),
+    Input("speed-stat", "value"),
+)
+def valid_speed(speed: int) -> tuple:
+    """
+    Validate the speed stat input.
+
+    Parameters:
+    speed (int): The value of the speed stat to validate.
+
+    Returns:
+    tuple: A tuple containing the validation results for the speed stat.
+    """
+    if speed is None:
+        raise PreventUpdate
+    if validate_meldable_stat(
+        "test",
+        speed,
+        stat_ranges["SPEED"]["lower"],
+        stat_ranges["SPEED"]["upper"],
+    )[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
+
+
+@callback(Output("CRT", "valid"), Output("CRT", "invalid"), Input("CRT", "value"))
+def valid_critical_hit(critical_hit: int) -> tuple:
+    """
+    Validate the critical hit stat input.
+
+    Parameters:
+    critical_hit (int): The value of the critical hit stat to validate.
+
+    Returns:
+    tuple: A tuple containing the validation results for the critical hit stat.
+    """
+    if critical_hit is None:
+        raise PreventUpdate
+    if validate_meldable_stat(
+        "test",
+        critical_hit,
+        stat_ranges["CRT"]["lower"],
+        stat_ranges["CRT"]["upper"],
+    )[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
+
+
+@callback(Output("DH", "valid"), Output("DH", "invalid"), Input("DH", "value"))
+def valid_direct_hit(direct_hit: int) -> tuple:
+    """
+    Validate the direct hit stat input.
+
+    Parameters:
+    direct_hit (int): The value of the direct hit stat to validate.
+
+    Returns:
+    tuple: A tuple containing the validation results for the direct hit stat.
+    """
+    if direct_hit is None:
+        raise PreventUpdate
+    if validate_meldable_stat(
+        "test",
+        direct_hit,
+        stat_ranges["DH"]["lower"],
+        stat_ranges["DH"]["upper"],
+    )[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
+
+
+@callback(Output("WD", "valid"), Output("WD", "invalid"), Input("WD", "value"))
+def valid_weapon_damage(weapon_damage: int) -> tuple:
+    """
+    Validate the weapon damage stat input.
+
+    Parameters:
+    weapon_damage (int): The value of the weapon damage stat to validate.
+
+    Returns:
+    tuple: A tuple containing the validation results for the weapon damage stat.
+    """
+    if weapon_damage is None:
+        raise PreventUpdate
+    if validate_weapon_damage(weapon_damage)[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return
+
+
+@callback(
+    Output("TEN", "valid"),
+    Output("TEN", "invalid"),
+    Input("TEN", "value"),
+    Input("role-select", "value"),
+)
+def valid_tenacity(tenacity: int, role: str) -> tuple:
+    """
+    Validate the direct hit stat input.
+
+    Parameters:
+    direct_hit (int): The value of the direct hit stat to validate.
+
+    Returns:
+    tuple: A tuple containing the validation results for the direct hit stat.
+    """
+    if role != "Tank":
+        return valid_stat_return
+
+    if tenacity is None:
+        return invalid_stat_return
+
+    if validate_meldable_stat(
+        "test",
+        tenacity,
+        stat_ranges["TEN"]["lower"],
+        stat_ranges["TEN"]["upper"],
+    )[0]:
+        return valid_stat_return
+    else:
+        return invalid_stat_return

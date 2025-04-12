@@ -360,7 +360,6 @@ def initialize_job_build(
                             top_stat_row,
                             middle_stat_row,
                             bottom_stat_row,
-                            dbc.Row(id="party-bonus-warning"),
                             tincture_input,
                         ]
                     ),
