@@ -1,7 +1,7 @@
 import datetime
 import pickle
 import traceback
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import uuid4
 
 import dash
@@ -591,55 +591,6 @@ def layout(analysis_id=None):
         )
 
 
-# @callback(
-#     Output("action-pdf-fig", "figure"),
-#     Input("action-dropdown", "value"),
-#     State("action-pdf-fig", "figure"),
-# )
-# def select_actions(actions: List[str], action_graph: Dict[str, Any]) -> Figure:
-#     """
-#     Update the visibility of actions in the action graph based on the selected actions.
-
-#     Parameters:
-#     actions (List[str]): List of selected actions.
-#     action_graph (Dict[str, Any]): The current state of the action graph.
-
-#     Returns:
-#     Figure: The updated action graph with the visibility of actions set.
-#     """
-#     actions_actual_dps = [a + " (Actual DPS)" for a in actions]
-#     patched_action_figure = Patch()
-#     new_data = action_graph["data"]
-
-#     for n in new_data:
-#         if (n["name"] in actions) or (n["name"] in actions_actual_dps):
-#             n["visible"] = True
-#         else:
-#             n["visible"] = False
-
-#     patched_action_figure["data"] = new_data
-#     return patched_action_figure
-
-
-# @callback(
-#     Output("action-dropdown", "value"),
-#     State("action-dropdown", "options"),
-#     Input("action-reset", "n_clicks"),
-# )
-# def reset_action_filters(action_list: List[Dict[str, Any]], n: int) -> List[str]:
-#     """
-#     Reset the action filters to the full list of actions.
-
-#     Parameters:
-#     action_list (List[Dict[str, Any]]): List of action options.
-#     n (int): Number of times the reset button has been clicked.
-
-#     Returns:
-#     List[str]: The full list of action values.
-#     """
-#     return [action["value"] for action in action_list]
-
-
 @callback(
     Output("bottom-build-row", "hidden"),
     Input("role-select", "value"),
@@ -666,7 +617,7 @@ def display_bottom_build_row(role: str) -> bool:
     Output("speed-stat", "placeholder"),
     Input("role-select", "value"),
 )
-def fill_role_stat_labels(role: str) -> Tuple[str, str, str, str]:
+def fill_role_stat_labels(role: str) -> tuple[str, str, str, str]:
     """
     Fill the role stat labels and placeholders based on the selected role.
 
@@ -674,7 +625,7 @@ def fill_role_stat_labels(role: str) -> Tuple[str, str, str, str]:
     role (str): Selected Role.
 
     Returns:
-    Tuple[str, str, str, str]: The main stat label, main stat placeholder, speed tooltip, and speed stat placeholder.
+    tuple[str, str, str, str]: The main stat label, main stat placeholder, speed tooltip, and speed stat placeholder.
     """
     if role == "Unsupported":
         raise PreventUpdate
@@ -719,7 +670,7 @@ def process_job_build_url(
     default_role (str): The default role to select.
 
     Returns:
-    Tuple[Any, ...]: A tuple containing the feedback, validity, build name, role, stats, and warning message.
+    tuple[Any, ...]: A tuple containing the feedback, validity, build name, role, stats, and warning message.
     """
     if n_clicks is None:
         raise PreventUpdate
@@ -1172,16 +1123,16 @@ def update_player_job_selector(
     Input("magical-ranged-jobs", "value"),
 )
 def display_compute_button(
-    healers: List[Dict[str, Any]],
-    tanks: List[Dict[str, Any]],
-    melees: List[Dict[str, Any]],
-    phys_ranged: List[Dict[str, Any]],
-    magic_ranged: List[Dict[str, Any]],
-    healer_value: Optional[str],
-    tank_value: Optional[str],
-    melee_value: Optional[str],
-    phys_ranged_value: Optional[str],
-    magic_ranged_value: Optional[str],
+    healers: list[dict[str, Any]],
+    tanks: list[dict[str, Any]],
+    melees: list[dict[str, Any]],
+    phys_ranged: list[dict[str, Any]],
+    magic_ranged: list[dict[str, Any]],
+    healer_value: str | None,
+    tank_value: str | None,
+    melee_value: str | None,
+    phys_ranged_value: str | None,
+    magic_ranged_value: str | None,
 ) -> bool:
     """
     Display button to compute DPS distributions once a job is selected.
@@ -1189,11 +1140,11 @@ def display_compute_button(
     Otherwise, no button is shown.
 
     Parameters:
-    healers (List[Dict[str, Any]]): List of healer job options.
-    tanks (List[Dict[str, Any]]): List of tank job options.
-    melees (List[Dict[str, Any]]): List of melee job options.
-    phys_ranged (List[Dict[str, Any]]): List of physical ranged job options.
-    magic_ranged (List[Dict[str, Any]]): List of magical ranged job options.
+    healers (list[dict[str, Any]]): List of healer job options.
+    tanks (list[dict[str, Any]]): List of tank job options.
+    melees (list[dict[str, Any]]): List of melee job options.
+    phys_ranged (list[dict[str, Any]]): List of physical ranged job options.
+    magic_ranged (list[dict[str, Any]]): List of magical ranged job options.
     healer_value (Optional[str]): Selected healer job.
     tank_value (Optional[str]): Selected tank job.
     melee_value (Optional[str]): Selected melee job.
@@ -1237,7 +1188,7 @@ def display_compute_button(
     Input("compute-dmg-button", "n_clicks"),
     prevent_initial_call=True,
 )
-def disable_analyze_button(n_clicks: int) -> Tuple[List[Any], bool]:
+def disable_analyze_button(n_clicks: int) -> tuple[list[Any], bool]:
     """
     Return a disabled, spiny button when the log/rotation is being analyzed.
 
@@ -1245,7 +1196,7 @@ def disable_analyze_button(n_clicks: int) -> Tuple[List[Any], bool]:
     n_clicks (int): Number of times the button has been clicked.
 
     Returns:
-    Tuple[List[Any], bool]: The button content and whether it is disabled.
+    tuple[list[Any], bool]: The button content and whether it is disabled.
     """
     if (n_clicks is None) or DEBUG:
         return ["Analyze rotation"], False
@@ -1314,14 +1265,14 @@ def analyze_and_register_rotation(
     medication_amt: int,
     fflogs_encounter_data: dict | None,
     fflogs_url: str,
-    fight_phase: Optional[int],
+    fight_phase: int | None,
     job_build_url: str,
-    healer_jobs: Optional[str] = None,
-    tank_jobs: Optional[str] = None,
-    melee_jobs: Optional[str] = None,
-    phys_ranged_jobs: Optional[str] = None,
-    magical_jobs: Optional[str] = None,
-) -> Tuple[Any, ...]:
+    healer_jobs: str | None = None,
+    tank_jobs: str | None = None,
+    melee_jobs: str | None = None,
+    phys_ranged_jobs: str | None = None,
+    magical_jobs: str | None = None,
+) -> tuple[Any, ...]:
     """
     Analyze and register the rotation based on the provided inputs.
 
@@ -1345,7 +1296,7 @@ def analyze_and_register_rotation(
     magical_jobs (Optional[str]): Selected magical ranged job.
 
     Returns:
-    Tuple[Any, ...]: A tuple containing the updated URL, button content, button disabled state, result text, and results div hidden state.
+    tuple[Any, ...]: A tuple containing the updated URL, button content, button disabled state, result text, and results div hidden state.
     """
     updated_url = dash.no_update
 
