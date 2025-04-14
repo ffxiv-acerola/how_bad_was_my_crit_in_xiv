@@ -1145,15 +1145,22 @@ def display_compute_button(
     melees (list[dict[str, Any]]): List of melee job options.
     phys_ranged (list[dict[str, Any]]): List of physical ranged job options.
     magic_ranged (list[dict[str, Any]]): List of magical ranged job options.
-    healer_value (Optional[str]): Selected healer job.
-    tank_value (Optional[str]): Selected tank job.
-    melee_value (Optional[str]): Selected melee job.
-    phys_ranged_value (Optional[str]): Selected physical ranged job.
-    magic_ranged_value (Optional[str]): Selected magical ranged job.
+    healer_value (str | None): Selected healer job.
+    tank_value (str | None): Selected tank job.
+    melee_value (str | None): Selected melee job.
+    phys_ranged_value (str | None): Selected physical ranged job.
+    magic_ranged_value (str | None): Selected magical ranged job.
 
     Returns:
     bool: Whether to hide the compute button or not.
     """
+    # Handle None values for job lists
+    healers = [] if healers is None else healers
+    tanks = [] if tanks is None else tanks
+    melees = [] if melees is None else melees
+    phys_ranged = [] if phys_ranged is None else phys_ranged
+    magic_ranged = [] if magic_ranged is None else magic_ranged
+
     job_list = healers + tanks + melees + phys_ranged + magic_ranged
 
     selected_job = [
@@ -1167,19 +1174,24 @@ def display_compute_button(
         ]
         if x is not None
     ]
-    if job_list is None or (selected_job == []) or (job_list == []):
-        hide_button = True
-        return hide_button
 
-    # Get just the job names
-    job_list = [x["value"] for x in job_list]
-    selected_job = selected_job[0]
-    if selected_job not in job_list:
-        hide_button = True
-        return hide_button
-    else:
-        hide_button = False
-        return hide_button
+    if selected_job == [] or job_list == []:
+        return True
+
+    # Get just the selected job ID
+    selected_job_id = selected_job[0]
+
+    # Find the selected job in the job list and check if it's disabled
+    for job in job_list:
+        if job["value"] == selected_job_id:
+            # If the job is disabled, hide the button
+            if job.get("disabled", False):
+                return True
+            # Otherwise, the job is enabled and selected, show the button
+            return False
+
+    # If we get here, the selected job doesn't exist in the job list
+    return True
 
 
 @callback(
