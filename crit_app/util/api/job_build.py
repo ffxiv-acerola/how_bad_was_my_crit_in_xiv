@@ -314,7 +314,6 @@ def _extract_xiv_gear_set(
             - Determination
             - Speed
             - Weapon damage
-            - Delay
             - Tenacity
     """
     XIV_GEAR_ROLE_MAP = {

@@ -13,15 +13,11 @@ from crit_app.util.api.job_build import (
 # Test cases
 xiv_gear_url_1 = "https://xivgear.app/?page=sl%7Ca8881f6f-9ab3-40cc-9931-7035021a3f1b"
 xiv_gear_url_2 = "https://xivgear.app/?page=bis%7Csch%7Cendwalker%7Canabaseios"
-xiv_gear_url_3 = (
-    "https://xivgear.app/?page=sl%7Cff8e55a8-a598-4bf3-abdd-bb40b66fa908&onlySetIndex=2"
-)
+xiv_gear_url_3 = "https://xivgear.app/?page=sl%7Cff8e55a8-a598-4bf3-abdd-bb40b66fa908&onlySetIndex=2"
 xiv_gear_url_4 = "https://xivgear.app/?page=bis|sch|endwalker|anabaseios"
 xiv_gear_url_5 = "https://invalidapp.com/?page=sl%7Cf9b260a9-650c-445a-b3eb-c56d8d968501&onlySetIndex=1"
 xiv_gear_url_6 = "https://xivgear.app/?page=sl%7Cinvalid-uuid&onlySetIndex=1"
-xiv_gear_url_7 = (
-    "https://xivgear.app/?page=sl|ff8e55a8-a598-4bf3-abdd-bb40b66fa908&selectedIndex=3"
-)
+xiv_gear_url_7 = "https://xivgear.app/?page=sl|ff8e55a8-a598-4bf3-abdd-bb40b66fa908&selectedIndex=3"
 
 
 @pytest.mark.parametrize(
@@ -89,7 +85,6 @@ def test_parse_and_validate_xiv_gear_url(input_url, expected):
                 1777,
                 146,
                 "None",
-                1.0,
             ),
         ),
         (
@@ -105,7 +100,6 @@ def test_parse_and_validate_xiv_gear_url(input_url, expected):
                 1781,
                 146,
                 "None",
-                1.0,
             ),
         ),
         (
@@ -121,7 +115,6 @@ def test_parse_and_validate_xiv_gear_url(input_url, expected):
                 1524,
                 146,
                 868,
-                1.0,
             ),
         ),
     ],
