@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 import pytest
-from dash import html
 from dash.exceptions import PreventUpdate
 
 # Mock dash.register_page at the module level, before importing
@@ -12,64 +11,7 @@ with patch("dash.register_page"):
         process_job_build_url,
     )
 
-
-# Define a fixture for parameterization that allows getting different build responses
-@pytest.fixture
-def build_response(request):
-    """Fixture that returns the specified build response based on the parameter."""
-    build_type = request.param
-    if build_type == "etro.gg":
-        return (
-            True,
-            "",
-            True,
-            True,
-            False,
-            [html.H4("Build name: 2.50")],
-            "Melee",
-            3379,
-            1870,
-            400,
-            2567,
-            1396,
-            132,
-            "None",
-            {"gear_index": -1, "data": []},
-        )
-    elif build_type == "xivgear.app":
-        return (
-            True,
-            "",
-            False,
-            True,
-            False,
-            [html.H4("dsr nin tentative bis")],
-            "Melee",
-            2588,
-            1829,
-            514,
-            2208,
-            1353,
-            120,
-            "None",
-            {
-                "gear_index": 0,
-                "data": [
-                    (
-                        "NIN",
-                        "dsr nin tentative bis",
-                        "Melee",
-                        2588,
-                        1829,
-                        514,
-                        2208,
-                        1353,
-                        120,
-                        "None",
-                    )
-                ],
-            },
-        )
+# build_response fixture is now imported from conftest.py
 
 
 def test_process_job_build_url_none_clicks():

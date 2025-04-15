@@ -517,21 +517,21 @@ def hide_non_tank_tenactiy(main_stat_label) -> bool:
 
 
 @callback(
+    Output({"type": "job-build-feedback", "index": MATCH}, "children"),
+    Output({"type": "job-build-input", "index": MATCH}, "valid"),
+    Output({"type": "job-build-input", "index": MATCH}, "invalid"),
+    Output({"type": "build-name", "index": MATCH}, "children"),
     Output(
         {"type": "main-stat", "index": MATCH},
         "value",
         allow_duplicate=True,
     ),
-    Output({"type": "TEN", "index": MATCH}, "value", allow_duplicate=True),
     Output({"type": "DET", "index": MATCH}, "value", allow_duplicate=True),
     Output({"type": "speed-stat", "index": MATCH}, "value", allow_duplicate=True),
     Output({"type": "CRT", "index": MATCH}, "value", allow_duplicate=True),
     Output({"type": "DH", "index": MATCH}, "value", allow_duplicate=True),
     Output({"type": "WD", "index": MATCH}, "value", allow_duplicate=True),
-    Output({"type": "build-name", "index": MATCH}, "children"),
-    Output({"type": "job-build-input", "index": MATCH}, "valid"),
-    Output({"type": "job-build-input", "index": MATCH}, "invalid"),
-    Output({"type": "job-build-feedback", "index": MATCH}, "children"),
+    Output({"type": "TEN", "index": MATCH}, "value", allow_duplicate=True),
     Input("quick-build-fill-button", "n_clicks"),
     State({"type": "job-build-input", "index": MATCH}, "value"),
     State({"type": "main-stat-label", "index": MATCH}, "children"),
@@ -573,16 +573,16 @@ def job_build_process(
 
     feedback = []
     invalid_return = [
+        False,
+        True,
+        [],
         main_stat,
-        secondary_stat,
         determination,
         speed,
         critical_hit,
         direct_hit,
         weapon_damage,
-        [],
-        False,
-        True,
+        secondary_stat,
     ]
 
     valid_provider, provider = job_build_provider(url)
@@ -592,66 +592,64 @@ def job_build_process(
     elif provider == "etro.gg":
         # Get the build if everything checks out
         (
-            etro_call_successful,
-            etro_error,
-            build_name,
-            build_role,
-            primary_stat,
+            job_build_call_successful,
+            feedback,
+            hide_xiv_gear_set_selector,
+            job_build_valid,
+            job_build_invalid,
+            build_name_html,
+            selected_role,
+            main_stat,
             determination,
             speed,
             critical_hit,
             direct_hit,
             weapon_damage,
-            secondary_stat,
-            delay,
-            etro_party_bonus,
+            tenacity,
+            _,
         ) = etro_build(url)
 
-        if not etro_call_successful:
-            invalid_return.append(etro_error)
-            return tuple(invalid_return)
-
     elif provider == "xivgear.app":
-        xiv_gear_success, error_message, xiv_gear_sets, gear_idx = xiv_gear_build(
-            url, require_sheet_selection=True
-        )
-        if not xiv_gear_success:
-            invalid_return.append(error_message)
-            return tuple(invalid_return)
         (
-            job_name,
-            build_name,
-            build_role,
-            primary_stat,
+            job_build_call_successful,
+            feedback,
+            _,
+            job_build_valid,
+            job_build_invalid,
+            build_name_html,
+            selected_role,
+            main_stat,
             determination,
             speed,
             critical_hit,
             direct_hit,
             weapon_damage,
-            etro_party_bonus,
-            secondary_stat,
-        ) = xiv_gear_sets[gear_idx]
+            tenacity,
+            _,
+        ) = xiv_gear_build(url, require_sheet_selection=True)
+
+    if not job_build_call_successful:
+        return tuple([feedback] + invalid_return)
 
     # Make sure correct build is used
-    if build_role != role:
+    if selected_role != role:
         feedback = f"A non-{role} etro build was used."
-        invalid_return.append(feedback)
-        return tuple(invalid_return)
+        return tuple([feedback] + invalid_return)
 
-    time.sleep(1.5)
-
+    time.sleep(0.75)
+    build_name = build_name_html[0].children
     return (
-        primary_stat,
-        secondary_stat,
+        feedback,
+        job_build_valid,
+        job_build_invalid,
+        f"Build name: {build_name}",
+        main_stat,
         determination,
         speed,
         critical_hit,
         direct_hit,
         weapon_damage,
-        f"Build name: {build_name}",
-        True,
-        False,
-        [],
+        tenacity,
     )
 
 
