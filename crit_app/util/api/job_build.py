@@ -36,6 +36,8 @@ ERROR_CODE_MAP = {
     3: "Error retrieving build.",
 }
 
+INVALID_BUILD_PROVIDER = "Only etro.gg or xivgear.app is supported."
+
 
 def is_valid_domain(netloc, required_elements: list[str]) -> bool:
     """
@@ -61,7 +63,6 @@ def job_build_provider(job_build_url: str) -> tuple[bool, str]:
     Returns:
         Tuple[bool, str]: A tuple containing a boolean indicating if the URL is valid and the provider name or error message.
     """
-    INVALID_BUILD_PROVIDER = "Only etro.gg or xivgear.app is supported."
     try:
         parsed_url = urlparse(job_build_url)
         netloc_elements = parsed_url.netloc.split(".")
@@ -406,7 +407,7 @@ def etro_build(
             - Delay
             - Etro party bonus
     """
-    invalid_return = [False, ""] + [None] * 11
+    invalid_return = [False, ""] + [None] * 13
 
     # Get ID from url
     gearset_id, error_message = _parse_and_validate_etro_url(etro_url)
@@ -475,11 +476,34 @@ def xiv_gear_build(
             - List of extracted gear sets if successful, None if failed
             - Selected gear set index
     """
+    error_message = ""
+    invalid_return = [
+        True,
+        False,
+        True,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    ]
+
     error_message, xiv_gearset_id, gear_idx = _parse_and_validate_xiv_gear_url(
         xiv_gear_url
     )
     if error_message != "":
-        return (False, error_message, None, 0)
+        return tuple(
+            [
+                False,
+                error_message,
+            ]
+            + invalid_return
+        )
 
     error_message, gear_sets = _query_xiv_gear_sets(xiv_gearset_id)
     if error_message == "":
@@ -490,7 +514,13 @@ def xiv_gear_build(
     if require_sheet_selection & (gear_idx == -1):
         error_message = "A specific gear set must be linked, not the whole sheet."
     if error_message != "":
-        return (False, error_message, None, 0)
+        return tuple(
+            [
+                False,
+                error_message,
+            ]
+            + invalid_return
+        )
 
     gear_sheet_store_data = {
         "gear_index": gear_idx,
