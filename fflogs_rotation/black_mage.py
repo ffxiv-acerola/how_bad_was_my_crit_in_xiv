@@ -466,7 +466,11 @@ class BlackMageActions(BuffQuery):
         )
 
         elemental_gauge_df = (
-            pd.concat([damage_gauge_actions, transpose_df, umbral_soul_df, manafont_df])
+            pd.concat(
+                [damage_gauge_actions, transpose_df, umbral_soul_df, manafont_df],
+                ignore_index=True,
+                sort=False,
+            )
             .sort_values("timestamp")
             .reset_index(drop=True)
         )
@@ -877,7 +881,9 @@ class BlackMageActions(BuffQuery):
             [
                 elemental_state_changes[elemental_gauge_dropped_rows.columns],
                 elemental_gauge_dropped_rows,
-            ]
+            ],
+            ignore_index=True,
+            sort=False,
         )[
             [
                 "timestamp",

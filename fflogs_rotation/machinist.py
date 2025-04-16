@@ -1,7 +1,12 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 
 from fflogs_rotation.base import BuffQuery, disjunction
+
+# Filter the pandas FutureWarning about concat
+warnings.filterwarnings("ignore", category=FutureWarning, module="pandas.core.concat")
 
 
 class MachinistActions(BuffQuery):
@@ -221,7 +226,7 @@ class MachinistActions(BuffQuery):
             )
             for k, v in battery_actions["data"]["reportData"]["report"].items()
         ]
-        battery_df = pd.concat(battery_dfs).sort_values("timestamp")
+        battery_df = pd.concat(battery_dfs, axis=0).sort_values("timestamp")
         battery_df["ability_name"] = battery_df["abilityGameID"].replace(
             self.battery_gauge_id_map
         )
