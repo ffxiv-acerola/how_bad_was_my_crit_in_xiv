@@ -81,9 +81,7 @@ def mock_reaper(monkeypatch):
         (2500, reaper_id_map["Cross Reaping"], [[1000, 2000]], []),
     ],
 )
-def test_apply_enhanced_buffs(
-    timestamp, ability_id, enhanced_times, expected_buffs, monkeypatch, mock_reaper
-):
+def test_apply_enhanced_buffs(timestamp, ability_id, enhanced_times, expected_buffs, monkeypatch, mock_reaper):
     """Test that enhanced buffs are correctly applied to actions."""
     reaper = ReaperActions({}, "dummy", 1, 1)
 
@@ -155,9 +153,7 @@ def test_immortal_sacrifice_stacks(stack_count, timestamp, monkeypatch, mock_rea
     result = reaper.apply_enhanced_buffs(df)
     expected_buff = f"immortal_sac_{stack_count}"
 
-    assert (
-        expected_buff in result.loc[0, "buffs"]
-    ), f"Expected {expected_buff} to be applied"
+    assert expected_buff in result.loc[0, "buffs"], f"Expected {expected_buff} to be applied"
 
 
 def test_immortal_sacrifice_out_of_window(monkeypatch, mock_reaper):
@@ -192,9 +188,7 @@ def test_immortal_sacrifice_out_of_window(monkeypatch, mock_reaper):
 
     # Verify no immortal_sac buffs were applied
     immortal_buffs = [buff for buff in result.loc[0, "buffs"] if "immortal_sac" in buff]
-    assert (
-        len(immortal_buffs) == 0
-    ), "No immortal sacrifice buffs should be applied outside window"
+    assert len(immortal_buffs) == 0, "No immortal sacrifice buffs should be applied outside window"
 
 
 def test_multiple_abilities_with_different_buffs(monkeypatch, mock_reaper):
@@ -309,21 +303,13 @@ def test_multiple_abilities_with_different_buffs(monkeypatch, mock_reaper):
         ),
     ],
 )
-def test_immortal_sacrifice_counter(
-    mock_response_data, expected_result, monkeypatch, mock_reaper
-):
+def test_immortal_sacrifice_counter(mock_response_data, expected_result, monkeypatch, mock_reaper):
     """Test the immortal sacrifice counter with parameterized test cases."""
     reaper = ReaperActions({}, "dummy", 1, 1)
     reaper.report_start = 0
 
     # Create a mock response with the specified data
-    mock_response = {
-        "data": {
-            "reportData": {
-                "report": {"immortalSacrifice": {"data": mock_response_data}}
-            }
-        }
-    }
+    mock_response = {"data": {"reportData": {"report": {"immortalSacrifice": {"data": mock_response_data}}}}}
 
     result = reaper._immortal_sacrifice_counter(mock_response)
 

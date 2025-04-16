@@ -3,11 +3,11 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
+from ffxiv_stats.moments import _coarsened_boundaries
 from numpy.typing import ArrayLike
 from scipy.signal import fftconvolve
 
 from crit_app.util.player_dps_distribution import JobAnalysis
-from ffxiv_stats.moments import _coarsened_boundaries
 
 
 ## Data classes for party rotation ###

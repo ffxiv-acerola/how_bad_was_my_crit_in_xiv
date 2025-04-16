@@ -189,26 +189,14 @@ def test_kassatsu_multiplier_boost(mock_nin):
     result = nin.apply_ninja_buff(df)
 
     # Verify buff application and multipliers
-    assert (
-        str(nin_id_map["Kassatsu"]) not in result.loc[0, "buffs"]
-    ), "Ninjutsu before Kassatsu should not have buff"
-    assert (
-        result.loc[0, "multiplier"] == 1.0
-    ), "Ninjutsu before Kassatsu should have 1.0x multiplier"
+    assert str(nin_id_map["Kassatsu"]) not in result.loc[0, "buffs"], "Ninjutsu before Kassatsu should not have buff"
+    assert result.loc[0, "multiplier"] == 1.0, "Ninjutsu before Kassatsu should have 1.0x multiplier"
 
-    assert (
-        str(nin_id_map["Kassatsu"]) in result.loc[1, "buffs"]
-    ), "Ninjutsu during Kassatsu should have buff"
-    assert (
-        result.loc[1, "multiplier"] == 1.3
-    ), "Ninjutsu during Kassatsu should have 1.3x multiplier"
+    assert str(nin_id_map["Kassatsu"]) in result.loc[1, "buffs"], "Ninjutsu during Kassatsu should have buff"
+    assert result.loc[1, "multiplier"] == 1.3, "Ninjutsu during Kassatsu should have 1.3x multiplier"
 
-    assert (
-        str(nin_id_map["Kassatsu"]) not in result.loc[2, "buffs"]
-    ), "Ninjutsu after Kassatsu should not have buff"
-    assert (
-        result.loc[2, "multiplier"] == 1.0
-    ), "Ninjutsu after Kassatsu should have 1.0x multiplier"
+    assert str(nin_id_map["Kassatsu"]) not in result.loc[2, "buffs"], "Ninjutsu after Kassatsu should not have buff"
+    assert result.loc[2, "multiplier"] == 1.0, "Ninjutsu after Kassatsu should have 1.0x multiplier"
 
 
 def test_kazematoi_ignored_for_pre_7_0(mock_nin):

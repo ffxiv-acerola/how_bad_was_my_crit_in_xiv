@@ -32,9 +32,7 @@ def mock_samurai(monkeypatch):
         (2000, 7486, np.array([[1000, 2000]]), [str(1001236)]),
     ],
 )
-def test_apply_enhanced_enpi(
-    timestamp, abilityGameID, windows, expected, monkeypatch, mock_samurai
-):
+def test_apply_enhanced_enpi(timestamp, abilityGameID, windows, expected, monkeypatch, mock_samurai):
     sam = SamuraiActions({}, "dummy", 1, 1)
     # Override enhanced_enpi_times with provided window(s)
     sam.enhanced_enpi_times = windows

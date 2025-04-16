@@ -33,12 +33,8 @@ class DummyBlackMageActions(BlackMageActions):
         to populate elemental_state, elemental_state_changes, etc.
         """
         self.elemental_state = self._get_elemental_state_df(self.elemental_gauge_df)
-        self.elemental_state_changes = self._get_elemental_state_changes(
-            self.elemental_state
-        )
-        self.elemental_state_times = self._get_elemental_state_timings(
-            self.elemental_state_changes
-        )
+        self.elemental_state_changes = self._get_elemental_state_changes(self.elemental_state)
+        self.elemental_state_times = self._get_elemental_state_timings(self.elemental_state_changes)
         self.enochian_times = self._enochian_times(self.elemental_state_changes)
 
 
@@ -254,9 +250,7 @@ def test_apply_blm_buffs(bm, input_file, expected_file):
         # "elemental_multiplier",
     ]
     output_df = output_df[columns_to_test].reset_index(drop=True)
-    expected_df = pd.read_parquet(expected_parquet)[columns_to_test].reset_index(
-        drop=True
-    )
+    expected_df = pd.read_parquet(expected_parquet)[columns_to_test].reset_index(drop=True)
 
     # Assert that the resulting DataFrame matches the expected.
     pd.testing.assert_frame_equal(output_df, expected_df)

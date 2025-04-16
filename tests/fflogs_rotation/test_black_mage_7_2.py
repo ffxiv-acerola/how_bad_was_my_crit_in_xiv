@@ -31,12 +31,8 @@ class DummyBlackMageActions(BlackMageActions):
         to populate elemental_state, elemental_state_changes, etc.
         """
         self.elemental_state = self._get_elemental_state_df(self.elemental_gauge_df)
-        self.elemental_state_changes = self._get_elemental_state_changes(
-            self.elemental_state
-        )
-        self.elemental_state_times = self._get_elemental_state_timings(
-            self.elemental_state_changes
-        )
+        self.elemental_state_changes = self._get_elemental_state_changes(self.elemental_state)
+        self.elemental_state_times = self._get_elemental_state_timings(self.elemental_state_changes)
         self.enochian_times = self._enochian_times(self.elemental_state_changes)
 
 
@@ -82,9 +78,7 @@ def test_elemental_time_remaining(bm, action, time_delta):
     - For any other granting action: max(0, granting_time - time_delta)
     All granting actions have a "time" value of 15 per your config.
     """
-    all_actions = (
-        bm.fire_granting_actions | bm.ice_granting_actions | bm.other_granting_actions
-    )
+    all_actions = bm.fire_granting_actions | bm.ice_granting_actions | bm.other_granting_actions
     expected_duration = all_actions[action]["time"] - time_delta
     # _elemental_time_remaining expects an action that is either "Umbral Soul"
     # or found in the merge of fire_granting_actions, ice_granting_actions, or other_granting_actions.

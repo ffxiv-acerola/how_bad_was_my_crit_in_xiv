@@ -218,9 +218,7 @@ def test_retrieve_player_analysis_information_all_fields(mock_sqlite_connect):
     analysis_id = "27415a96-4231-4749-8a87-26826aa67264"
 
     analysis_info = retrieve_player_analysis_information(analysis_id)
-    assert (
-        analysis_info is not None
-    ), "Expected a valid dictionary of analysis information."
+    assert analysis_info is not None, "Expected a valid dictionary of analysis information."
 
     # Check all expected fields
     assert analysis_info["report_id"] == "ZfnF8AqRaBbzxW3w"
@@ -310,9 +308,7 @@ def test_get_party_analysis_player_build(mock_sqlite_connect):
         "Machinist",
     }
     actual_jobs = {entry["job"] for entry in etro_job_build_info}
-    assert (
-        actual_jobs == expected_jobs
-    ), "Job names in etro_job_build_info do not match expected jobs."
+    assert actual_jobs == expected_jobs, "Job names in etro_job_build_info do not match expected jobs."
 
 
 @pytest.mark.parametrize(
@@ -366,20 +362,12 @@ def test_get_party_analysis_calculation_info_existing_record(
     }
 
     # Call the function
-    encounter_id, lb_player_id, pet_id_map = get_party_analysis_calculation_info(
-        report_id, fight_id
-    )
+    encounter_id, lb_player_id, pet_id_map = get_party_analysis_calculation_info(report_id, fight_id)
 
     # Assertions
-    assert (
-        encounter_id == expected_encounter_id
-    ), "Encounter ID does not match expected value."
-    assert (
-        lb_player_id == expected_lb_player_id
-    ), "Limit Break player ID does not match expected value."
-    assert (
-        pet_id_map == expected_pet_id_map
-    ), "Pet ID map does not match expected values."
+    assert encounter_id == expected_encounter_id, "Encounter ID does not match expected value."
+    assert lb_player_id == expected_lb_player_id, "Limit Break player ID does not match expected value."
+    assert pet_id_map == expected_pet_id_map, "Pet ID map does not match expected values."
 
 
 def test_get_party_analysis_calculation_info_nonexistent_record(mock_sqlite_connect):

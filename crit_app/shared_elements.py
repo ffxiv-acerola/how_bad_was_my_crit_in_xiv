@@ -2,11 +2,11 @@ from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
 from crit_app.job_data.encounter_data import encounter_phases
 from crit_app.job_data.job_data import caster_healer_strength
 from crit_app.job_data.roles import role_stat_dict
-from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
 
 def validate_main_stat(

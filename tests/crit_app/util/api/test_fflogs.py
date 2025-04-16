@@ -48,9 +48,7 @@ def test_fflogs_report_id(url_path, expected_id):
 def test_fflogs_fight_id(url_query, expected_fight_id):
     """Check whether _fflogs_fight_id extracts the fight ID correctly."""
     fight_id = _fflogs_fight_id(url_query)
-    assert (
-        fight_id == expected_fight_id
-    ), f"Expected: {expected_fight_id}, got: {fight_id}"
+    assert fight_id == expected_fight_id, f"Expected: {expected_fight_id}, got: {fight_id}"
 
 
 @pytest.mark.parametrize(
@@ -107,25 +105,17 @@ def test_fflogs_fight_id(url_query, expected_fight_id):
         ),
     ],
 )
-def test_parse_fflogs_url(
-    input_url, expected_report_id, expected_fight_id, expected_error
-):
+def test_parse_fflogs_url(input_url, expected_report_id, expected_fight_id, expected_error):
     """Test parse_fflogs_url across valid and invalid FFLogs URLs."""
     report_id, fight_id, err = parse_fflogs_url(input_url)
-    assert (
-        report_id == expected_report_id
-    ), f"Report ID: expected {expected_report_id}, got {report_id}"
-    assert (
-        fight_id == expected_fight_id
-    ), f"Fight ID: expected {expected_fight_id}, got {fight_id}"
+    assert report_id == expected_report_id, f"Report ID: expected {expected_report_id}, got {report_id}"
+    assert fight_id == expected_fight_id, f"Fight ID: expected {expected_fight_id}, got {fight_id}"
     assert err == expected_error, f"Error: expected {expected_error!r}, got {err!r}"
 
 
 # Provided mock responses
 report_no_exist = {"errors": [{"message": "This report does not exist."}]}
-private_report = {
-    "errors": [{"message": "You do not have permission to view this report."}]
-}
+private_report = {"errors": [{"message": "You do not have permission to view this report."}]}
 nonexistent_fight_id = {
     "data": {
         "reportData": {
@@ -210,6 +200,4 @@ def test_filter_unpaired_and_overkill_events(test_data_path):
 
     output = _filter_unpaired_and_overkill_events(input_df)
 
-    assert_frame_equal(
-        output.reset_index(drop=True), expected_output.reset_index(drop=True)
-    )
+    assert_frame_equal(output.reset_index(drop=True), expected_output.reset_index(drop=True))

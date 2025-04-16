@@ -152,9 +152,7 @@ def test_estimate_radiant_finale_strength(phase, elapsed, expected):
     instance = ActionTable.__new__(ActionTable)
     instance.phase = phase
     result = instance.estimate_radiant_finale_strength(elapsed)
-    assert (
-        result == expected
-    ), f"For phase {phase} and elapsed {elapsed}, expected {expected} but got {result}"
+    assert result == expected, f"For phase {phase} and elapsed {elapsed}, expected {expected} but got {result}"
 
 
 @pytest.fixture
@@ -182,9 +180,7 @@ def actions_df_unique():
     return pd.DataFrame(data)
 
 
-def test_compute_multiplier_table_existing_multiplier(
-    actions_df_unique, damage_buffs_df
-):
+def test_compute_multiplier_table_existing_multiplier(actions_df_unique, damage_buffs_df):
     """
     If a multiplier is already present in the unique buff set,.
 
@@ -192,9 +188,7 @@ def test_compute_multiplier_table_existing_multiplier(
     """
     instance = ActionTable.__new__(ActionTable)
     # Call the method.
-    multiplier_table = instance._compute_multiplier_table(
-        actions_df_unique, damage_buffs_df
-    )
+    multiplier_table = instance._compute_multiplier_table(actions_df_unique, damage_buffs_df)
 
     # Convert buffs lists to strings as done within the method.
     multiplier_table = multiplier_table.reset_index(drop=True)
@@ -203,35 +197,27 @@ def test_compute_multiplier_table_existing_multiplier(
     for idx, row in multiplier_table.iterrows():
         if row["str_buffs"] == str([10]):
             # Multiplier is defined, so expect 1.5
-            assert np.isclose(
-                row["multiplier"], 1.5
-            ), f"Expected multiplier 1.5, got {row['multiplier']}"
+            assert np.isclose(row["multiplier"], 1.5), f"Expected multiplier 1.5, got {row['multiplier']}"
             break
     else:
         pytest.fail("No row found with buffs [10]")
 
 
-def test_compute_multiplier_table_remainder_calculation(
-    actions_df_unique, damage_buffs_df
-):
+def test_compute_multiplier_table_remainder_calculation(actions_df_unique, damage_buffs_df):
     """
     For a row without a predefined multiplier, the multiplier should be computed from damage_buffs.
 
     In this test, for buffs [1,2], multiplier should equal 1.1 * 1.2 = 1.32.
     """
     instance = ActionTable.__new__(ActionTable)
-    multiplier_table = instance._compute_multiplier_table(
-        actions_df_unique, damage_buffs_df
-    )
+    multiplier_table = instance._compute_multiplier_table(actions_df_unique, damage_buffs_df)
     multiplier_table = multiplier_table.reset_index(drop=True)
 
     for idx, row in multiplier_table.iterrows():
         if row["str_buffs"] == str([1, 2]):
             # Computed multiplier should be product of 1.1 and 1.2
             expected = 1.1 * 1.2
-            assert np.isclose(
-                row["multiplier"], expected
-            ), f"Expected multiplier {expected}, got {row['multiplier']}"
+            assert np.isclose(row["multiplier"], expected), f"Expected multiplier {expected}, got {row['multiplier']}"
             break
     else:
         pytest.fail("No row found with buffs [1, 2]")
@@ -244,9 +230,7 @@ class DummyRate:
         self.dh_stat = dh_stat
         self.level = level
 
-    def get_hit_type_damage_buff(
-        self, hit_type, buff_crit_rate, buff_dh_rate, determination
-    ):
+    def get_hit_type_damage_buff(self, hit_type, buff_crit_rate, buff_dh_rate, determination):
         # If both rate buffs are zero, return factor 1.0 regardless
         if buff_crit_rate == 0 and buff_dh_rate == 0:
             return 1.0
@@ -274,9 +258,7 @@ def dummy_action_instance():
     instance.level = 80
     instance.determination = 200  # Determination value used in the multiplier calc
     # Default empty guaranteed hit type sources.
-    instance.guaranteed_hit_type_via_buff = pd.DataFrame(
-        columns=["buff_id", "affected_action_id", "hit_type"]
-    )
+    instance.guaranteed_hit_type_via_buff = pd.DataFrame(columns=["buff_id", "affected_action_id", "hit_type"])
     instance.guaranteed_hit_type_via_action = {}
     return instance
 

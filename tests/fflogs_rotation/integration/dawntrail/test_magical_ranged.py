@@ -108,9 +108,7 @@ data_path = Path("tests/fflogs_rotation/integration/dawntrail/magical_ranged_dat
     ],
     indirect=["mock_action_table_api_via_file", "mock_gql_query_integration"],
 )
-def test_magical_ranged_end_to_end(
-    mock_action_table_api_via_file, mock_gql_query_integration, params
-):
+def test_magical_ranged_end_to_end(mock_action_table_api_via_file, mock_gql_query_integration, params):
     phase = params["phase"]
     player_id = params["player_id"]
     pet_ids = params["pet_ids"]

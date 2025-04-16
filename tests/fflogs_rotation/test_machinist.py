@@ -47,9 +47,7 @@ def test_compute_battery_gauge_amounts():
       - Force gauge to 100 if the summed gauge is below 50 (representing a full gauge for a resource run).
     """
     expected_gauge = [80, 100, 100]
-    dummy_mch = DummyMachinistActions(
-        headers={}, report_id="dummy", fight_id=1, player_id=1
-    )
+    dummy_mch = DummyMachinistActions(headers={}, report_id="dummy", fight_id=1, player_id=1)
     # Create a DataFrame from the battery_data list.
     # fmt: off
     battery_data = [

@@ -49,9 +49,7 @@ def test_normalize_damage(
     assert int(result["normalized_damage"].iloc[0]) == expected
 
 
-@pytest.mark.parametrize(
-    "boundary_index, expected", [(1, 0.727), (2, 1.318), (3, None)]
-)
+@pytest.mark.parametrize("boundary_index, expected", [(1, 0.727), (2, 1.318), (3, None)])
 def test_compute_potency_boundary(bard_actions, boundary_index, expected):
     if boundary_index == 3:
         with pytest.raises(ValueError):
@@ -76,9 +74,7 @@ def test_compute_potency_boundary(bard_actions, boundary_index, expected):
         )
     ],
 )
-def test_assign_pitch_perfect_stacks(
-    bard_actions, actions_df, dmg_boundaries, expected
-):
+def test_assign_pitch_perfect_stacks(bard_actions, actions_df, dmg_boundaries, expected):
     result = bard_actions._assign_pitch_perfect_stacks(actions_df, dmg_boundaries)
     pd.testing.assert_series_equal(result["pp_buff"], expected["pp_buff"])
 
@@ -112,9 +108,7 @@ def test_assign_pitch_perfect_stacks(
         ),
     ],
 )
-def test_estimate_pitch_perfect_potency(
-    bard_actions, actions_df_rows, expected_pp_name, expected_pp_buffs
-):
+def test_estimate_pitch_perfect_potency(bard_actions, actions_df_rows, expected_pp_name, expected_pp_buffs):
     columns = [
         "abilityGameID",
         "action_name",
@@ -149,9 +143,7 @@ def test_estimate_pitch_perfect_potency(
         (36980, 0.0, ["buff4"], ["buff4"]),
     ],
 )
-def test_estimate_radiant_encore_potency(
-    bard_actions, game_id: int, elapsed_time: float, buffs: list, expected
-):
+def test_estimate_radiant_encore_potency(bard_actions, game_id: int, elapsed_time: float, buffs: list, expected):
     actions_df = pd.DataFrame(
         {
             "abilityGameID": [game_id],
