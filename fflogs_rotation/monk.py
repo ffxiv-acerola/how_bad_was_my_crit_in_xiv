@@ -1,7 +1,7 @@
 import pandas as pd
+from ffxiv_stats import Rate
 
 from fflogs_rotation.base import BuffQuery, disjunction
-from ffxiv_stats import Rate
 
 
 class MonkActions(BuffQuery):
@@ -43,6 +43,8 @@ class MonkActions(BuffQuery):
             rising_raptor_id (int): Rising Raptor ability ID.
             pouncing_coeurl_id (int): Pouncing Coeurl ability ID.
         """
+        super().__init__()
+
         self.report_id = report_id
         self.fight_id = fight_id
         self.player_id = player_id
@@ -61,7 +63,9 @@ class MonkActions(BuffQuery):
         self.rising_raptor_id = rising_raptor_id
         self.pouncing_coeurl_id = pouncing_coeurl_id
 
-        self._set_mnk_buff_times(headers)
+        (self.opo_opo_times, self.formless_fist_times, self.leaden_fist_times) = (
+            self._set_mnk_buff_times(headers)
+        )
 
     def _set_mnk_buff_times(self, headers: dict) -> None:
         """
@@ -116,10 +120,17 @@ class MonkActions(BuffQuery):
             "leadenFistID": self.leaden_fist_id,
         }
 
-        self._perform_graph_ql_query(headers, query, variables, "MonkOpoOpo")
-        self.opo_opo_times = self._get_buff_times("opoOpo")
-        self.formless_fist_times = self._get_buff_times("formlessFist")
-        self.leaden_fist_times = self._get_buff_times("leadenFist")
+        response = self.gql_query(headers, query, variables, "MonkOpoOpo")
+
+        opo_opo_times = self._get_buff_times(response, "opoOpo", add_report_start=True)
+        formless_fist_times = self._get_buff_times(
+            response, "formlessFist", add_report_start=True
+        )
+        leaden_fist_times = self._get_buff_times(
+            response, "leadenFist", add_report_start=True
+        )
+
+        return opo_opo_times, formless_fist_times, leaden_fist_times
 
     def apply_endwalker_mnk_buffs(self, actions_df: pd.DataFrame) -> pd.DataFrame:
         """

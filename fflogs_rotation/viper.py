@@ -48,6 +48,8 @@ class ViperActions(BuffQuery):
             honed_reavers_id (int): Buff ID for Honed Reavers
             honed_steel_id (int): Buff ID for Honed Steel
         """
+        super().__init__()
+
         self.report_id = report_id
         self.fight_id = fight_id
         self.player_id = player_id
@@ -247,18 +249,38 @@ class ViperActions(BuffQuery):
             "honedSteelID": self.honed_steel_id,
         }
 
-        self._perform_graph_ql_query(headers, query, variables, "ViperBuffs")
+        vpr_response = self.gql_query(headers, query, variables, "ViperBuffs")
 
-        self.honed_reavers_times = self._get_buff_times("honedReavers")
-        self.honed_steel_times = self._get_buff_times("honedSteel")
-        self.hunters_venom_times = self._get_buff_times("hunters")
-        self.swiftskins_venom_times = self._get_buff_times("swiftskins")
-        self.poised_twinfang_times = self._get_buff_times("poisedTwinfang")
-        self.poised_twinblood_times = self._get_buff_times("poisedTwinblood")
-        self.fellskins_venom_times = self._get_buff_times("fellskins")
-        self.fellhunters_venom_times = self._get_buff_times("fellhunters")
-        self.grimhunters_venom_times = self._get_buff_times("grimhunters")
-        self.grimskins_venom_times = self._get_buff_times("grimskins")
+        self.honed_reavers_times = self._get_buff_times(
+            vpr_response, "honedReavers", add_report_start=True
+        )
+        self.honed_steel_times = self._get_buff_times(
+            vpr_response, "honedSteel", add_report_start=True
+        )
+        self.hunters_venom_times = self._get_buff_times(
+            vpr_response, "hunters", add_report_start=True
+        )
+        self.swiftskins_venom_times = self._get_buff_times(
+            vpr_response, "swiftskins", add_report_start=True
+        )
+        self.poised_twinfang_times = self._get_buff_times(
+            vpr_response, "poisedTwinfang", add_report_start=True
+        )
+        self.poised_twinblood_times = self._get_buff_times(
+            vpr_response, "poisedTwinblood", add_report_start=True
+        )
+        self.fellskins_venom_times = self._get_buff_times(
+            vpr_response, "fellskins", add_report_start=True
+        )
+        self.fellhunters_venom_times = self._get_buff_times(
+            vpr_response, "fellhunters", add_report_start=True
+        )
+        self.grimhunters_venom_times = self._get_buff_times(
+            vpr_response, "grimhunters", add_report_start=True
+        )
+        self.grimskins_venom_times = self._get_buff_times(
+            vpr_response, "grimskins", add_report_start=True
+        )
         pass
 
     def _apply_generation_combo_chains(self, actions_df: pd.DataFrame) -> pd.DataFrame:

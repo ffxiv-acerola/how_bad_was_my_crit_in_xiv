@@ -1,0 +1,22 @@
+[
+    {"base_action": "Veraero III", "n": 39},
+    {"base_action": "Verthunder III", "n": 34},
+    {"base_action": "Verfire", "n": 24},
+    {"base_action": "Fleche", "n": 22},
+    {"base_action": "Verstone", "n": 20},
+    {"base_action": "Engagement", "n": 17},
+    {"base_action": "Resolution", "n": 16},
+    {"base_action": "Scorch", "n": 16},
+    {"base_action": "Enchanted Redoublement", "n": 16},
+    {"base_action": "Contre Sixte", "n": 16},
+    {"base_action": "Enchanted Zwerchhau", "n": 16},
+    {"base_action": "Enchanted Riposte", "n": 16},
+    {"base_action": "Corps-a-Corps", "n": 16},
+    {"base_action": "Grand Impact", "n": 11},
+    {"base_action": "Verflare", "n": 8},
+    {"base_action": "Verholy", "n": 8},
+    {"base_action": "Prefulgence", "n": 5},
+    {"base_action": "Vice of Thorns", "n": 5},
+    {"base_action": "Enchanted Reprise", "n": 5},
+    {"base_action": "Jolt III", "n": 5}
+]

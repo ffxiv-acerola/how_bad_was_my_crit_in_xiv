@@ -1,21 +1,19 @@
-from typing import Dict, Set
-
 import pandas as pd
 
-from .base import BuffQuery, disjunction
+from fflogs_rotation.base import BuffQuery, disjunction
 
 
 class NinjaActions(BuffQuery):
     def __init__(
         self,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         report_id: int,
         fight_id: int,
         player_id: int,
         patch_number: float,
         bhavacakra_id: int = 7402,
         zesho_meppo_id: int = 36960,
-        ninjutsu_ids: Set[int] = {
+        ninjutsu_ids: set[int] = {
             2265,
             18873,
             18874,
@@ -53,10 +51,14 @@ class NinjaActions(BuffQuery):
             aeolian_edge_id (int): Aeolian Edge ability ID.
             armor_crush_id (int): Armor Crush ability ID.
         """
+        super().__init__()
+
         self.report_id = report_id
         self.fight_id = fight_id
         self.player_id = player_id
+
         self.patch_number = patch_number
+
         self.bhavacakra_id = bhavacakra_id
         self.zesho_meppo_id = zesho_meppo_id
         self.ninjutsu_id = ninjutsu_ids
@@ -64,9 +66,9 @@ class NinjaActions(BuffQuery):
         self.kassatsu_id = kassatsu_id
         self.aeolian_edge_id = aeolian_edge_id
         self.armor_crush_id = armor_crush_id
-        self.set_meisui_times(headers)
+        self.meisui_times, self.kassatsu_times = self.set_nin_buff_times(headers)
 
-    def set_meisui_times(self, headers: Dict[str, str]) -> None:
+    def set_nin_buff_times(self, headers: dict[str, str]) -> None:
         """
         Perform an API call to get buff intervals for Meisui and Kassatsu.
 
@@ -74,7 +76,7 @@ class NinjaActions(BuffQuery):
         and the second column is the end time.
 
         Parameters:
-            headers (Dict[str, str]): FFLogs API header.
+            headers (dict[str, str]): FFLogs API header.
         """
         query = """
         query ninjaMeisui(
@@ -111,9 +113,15 @@ class NinjaActions(BuffQuery):
             "kassatsuID": self.kassatsu_id,
         }
 
-        self._perform_graph_ql_query(headers, query, variables, "ninjaMeisui")
-        self.meisui_times = self._get_buff_times("meisui")
-        self.kassatsu_times = self._get_buff_times("kassatsu")
+        nin_buff_response = self.gql_query(headers, query, variables, "ninjaMeisui")
+        meisui_times = self._get_buff_times(
+            nin_buff_response, "meisui", add_report_start=True
+        )
+        kassatsu_times = self._get_buff_times(
+            nin_buff_response, "kassatsu", add_report_start=True
+        )
+
+        return meisui_times, kassatsu_times
 
     def _track_kazematoi_gauge(self, actions_df: pd.DataFrame) -> pd.DataFrame:
         """

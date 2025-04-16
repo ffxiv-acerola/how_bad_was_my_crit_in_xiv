@@ -4,8 +4,7 @@ from uuid import UUID
 
 import coreapi
 import requests
-
-from crit_app.job_data.job_data import weapon_delays
+from dash import html
 
 ETRO_JOB_STATS = {
     "WHM": ("Healer", "MND", "SPS"),
@@ -37,6 +36,8 @@ ERROR_CODE_MAP = {
     3: "Error retrieving build.",
 }
 
+INVALID_BUILD_PROVIDER = "Only etro.gg or xivgear.app is supported."
+
 
 def is_valid_domain(netloc, required_elements: list[str]) -> bool:
     """
@@ -62,7 +63,6 @@ def job_build_provider(job_build_url: str) -> tuple[bool, str]:
     Returns:
         Tuple[bool, str]: A tuple containing a boolean indicating if the URL is valid and the provider name or error message.
     """
-    INVALID_BUILD_PROVIDER = "Only etro.gg or xivgear.app is supported."
     try:
         parsed_url = urlparse(job_build_url)
         netloc_elements = parsed_url.netloc.split(".")
@@ -315,7 +315,6 @@ def _extract_xiv_gear_set(
             - Determination
             - Speed
             - Weapon damage
-            - Delay
             - Tenacity
     """
     XIV_GEAR_ROLE_MAP = {
@@ -367,7 +366,6 @@ def _extract_xiv_gear_set(
         dh,
         wd,
         tenacity,
-        1.0,
     )
 
 
@@ -409,7 +407,7 @@ def etro_build(
             - Delay
             - Etro party bonus
     """
-    invalid_return = [False, ""] + [None] * 11
+    invalid_return = [False, ""] + [None] * 13
 
     # Get ID from url
     gearset_id, error_message = _parse_and_validate_etro_url(etro_url)
@@ -439,13 +437,16 @@ def etro_build(
         tenacity,
     ) = _extract_etro_build_stats(build_result)
 
-    # TODO: Try to get by weapon ID
-    delay = weapon_delays[job_abbreviated]
+    if etro_party_bonus > 1.0:
+        primary_stat = primary_stat // etro_party_bonus
 
     return (
-        True,
-        "",
-        build_name,
+        True,  # success
+        "",  # feedback
+        True,  # gearset div hidden
+        True,  # Valid job build url
+        False,  # Invalid job build url
+        [html.H4(f"Build name: {build_name}")],  # job-build-name-div
         build_role,
         primary_stat,
         determination,
@@ -454,8 +455,7 @@ def etro_build(
         dh,
         wd,
         tenacity,
-        delay,
-        etro_party_bonus,
+        {"gear_index": -1, "data": []},  # no store data for etro
     )
 
 
@@ -476,11 +476,34 @@ def xiv_gear_build(
             - List of extracted gear sets if successful, None if failed
             - Selected gear set index
     """
+    error_message = ""
+    invalid_return = [
+        True,
+        False,
+        True,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    ]
+
     error_message, xiv_gearset_id, gear_idx = _parse_and_validate_xiv_gear_url(
         xiv_gear_url
     )
     if error_message != "":
-        return (False, error_message, None, 0)
+        return tuple(
+            [
+                False,
+                error_message,
+            ]
+            + invalid_return
+        )
 
     error_message, gear_sets = _query_xiv_gear_sets(xiv_gearset_id)
     if error_message == "":
@@ -491,9 +514,62 @@ def xiv_gear_build(
     if require_sheet_selection & (gear_idx == -1):
         error_message = "A specific gear set must be linked, not the whole sheet."
     if error_message != "":
-        return (False, error_message, None, 0)
+        return tuple(
+            [
+                False,
+                error_message,
+            ]
+            + invalid_return
+        )
 
-    return True, error_message, [_extract_xiv_gear_set(g) for g in gear_sets], gear_idx
+    gear_sheet_store_data = {
+        "gear_index": gear_idx,
+        "data": [_extract_xiv_gear_set(g) for g in gear_sets],
+    }
+
+    selected_role = gear_sheet_store_data["data"][0][2]
+
+    # Don't select anything if nothing is specified in URL
+    # and if theres multiple options
+    if (gear_idx == -1) & (len(gear_sets) > 1):
+        return (
+            True,  # success
+            "",  # feedback
+            False,  # gearset div hidden
+            True,  # Valid job build url
+            False,  # Invalid job build url
+            [],  # no build name
+            selected_role,  # role
+            None,  # primary_stat
+            None,  # determination
+            None,  # speed
+            None,  # ch
+            None,  # dh
+            None,  # wd
+            None,  # tenacity
+            gear_sheet_store_data,
+        )
+    else:
+        if gear_idx == -1:
+            gear_idx = 0
+        selected = gear_sheet_store_data["data"][gear_idx]
+        return (
+            True,  # success
+            "",  # feedback
+            False,  # gearset div hidden
+            True,  # Valid job build url
+            False,  # Invalid job build url
+            [html.H4(selected[1])],  # no build name
+            selected_role,  # role
+            selected[3],  # primary_stat
+            selected[4],  # determination
+            selected[5],  # speed
+            selected[6],  # ch
+            selected[7],  # dh
+            selected[8],  # wd
+            selected[9],  # tenacity
+            gear_sheet_store_data,
+        )
 
 
 def parse_build_uuid(
@@ -565,6 +641,8 @@ if __name__ == "__main__":
     error_code, gear_sets, gear_idx = xiv_gear_build(
         # "https://xivgear.app/?page=sl%7C01a73d6f-8f17-4aa5-acc8-a8f9ad911119" # PCT build
         # "https://xivgear.app/?page=sl%7Cf49f08b0-ce11-470f-a967-3e7613321213" # BRD build
-        "https://xivgear.app/?page=sl%7C9ee61d69-7daa-41bd-9c28-8a0f0055f90f"  # DRK build
+        # "https://xivgear.app/?page=sl%7C9ee61d69-7daa-41bd-9c28-8a0f0055f90f"  # DRK build
+        "https://xivgear.app/?page=sl%7Ca8881f6f-9ab3-40cc-9931-7035021a3f1b"
     )
-    print(gear_idx)
+    etro_build("https://etro.gg/gearset/4c5f7a8e-610d-430f-8454-53b913c4685f")
+    # print(gear_idx)

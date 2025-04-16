@@ -40,7 +40,6 @@ line-length = 88
 [tool.ruff.lint]
 ignore = ["E712"] # Pandas requires == True
 
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

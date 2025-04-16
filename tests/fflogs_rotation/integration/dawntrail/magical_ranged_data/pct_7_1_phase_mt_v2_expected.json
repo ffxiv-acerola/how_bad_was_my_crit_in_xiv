@@ -1,0 +1,21 @@
+[
+    {"base_action": "Fire in Red", "n": 6},
+    {"base_action": "Stone in Yellow", "n": 5},
+    {"base_action": "Blizzard in Cyan", "n": 5},
+    {"base_action": "Thunder in Magenta", "n": 5},
+    {"base_action": "Water in Blue", "n": 5},
+    {"base_action": "Aero in Green", "n": 5},
+    {"base_action": "Hammer Brush", "n": 4},
+    {"base_action": "Hammer Stamp", "n": 4},
+    {"base_action": "Comet in Black", "n": 4},
+    {"base_action": "Polishing Hammer", "n": 3},
+    {"base_action": "Holy in White", "n": 4},
+    {"base_action": "Rainbow Drip", "n": 3},
+    {"base_action": "Fanged Muse", "n": 2},
+    {"base_action": "Star Prism", "n": 2},
+    {"base_action": "Mog of the Ages", "n": 2},
+    {"base_action": "Clawed Muse", "n": 2},
+    {"base_action": "Retribution of the Madeen", "n": 1},
+    {"base_action": "Winged Muse", "n": 1},
+    {"base_action": "Pom Muse", "n": 1}
+]

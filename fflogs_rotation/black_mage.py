@@ -1,5 +1,3 @@
-from typing import Dict
-
 import numpy as np
 import pandas as pd
 
@@ -10,7 +8,7 @@ class BlackMageActions(BuffQuery):
     def __init__(
         self,
         actions_df: pd.DataFrame,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         report_id: str,
         fight_id: int,
         player_id: int,
@@ -19,6 +17,8 @@ class BlackMageActions(BuffQuery):
         patch_number: float,
         thundercloud_id: int = 1000164,
     ) -> None:
+        super().__init__()
+
         self.report_id = report_id
         self.player_id = player_id
         self.fight_id = fight_id
@@ -186,7 +186,7 @@ class BlackMageActions(BuffQuery):
             "Manafont": {"time": TIMER_DURATION, "stacks": 3},
         }
 
-    def _query_elemental_gauge_affecting_actions(self, headers: Dict[str, str]) -> None:
+    def _query_elemental_gauge_affecting_actions(self, headers: dict[str, str]) -> None:
         """
         Get gauge actions for the full fight.
 
@@ -334,6 +334,7 @@ class BlackMageActions(BuffQuery):
 
         return df
 
+    # TODO: update to self method
     def _thundercloud_times(self, thundercloud_auras) -> None:
         if len(thundercloud_auras) > 0:
             self.thundercloud_times = (
@@ -344,7 +345,7 @@ class BlackMageActions(BuffQuery):
             self.thundercloud_times = np.array([[0, 0]])
 
     def _query_transpose_umbral_soul_manafont_casts(
-        self, headers: Dict[str, str]
+        self, headers: dict[str, str]
     ) -> None:
         """
         Retrieve transpose and umbral soul casts, manafont, and thundercloud buff data.
@@ -433,7 +434,7 @@ class BlackMageActions(BuffQuery):
         return transpose_df, umbral_soul_df, manafont_df
 
     def _get_elemental_gauge_actions(
-        self, headers: Dict[str, str], actions_df=None
+        self, headers: dict[str, str], actions_df=None
     ) -> None:
         if self.phase > 0:
             damage_gauge_actions = self._query_elemental_gauge_affecting_actions(
@@ -465,7 +466,11 @@ class BlackMageActions(BuffQuery):
         )
 
         elemental_gauge_df = (
-            pd.concat([damage_gauge_actions, transpose_df, umbral_soul_df, manafont_df])
+            pd.concat(
+                [damage_gauge_actions, transpose_df, umbral_soul_df, manafont_df],
+                ignore_index=True,
+                sort=False,
+            )
             .sort_values("timestamp")
             .reset_index(drop=True)
         )
@@ -876,7 +881,9 @@ class BlackMageActions(BuffQuery):
             [
                 elemental_state_changes[elemental_gauge_dropped_rows.columns],
                 elemental_gauge_dropped_rows,
-            ]
+            ],
+            ignore_index=True,
+            sort=False,
         )[
             [
                 "timestamp",
@@ -921,7 +928,7 @@ class BlackMageActions(BuffQuery):
 
     def _get_elemental_state_timings(
         self, elemental_state_changes: pd.DataFrame
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """
         Build timing arrays for elemental gauge states: Astral Fire (AF1-3) and Umbral Ice (UI1-3).
 

@@ -1,0 +1,22 @@
+[
+    {"base_action": "Attack", "n": 39},
+    {"base_action": "Salted Earth (tick)", "n": 24},
+    {"base_action": "Souleater", "n": 11},
+    {"base_action": "Syphon Strike", "n": 10},
+    {"base_action": "Hard Slash", "n": 10},
+    {"base_action": "Edge of Shadow", "n": 9},
+    {"base_action": "Bloodspiller", "n": 6},
+    {"base_action": "Shadowbringer", "n": 6},
+    {"base_action": "Salt and Darkness", "n": 4},
+    {"base_action": "Comeuppance", "n": 3},
+    {"base_action": "Scarlet Delirium", "n": 3},
+    {"base_action": "Disesteem", "n": 2},
+    {"base_action": "Torcleaver", "n": 2},
+    {"base_action": "Carve and Spit", "n": 2},
+    {"base_action": "Abyssal Drain (Pet)", "n": 2},
+    {"base_action": "Shadowbringer (Pet)", "n": 2},
+    {"base_action": "Disesteem (Pet)", "n": 2},
+    {"base_action": "Edge of Shadow (Pet)", "n": 1},
+    {"base_action": "Bloodspiller (Pet)", "n": 1},
+    {"base_action": "Unmend", "n": 1}
+]

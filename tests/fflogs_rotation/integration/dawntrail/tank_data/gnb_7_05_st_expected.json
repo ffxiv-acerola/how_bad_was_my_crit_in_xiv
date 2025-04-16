@@ -1,0 +1,23 @@
+[
+    {"base_action": "Attack", "n": 137},
+    {"base_action": "Sonic Break (tick)", "n": 60},
+    {"base_action": "Bow Shock (tick)", "n": 35},
+    {"base_action": "Solid Barrel", "n": 26},
+    {"base_action": "Brutal Shell", "n": 26},
+    {"base_action": "Keen Edge", "n": 27},
+    {"base_action": "Blasting Zone", "n": 13},
+    {"base_action": "Wicked Talon", "n": 13},
+    {"base_action": "Savage Claw", "n": 13},
+    {"base_action": "Gnashing Fang", "n": 13},
+    {"base_action": "Eye Gouge", "n": 13},
+    {"base_action": "Abdomen Tear", "n": 13},
+    {"base_action": "Jugular Rip", "n": 13},
+    {"base_action": "Burst Strike", "n": 11},
+    {"base_action": "Hypervelocity", "n": 10},
+    {"base_action": "Double Down", "n": 7},
+    {"base_action": "Bow Shock", "n": 7},
+    {"base_action": "Sonic Break", "n": 6},
+    {"base_action": "Lion Heart", "n": 4},
+    {"base_action": "Noble Blood", "n": 4},
+    {"base_action": "Reign of Beasts", "n": 4}
+]

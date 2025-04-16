@@ -1,0 +1,16 @@
+[
+    {"base_action": "Attack", "n": 224},
+    {"base_action": "Leaping Opo", "n": 42},
+    {"base_action": "Dragon Kick", "n": 42},
+    {"base_action": "The Forbidden Chakra", "n": 33},
+    {"base_action": "Pouncing Coeurl", "n": 30},
+    {"base_action": "Rising Raptor", "n": 23},
+    {"base_action": "Twin Snakes", "n": 23},
+    {"base_action": "Demolish", "n": 15},
+    {"base_action": "Fire's Reply", "n": 7},
+    {"base_action": "Elixir Burst", "n": 5},
+    {"base_action": "Wind's Reply", "n": 5},
+    {"base_action": "Phantom Rush", "n": 3},
+    {"base_action": "Rising Phoenix", "n": 3},
+    {"base_action": "Six-Sided Star", "n": 1}
+]
