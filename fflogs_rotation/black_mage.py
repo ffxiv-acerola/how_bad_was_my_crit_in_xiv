@@ -1,7 +1,16 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 
 from fflogs_rotation.base import BuffQuery, disjunction
+
+# Filter all DataFrame concatenation deprecation warnings
+warnings.filterwarnings(
+    "ignore",
+    category=FutureWarning,
+    message=".*DataFrame concatenation.*",
+)
 
 
 class BlackMageActions(BuffQuery):
@@ -465,9 +474,16 @@ class BlackMageActions(BuffQuery):
             self._query_transpose_umbral_soul_manafont_casts(headers)
         )
 
+        # Filter out empty DataFrames before concatenation
+        dfs_to_concat = [
+            df
+            for df in [damage_gauge_actions, transpose_df, umbral_soul_df, manafont_df]
+            if not df.empty
+        ]
+
         elemental_gauge_df = (
             pd.concat(
-                [damage_gauge_actions, transpose_df, umbral_soul_df, manafont_df],
+                dfs_to_concat,
                 ignore_index=True,
                 sort=False,
             )
