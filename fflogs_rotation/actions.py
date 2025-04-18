@@ -1,5 +1,4 @@
 import warnings
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -33,7 +32,7 @@ class ActionTable(FFLogsClient):
 
     def __init__(
         self,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         report_id: str,
         fight_id: int,
         job: str,
@@ -49,7 +48,7 @@ class ActionTable(FFLogsClient):
         guaranteed_hits_by_action_table: pd.DataFrame,
         guaranteed_hits_by_buff_table: pd.DataFrame,
         encounter_phases,
-        pet_ids: Optional[List[int]] = None,
+        pet_ids: list[int] | None = None,
         debug: bool = False,
     ) -> None:
         self.report_id = report_id
@@ -122,7 +121,7 @@ class ActionTable(FFLogsClient):
                 return k
         return 0.0
 
-    def _query_fight_information(self, headers: Dict[str, str]) -> None:
+    def _query_fight_information(self, headers: dict[str, str]) -> None:
         """
         Retrieves fight information from the FFLogs GraphQL API for the specified.
 
@@ -130,7 +129,7 @@ class ActionTable(FFLogsClient):
         name, start/end times, echo). Modifies class state in-place.
 
         Args:
-            headers (Dict[str, str]): HTTP headers for GraphQL querying, including
+            headers (dict[str, str]): HTTP headers for GraphQL querying, including
             authentication tokens.
         """
         fight_info_variables = {
@@ -336,7 +335,7 @@ class ActionTable(FFLogsClient):
             # No bonus for incorrect potion type
             return 0
 
-    def _process_fight_data(self, headers: Dict[str, str], fight_info_response) -> None:
+    def _process_fight_data(self, headers: dict[str, str], fight_info_response) -> None:
         """
         Parses the fight data from the FFLogs API response, setting core attributes.
 
@@ -348,7 +347,7 @@ class ActionTable(FFLogsClient):
             response (dict):
                 The parsed JSON response from the FFLogs API containing report
                 and fight data.
-            headers (Dict[str, str]):
+            headers (dict[str, str]):
                 HTTP headers used for further GraphQL queries, if needed
                 for phase/downtime details.
         """
@@ -424,7 +423,7 @@ class ActionTable(FFLogsClient):
         return phase_start_time, phase_end_time
 
     def _fetch_phase_downtime(
-        self, headers: Dict[str, str], phase_start_time: int, phase_end_time: int
+        self, headers: dict[str, str], phase_start_time: int, phase_end_time: int
     ) -> dict:
         """Retrieves phase-specific timing data."""
         variables = {
@@ -441,7 +440,7 @@ class ActionTable(FFLogsClient):
         """Extracts downtime from the response, returning 0 if not present."""
         return response["table"]["data"].get("downtime", 0)
 
-    def _query_damage_events(self, headers: Dict[str, str]) -> None:
+    def _query_damage_events(self, headers: dict[str, str]) -> None:
         """
         Query FFLogs API for damage events from a specific fight.
 
@@ -461,7 +460,7 @@ class ActionTable(FFLogsClient):
         - Hit type (crit/direct hit)
 
         Args:
-            headers (Dict[str, str]): FFLogs API headers containing:
+            headers (dict[str, str]): FFLogs API headers containing:
                 - Content-Type: application/json
                 - Authorization: Bearer token
 
@@ -712,11 +711,11 @@ class ActionTable(FFLogsClient):
     def guaranteed_hit_type_damage_buff(
         self,
         ability_id: str,
-        buff_ids: List[str],
+        buff_ids: list[str],
         multiplier: float,
         ch_rate_buff: float = 0.0,
         dh_rate_buff: float = 0.0,
-    ) -> Tuple[float, int]:
+    ) -> tuple[float, int]:
         """
         Calculate damage multiplier and hit type for abilities with guaranteed critical/direct hits.
 
@@ -1044,7 +1043,7 @@ class ActionTable(FFLogsClient):
         )
         return actions_df.reset_index(drop=True)
 
-    def _apply_job_specifics(self, headers: Dict[str, str]) -> None:
+    def _apply_job_specifics(self, headers: dict[str, str]) -> None:
         """Delegates job-specific transformations."""
         self.job_specifics = None
 

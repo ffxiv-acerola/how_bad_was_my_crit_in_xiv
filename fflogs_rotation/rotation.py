@@ -1,5 +1,3 @@
-from typing import Dict, List, Optional
-
 import pandas as pd
 
 from fflogs_rotation.actions import ActionTable
@@ -26,7 +24,7 @@ class RotationTable(ActionTable):
 
     def __init__(
         self,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         report_id: str,
         fight_id: int,
         job: str,
@@ -43,8 +41,8 @@ class RotationTable(ActionTable):
         guaranteed_hits_by_buff_table: pd.DataFrame,
         potency_table: pd.DataFrame,
         encounter_phases,
-        pet_ids: Optional[List[int]] = None,
-        excluded_enemy_ids: Optional[List[int]] = None,
+        pet_ids: list[int] | None = None,
+        excluded_enemy_ids: list[int] | None = None,
         debug: bool = False,
     ) -> None:
         """
@@ -634,11 +632,11 @@ class RotationTable(ActionTable):
     def make_rotation_df(
         self,
         actions_df: pd.DataFrame,
-        t_end_clip: Optional[float] = None,
-        t_start_clip: Optional[float] = None,
+        t_end_clip: float | None = None,
+        t_start_clip: float | None = None,
         return_clipped: bool = False,
         clipped_portion: str = "end",
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         """
         Create rotation DataFrame by aggregating actions within a time window.
 
