@@ -136,7 +136,6 @@ def test_healer_end_to_end(mock_action_table_api_via_file, params):
         crit_stat=2000,
         dh_stat=1000,
         determination=1000,
-        medication_amt=200,
         level=100,
         phase=phase,
         damage_buff_table=damage_buff_table,

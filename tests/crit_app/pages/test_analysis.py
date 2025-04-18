@@ -654,7 +654,6 @@ def test_analyze_and_register_rotation_early_returns(player_ids, fflogs_data, mo
         dh = 1200
         wd = 120
         job_build_idx = None
-        medication_amt = 1000
         fflogs_url = "https://www.fflogs.com/reports/abc123#fight=1"
         fight_phase = 1
         job_build_url = "https://etro.gg/gearset/123456"
@@ -670,7 +669,6 @@ def test_analyze_and_register_rotation_early_returns(player_ids, fflogs_data, mo
             dh,
             wd,
             job_build_idx,
-            medication_amt,
             fflogs_data,
             fflogs_url,
             fight_phase,

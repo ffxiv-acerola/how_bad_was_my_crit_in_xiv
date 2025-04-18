@@ -170,7 +170,6 @@ def test_search_prior_player_analyses(mock_sqlite_connect):
         direct_hit=1014,
         weapon_damage=146,
         delay=3.2,
-        medication_amount=392,
     )
 
     assert redo_flags == 0
@@ -193,7 +192,6 @@ def test_search_prior_analyses_no_match(mock_sqlite_connect):
         direct_hit=1,
         weapon_damage=1,
         delay=1.0,
-        medication_amount=1,
     )
 
     assert redo_flag == 0
@@ -267,11 +265,7 @@ def test_get_party_analysis_player_build(mock_sqlite_connect):
     (
         etro_job_build_info,
         player_analysis_selector_opts,
-        medication_amount,
     ) = get_party_analysis_player_build(test_party_analysis_id)
-
-    # Assert medication_amount is as per the first report_data entry
-    assert medication_amount == 392
 
     # Assert player_analysis_selector_opts has 8 entries (analysis_id_1 to analysis_id_8)
     assert len(player_analysis_selector_opts) == 8

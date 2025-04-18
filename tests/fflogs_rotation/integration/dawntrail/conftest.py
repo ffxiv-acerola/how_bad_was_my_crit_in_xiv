@@ -4,6 +4,7 @@ import pytest
 
 from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.dragoon import DragoonActions
+from fflogs_rotation.encounter_specifics import EncounterSpecifics
 from fflogs_rotation.machinist import MachinistActions
 from fflogs_rotation.monk import MonkActions
 from fflogs_rotation.ninja import NinjaActions
@@ -39,6 +40,16 @@ def mock_action_table_api_via_file(monkeypatch, request):
         return mock_responses["damage-events"]
 
     monkeypatch.setattr(ActionTable, "_query_damage_events", mock_damage_events)
+
+    def mock_medication_amount(*args, **kwargs):
+        return 392
+
+    monkeypatch.setattr(ActionTable, "_get_medication_amount", mock_medication_amount)
+
+    def mock_fru_p2_specific(self, headers, report_id, fight_id, actions_df, **kwargs):
+        return actions_df
+
+    monkeypatch.setattr(EncounterSpecifics, "fru_apply_vuln_p2", mock_fru_p2_specific)
 
 
 @pytest.fixture

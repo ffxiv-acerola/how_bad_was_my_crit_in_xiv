@@ -153,7 +153,6 @@ def test_melee_end_to_end(mock_action_table_api_via_file, mock_gql_query_integra
         crit_stat=critical_hit,
         dh_stat=1000,
         determination=1000,
-        medication_amt=200,
         level=100,
         phase=phase,
         damage_buff_table=damage_buff_table,

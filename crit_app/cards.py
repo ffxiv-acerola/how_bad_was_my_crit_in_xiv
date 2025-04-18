@@ -19,9 +19,6 @@ def initialize_job_build(
     crit: Optional[int] = None,
     direct_hit: Optional[int] = None,
     weapon_damage: Optional[int] = None,
-    delay: Optional[float] = None,
-    party_bonus: float = 1.05,
-    medication_amt: int = 461,
     build_selector_hidden: bool = True,
 ) -> html.Div:
     """
@@ -128,55 +125,6 @@ def initialize_job_build(
         ),
         hidden=build_selector_hidden,
         id="xiv-gear-set-div",
-    )
-
-    tincture_input = dbc.Row(
-        [
-            dbc.Label(
-                [
-                    html.Span(
-                        "POT:",
-                        id="tincture-tooltip",
-                        style={
-                            "textDecoration": "underline",
-                            "textDecorationStyle": "dotted",
-                            "cursor": "pointer",
-                        },
-                    ),
-                    dbc.Tooltip(
-                        "Medication/potion. If no medication was used, "
-                        "keep the default value selected.",
-                        target="tincture-tooltip",
-                    ),
-                ],
-                width=12,
-                md=1,
-            ),
-            dbc.Col(
-                [
-                    dbc.Select(
-                        name="POT:",
-                        id="tincture-grade",
-                        options=[
-                            {"label": "Grade 3 Gemdraught (+461)", "value": 461},
-                            {"label": "Grade 2 Gemdraught (+392)", "value": 392},
-                            {"label": "Grade 1 Gemdraught (+361)", "value": 351},
-                            {
-                                "label": "Grade 8 Tincture (+262)",
-                                "value": 262,
-                            },
-                            {
-                                "label": "Grade 7 Tincture (+223)",
-                                "value": 223,
-                            },
-                        ],
-                        value=medication_amt,
-                    ),
-                ],
-                width=12,
-                md=5,
-            ),
-        ]
     )
 
     top_stat_list = [
@@ -360,7 +308,6 @@ def initialize_job_build(
                             top_stat_row,
                             middle_stat_row,
                             bottom_stat_row,
-                            tincture_input,
                         ]
                     ),
                 ]

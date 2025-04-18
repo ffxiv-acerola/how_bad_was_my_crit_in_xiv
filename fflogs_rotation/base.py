@@ -18,14 +18,14 @@ def disjunction(*conditions):
     return reduce(np.logical_or, conditions)
 
 
-class FFLogsClient(object):
+class FFLogsClient:
     """Responsible for FFLogs API calls."""
 
     def __init__(self, api_url: str = "https://www.fflogs.com/api/v2/client"):
         self.api_url = api_url
 
     def gql_query(
-        self, headers, query: str, variables: dict, operation_name: str
+        self, headers: dict[str, str], query: str, variables: dict, operation_name: str
     ) -> dict:
         json_payload = {
             "query": query,
@@ -50,7 +50,7 @@ class BuffQuery(FFLogsClient):
 
     def _get_buff_times(
         self,
-        buff_response: dict[str, dict],
+        buff_response: dict,
         buff_name: str,
         report_start: int = 0,
         add_report_start: bool = True,
@@ -74,7 +74,7 @@ class BuffQuery(FFLogsClient):
         else:
             return np.array([[-1, -1]])
 
-    def _get_report_start_time(self, response: dict[str, dict]) -> int:
+    def _get_report_start_time(self, response: dict) -> int:
         return response["data"]["reportData"]["report"]["startTime"]
 
     def _apply_buffs(
@@ -104,3 +104,7 @@ class BuffQuery(FFLogsClient):
             + actions_df["buffs"].sort_values().str.join("_")
         )
         return actions_df
+
+    @staticmethod
+    def disjunction(*conditions):
+        return reduce(np.logical_or, conditions)

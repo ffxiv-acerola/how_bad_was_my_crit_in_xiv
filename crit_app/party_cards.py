@@ -77,7 +77,6 @@ def create_fflogs_card(
     phase_selector_value="0",
     phase_selector_options: list = [],
     phase_select_hidden: bool = False,
-    medication_amount: int = 461,
     quick_build_table_data: list = [],
     party_accordion_items: list = [],
     hide_fflogs_div: bool = True,
@@ -191,9 +190,6 @@ def create_fflogs_card(
         ),
     ]
 
-    # Medication
-    medication_selector = create_tincture_input(medication_amount)
-
     # Quick build input
     quick_build_table = dash_table.DataTable(
         data=quick_build_table_data,
@@ -288,7 +284,6 @@ def create_fflogs_card(
             dbc.Collapse(
                 [
                     *job_build_text,
-                    medication_selector,
                     quick_build_div,
                     party_accordion,
                     # buttons,
@@ -316,7 +311,6 @@ def create_fflogs_card(
                 hidden=True,
             ),
             *job_build_text,
-            medication_selector,
             quick_build_div,
             party_accordion,
             # buttons,
@@ -857,68 +851,6 @@ def create_job_build_content(
             ]
         )
     )
-
-
-def create_tincture_input(
-    medication_amt: int = 461, id_name: str = "party-tincture-grade"
-) -> html.Div:
-    """
-    Create medication (tincture) selection component.
-
-    Args:
-        medication_amt: Default medication amount bonus
-        id_name: Component ID for select element
-
-    Returns:
-        Div containing medication grade selector
-    """
-    tincture_input = html.Div(
-        [
-            html.H4("Medication"),
-            html.P(
-                "Select the medication (pot) used, which will be applied to all party members."
-            ),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        [
-                            dbc.Select(
-                                name="POT:",
-                                id=id_name,
-                                options=[
-                                    {
-                                        "label": "Grade 3 Gemdraught (+461)",
-                                        "value": 461,
-                                    },
-                                    {
-                                        "label": "Grade 2 Gemdraught (+392)",
-                                        "value": 392,
-                                    },
-                                    {
-                                        "label": "Grade 1 Gemdraught (+361)",
-                                        "value": 351,
-                                    },
-                                    {
-                                        "label": "Grade 8 Tincture (+262)",
-                                        "value": 262,
-                                    },
-                                    {
-                                        "label": "Grade 7 Tincture (+223)",
-                                        "value": 223,
-                                    },
-                                ],
-                                value=medication_amt,
-                            ),
-                        ],
-                        width=12,
-                        md=5,
-                    ),
-                ],
-                style={"padding-bottom": "15px"},
-            ),
-        ]
-    )
-    return tincture_input
 
 
 def create_accordion_items(
