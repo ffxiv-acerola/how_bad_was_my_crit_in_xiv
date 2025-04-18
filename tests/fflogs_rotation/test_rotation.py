@@ -51,6 +51,11 @@ def create_fight_response(kill: bool, phases: int):
         end_time = end_time_wipe[phases]
         phase_transitions = phase_transitions[0:phases]
     return {
+        "potionType": {
+            "data": {
+                "auras": [],
+            }
+        },
         "startTime": 1000,  # Report start time in ms
         "table": {
             "data": {
@@ -103,9 +108,9 @@ def test_fight_times(action_table, phase, kill, expected):
     """
     action_table.phase = phase
     # Make phase response depending on the outcome
-    action_table.fight_info_response = create_fight_response(kill, phase)
+    # action_table.fight_info_response = create_fight_response(kill, phase)
 
-    action_table._set_fight_information({})
+    action_table._set_fight_information({}, create_fight_response(kill, phase))
 
     assert action_table.fight_start_time == expected[0]
     assert action_table.fight_end_time == expected[1]
@@ -243,9 +248,10 @@ class DummyRate:
 @pytest.fixture(autouse=True)
 def patch_rate(monkeypatch):
     # Monkeypatch the Rate class in rotation to our DummyRate.
-    from fflogs_rotation import rotation
+    # FIXME: probably just instantiate a Rate instance in the class idk
+    from fflogs_rotation import actions
 
-    monkeypatch.setattr(rotation, "Rate", DummyRate)
+    monkeypatch.setattr(actions, "Rate", DummyRate)
 
 
 @pytest.fixture

@@ -104,3 +104,7 @@ class BuffQuery(FFLogsClient):
             + actions_df["buffs"].sort_values().str.join("_")
         )
         return actions_df
+
+    @staticmethod
+    def disjunction(*conditions):
+        return reduce(np.logical_or, conditions)

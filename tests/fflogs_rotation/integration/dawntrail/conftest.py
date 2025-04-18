@@ -40,6 +40,11 @@ def mock_action_table_api_via_file(monkeypatch, request):
 
     monkeypatch.setattr(ActionTable, "_query_damage_events", mock_damage_events)
 
+    def mock_medication_amount(*args, **kwargs):
+        return 392
+
+    monkeypatch.setattr(ActionTable, "_get_medication_amount", mock_medication_amount)
+
 
 @pytest.fixture
 def mock_gql_query_integration(monkeypatch, request):
