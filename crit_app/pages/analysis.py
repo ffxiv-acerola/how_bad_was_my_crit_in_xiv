@@ -253,7 +253,6 @@ def layout(analysis_id=None):
         delay = analysis_details["delay"]
 
         party_bonus = analysis_details["party_bonus"]
-        medication_amt = analysis_details["medication_amount"]
         player_job_no_space = analysis_details["job"]
         player_id = int(analysis_details["player_id"])
         pet_ids = analysis_details["pet_ids"]
@@ -270,7 +269,6 @@ def layout(analysis_id=None):
                     crit,
                     direct_hit,
                     determination,
-                    medication_amt,
                     level,
                     fight_phase,
                     damage_buff_table,
@@ -291,6 +289,7 @@ def layout(analysis_id=None):
                     pickle.dump(rotation_object, f)
                 unflag_redo_rotation(analysis_id)
 
+            # FIXME: medication amt remove
             # Catch any errors and notify user
             except Exception as e:
                 error_info = (
@@ -314,7 +313,7 @@ def layout(analysis_id=None):
                     int(direct_hit),
                     int(weapon_damage),
                     delay,
-                    medication_amt,
+                    -1,
                     party_bonus,
                     str(e),
                     traceback.format_exc(),
@@ -374,6 +373,8 @@ def layout(analysis_id=None):
                 with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
                     pickle.dump(job_analysis_data, f)
                 unflag_report_recompute(analysis_id)
+
+            # FIXME: medication amt remove (-1)
             # Catch any errors and notify user
             except Exception as e:
                 error_info = (
@@ -397,7 +398,7 @@ def layout(analysis_id=None):
                     int(direct_hit),
                     int(weapon_damage),
                     delay,
-                    medication_amt,
+                    -1,
                     party_bonus,
                     str(e),
                     traceback.format_exc(),
@@ -536,9 +537,6 @@ def layout(analysis_id=None):
             crit,
             direct_hit,
             weapon_damage,
-            delay,
-            party_bonus,
-            medication_amt,
         )
 
         phase_select_options, phase_select_hidden = get_phase_selector_options(
@@ -1252,7 +1250,6 @@ def copy_analysis_link(n: int, selected: str) -> str:
     State("DH", "value"),
     State("WD", "value"),
     State("xiv-gear-select", "value"),
-    State("tincture-grade", "value"),
     State("fflogs-encounter", "data"),
     State("fflogs-url", "value"),
     State("phase-select", "value"),
@@ -1274,7 +1271,6 @@ def analyze_and_register_rotation(
     dh: int,
     wd: int,
     job_build_idx,
-    medication_amt: int,
     fflogs_encounter_data: dict | None,
     fflogs_url: str,
     fight_phase: int | None,
@@ -1297,7 +1293,6 @@ def analyze_and_register_rotation(
     ch (int): Critical hit stat value.
     dh (int): Direct hit stat value.
     wd (int): Weapon damage stat value.
-    medication_amt (int): Medication amount.
     fflogs_url (str): FFLogs URL.
     fight_phase (Optional[int]): Selected fight phase.
     job_build_url (str): Etro URL.
@@ -1381,6 +1376,9 @@ def analyze_and_register_rotation(
     if fight_phase > last_phase_index:
         fight_phase = last_phase_index
 
+    # FIXME: remove
+    medication_amt = -1
+
     level = encounter_level[encounter_id]
 
     # Higher level = bigger damage = bigger discretization step size
@@ -1395,7 +1393,6 @@ def analyze_and_register_rotation(
     )
     delay = weapon_delays[abbreviated_job_map[job_no_space].upper()]
 
-    medication_amt = int(medication_amt)
     # Predefined values from: https://www.fflogs.com/reports/NJz2cbM4mZd1hajC#fight=12&type=damage-done
     # which is useful for debugging
 
@@ -1436,7 +1433,6 @@ def analyze_and_register_rotation(
             dh,
             wd,
             delay,
-            medication_amt,
         )
 
         # redirect if it has and doesn't need to be redone
@@ -1459,7 +1455,6 @@ def analyze_and_register_rotation(
             ch,
             dh,
             determination,
-            medication_amt,
             level,
             fight_phase,
             damage_buff_table,
@@ -1508,6 +1503,7 @@ def analyze_and_register_rotation(
             with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
                 pickle.dump(job_analysis_data, f)
 
+            # FIXME: remove medication amt
             db_row = (
                 analysis_id,
                 report_id,
@@ -1543,6 +1539,7 @@ def analyze_and_register_rotation(
         del job_analysis_object
 
     # Catch any error and display it, then reset the button/prompt
+    # FIXME: remove medication amt
     except Exception as e:
         error_info = (
             report_id,

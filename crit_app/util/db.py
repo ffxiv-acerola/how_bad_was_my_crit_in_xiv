@@ -288,7 +288,6 @@ def search_prior_player_analyses(
     direct_hit: int,
     weapon_damage: int,
     delay: float,
-    medication_amount: int,
 ) -> Tuple[int, Union[str, None]]:
     """Search for matching prior player analyses in database.
 
@@ -333,7 +332,6 @@ def search_prior_player_analyses(
         AND direct_hit = ?
         AND weapon_damage = ?
         AND delay = ?
-        AND medication_amount = ?
     """
 
     params = (
@@ -350,7 +348,6 @@ def search_prior_player_analyses(
         direct_hit,
         weapon_damage,
         delay,
-        medication_amount,
     )
 
     con = sqlite3.connect(DB_URI)
@@ -885,7 +882,6 @@ def get_party_analysis_player_build(
         r.direct_hit,
         r.weapon_damage,
         r.delay,
-        r.medication_amount,
         r.job_build_id,
         r.job_build_provider
     FROM
@@ -923,14 +919,12 @@ def get_party_analysis_player_build(
     # transform into outputs used by site
     etro_job_build_information = [dict(zip(columns, r)) for r in rows]
     player_analysis_selector_options = [[r[2], r[3], r[0]] for r in rows]
-    medication_amount = rows[0][-3]
     cur.close()
     con.close()
 
     return (
         etro_job_build_information,
         player_analysis_selector_options,
-        medication_amount,
     )
 
 

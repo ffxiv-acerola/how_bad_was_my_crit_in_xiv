@@ -153,3 +153,23 @@ def test_get_medication_amount(mock_potion_response, job, expected_strength):
     assert (
         result == expected_strength
     ), f"Expected {expected_strength} for {job} with potion {mock_potion_response['potionType']['data']['auras'][0]['appliedByAbilities']}"
+
+
+def test_get_medication_amount_pets():
+    potion_response = {
+        "potionType": {
+            "data": {
+                "auras": [
+                    {"name": "Eos", "type": "Pet"},
+                    {"icon": "Scholar", "appliedByAbilities": [{"name": "Grade 2 Gemdraught of Mind [HQ]"}]},
+                ]
+            },
+        },
+    }
+    expected_strength = 392
+    job = "Scholar"
+    # Call the method and assert expected results
+    result = ActionTable._get_medication_amount(potion_response)
+    assert (
+        result == expected_strength
+    ), f"Expected {expected_strength} for {job} with potion {mock_potion_response['potionType']['data']['auras'][0]['appliedByAbilities']}"

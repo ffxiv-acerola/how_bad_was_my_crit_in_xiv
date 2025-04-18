@@ -157,7 +157,7 @@ def layout(party_analysis_id=None):
             redo_analysis_flag,
         ) = get_party_analysis_encounter_info(party_analysis_id)
 
-        etro_job_build_information, player_analysis_selector, medication_amount = (
+        etro_job_build_information, player_analysis_selector = (
             get_party_analysis_player_build(party_analysis_id)
         )
 
@@ -197,14 +197,13 @@ def layout(party_analysis_id=None):
                 str(phase_id),
                 phase_selector_options,
                 phase_select_hidden,
-                medication_amount,
                 quick_build_data,
                 party_accordion_children,
                 hide_fflogs_div=False,
                 force_update=True,
                 wrap_collapse=True,
             )
-            return html.Div([fflogs_card])
+            return html.Div([dcc.Store(id="fflogs-party-encounter"), fflogs_card])
 
         # Otherwise continue
         fflogs_card = create_fflogs_card(
@@ -214,7 +213,6 @@ def layout(party_analysis_id=None):
             str(phase_id),
             phase_selector_options,
             phase_select_hidden,
-            medication_amount,
             quick_build_data,
             party_accordion_children,
             wrap_collapse=True,
@@ -951,7 +949,6 @@ def job_progress(job_list, active_job):
     State({"type": "main-stat-label", "index": ALL}, "children"),
     State({"type": "player-name", "index": ALL}, "children"),
     State({"type": "job-build-input", "index": ALL}, "value"),
-    State("party-tincture-grade", "value"),
     State("party-encounter-name", "children"),
     State("fflogs-url2", "value"),
     State("fflogs-party-encounter", "data"),
@@ -979,7 +976,6 @@ def analyze_party_rotation(
     main_stat_label,
     player_name,
     job_build_url,
-    medication_amt,
     encounter_name,
     fflogs_url,
     fflogs_data,
@@ -1087,7 +1083,6 @@ def analyze_party_rotation(
             dh[a],
             weapon_damage[a],
             weapon_delays[job[a].upper()],
-            medication_amt,
         )
         for a in range(len(job))
     ]
@@ -1129,7 +1124,6 @@ def analyze_party_rotation(
         crit,
         dh,
         weapon_damage,
-        medication_amt,
         level,
         job_build_url,
         player_analysis_ids,
@@ -1182,7 +1176,6 @@ def analyze_party_rotation(
             crit,
             dh,
             weapon_damage,
-            medication_amt,
             level,
             player_analysis_ids,
             t_clips,
@@ -1221,6 +1214,7 @@ def analyze_party_rotation(
             level,
         )
 
+    # FIXME: remove medication amt (-1)
     except Exception as e:
         party_error_info = (
             report_id,
@@ -1238,7 +1232,7 @@ def analyze_party_rotation(
             dh,
             weapon_damage,
             main_stat_multiplier,
-            medication_amt,
+            -1,
             str(e),
             traceback.format_exc(),
         )
@@ -1331,7 +1325,6 @@ def player_analysis_loop(
     crit: List[int],
     dh: List[int],
     weapon_damage: List[int],
-    medication_amt: int,
     level: int,
     job_build_url: List[str],
     player_analysis_ids: List[Optional[str]],
@@ -1447,7 +1440,6 @@ def player_analysis_loop(
                     crit[a],
                     dh[a],
                     determination[a],
-                    medication_amt,
                     level,
                     fight_phase,
                     damage_buff_table,
@@ -1485,6 +1477,7 @@ def player_analysis_loop(
             )
 
             # Collect DB rows to insert at the end
+            # FIXME: remove medication amt (-1)
             job_db_rows.append(
                 (
                     player_analysis_ids[a],
@@ -1509,7 +1502,7 @@ def player_analysis_loop(
                     int(dh[a]),
                     int(weapon_damage[a]),
                     delay,
-                    medication_amt,
+                    -1,
                     main_stat_multiplier,
                     job_build_id,
                     build_provider,
@@ -1533,6 +1526,7 @@ def player_analysis_loop(
             ),
         )
 
+    # FIXME: remove medication amt (-1)
     except Exception as e:
         success = False
         player_error_info = (
@@ -1556,7 +1550,7 @@ def player_analysis_loop(
             int(dh[a]),
             int(weapon_damage[a]),
             delay,
-            medication_amt,
+            -1,
             main_stat_multiplier,
             str(e),
             traceback.format_exc(),
@@ -1581,7 +1575,6 @@ def create_rotation_clippings(
     crit: List[int],
     dh: List[int],
     weapon_damage: List[int],
-    medication_amt: int,
     level: int,
     player_analysis_ids: List[Optional[str]],
     t_clips: List[float],
@@ -1673,6 +1666,7 @@ def create_rotation_clippings(
 
     except Exception as e:
         success = False
+        # FIXME: remove medication amt (-1)
         player_error_info = (
             report_id,
             fight_id,
@@ -1694,7 +1688,7 @@ def create_rotation_clippings(
             int(dh[a]),
             int(weapon_damage[a]),
             delay,
-            medication_amt,
+            -1,
             main_stat_multiplier,
             str(e),
             traceback.format_exc(),
