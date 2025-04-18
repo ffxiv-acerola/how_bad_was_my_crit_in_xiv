@@ -9,6 +9,7 @@ from fflogs_rotation.base import FFLogsClient
 from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.dark_knight import DarkKnightActions
 from fflogs_rotation.dragoon import DragoonActions
+from fflogs_rotation.encounter_specifics import EncounterSpecifics
 from fflogs_rotation.job_data.game_data import patch_times
 from fflogs_rotation.machinist import MachinistActions
 from fflogs_rotation.monk import MonkActions
@@ -49,6 +50,7 @@ class ActionTable(FFLogsClient):
         guaranteed_hits_by_buff_table: pd.DataFrame,
         encounter_phases,
         pet_ids: list[int] | None = None,
+        excluded_enemy_ids: list[int] | None = None,
         debug: bool = False,
     ) -> None:
         self.report_id = report_id
@@ -65,6 +67,8 @@ class ActionTable(FFLogsClient):
         self.encounter_phases = encounter_phases
 
         super().__init__(api_url="https://www.fflogs.com/api/v2/client")
+
+        self.excluded_enemy_ids = excluded_enemy_ids
 
         # Fetch fight information and set timings
         fight_info_response = self._query_fight_information(headers)
@@ -281,7 +285,9 @@ class ActionTable(FFLogsClient):
         potion_auras = fight_info_response["potionType"]["data"]["auras"]
         if len(potion_auras) == 0:
             return 0
-        elif len(potion_auras[0]["appliedByAbilities"]) == 0:
+
+        potion_auras = [p for p in potion_auras if "appliedByAbilities" in p.keys()]
+        if len(potion_auras[0]["appliedByAbilities"]) == 0:
             return 0
         else:
             for x in range(len(potion_auras[0]["appliedByAbilities"])):
@@ -1213,6 +1219,17 @@ class ActionTable(FFLogsClient):
         if self.encounter_id == 97:
             pass
 
+        if self.encounter_id == 99:
+            self.actions_df = EncounterSpecifics().m7s_exclude_final_blooming(
+                self.actions_df, self.excluded_enemy_ids[0]
+            )
+
+        # FRU ice crystals, only for p2 or whole fight analysis.
+        if (self.encounter_id == 1079) & (self.phase in (0, 2)):
+            self.actions_df = EncounterSpecifics().fru_apply_vuln_p2(
+                headers, self.report_id, self.fight_id, self.actions_df
+            )
+
 
 if __name__ == "__main__":
     from crit_app.config import FFLOGS_TOKEN
@@ -1223,18 +1240,17 @@ if __name__ == "__main__":
         direct_hit_rate_table,
         guaranteed_hits_by_action_table,
         guaranteed_hits_by_buff_table,
-        potency_table,
     )
 
     api_key = FFLOGS_TOKEN  # or copy/paste your key here
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
 
-    ActionTable(
+    a = ActionTable(
         headers,
-        "Zqr4CnMdK7tXBRGx",
-        1,
-        "Bard",
+        "PFAWB3trqYNV1ZdX",
         3,
+        "Scholar",
+        4,
         3000,
         1000,
         2000,
@@ -1245,8 +1261,8 @@ if __name__ == "__main__":
         direct_hit_rate_table,
         guaranteed_hits_by_action_table,
         guaranteed_hits_by_buff_table,
-        potency_table,
         encounter_phases,
+        # excluded_enemy_ids=[425],
     )
 
     print()

@@ -8,8 +8,65 @@ class EncounterSpecifics(BuffQuery):
         super().__init__()
         pass
 
-    def fru_apply_vuln_p2(self):
-        pass
+    def fru_apply_vuln_p2(
+        self,
+        headers: dict[str, str],
+        report_id: str,
+        fight_id: int,
+        actions_df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Apply vulnerability down debuff to ice veil from FRU.
+
+        Queries FFLogs for the vulnerability down debuff (ID: 1002198) and applies a
+        50% damage reduction to actions that occurred while the debuff was active.
+
+        Args:
+            headers (dict[str, str]): Headers for the FFLogs API request
+            report_id (str): The FFLogs report ID
+            fight_id (int): The specific fight ID within the report
+            actions_df (pd.DataFrame): DataFrame containing combat actions
+
+        Returns:
+            pd.DataFrame: Modified DataFrame with vulnerability down multipliers applied
+        """
+        query = """
+        query vulnDown(
+            $code: String!
+            $id: [Int]!
+            ) {
+            reportData {
+                report(code: $code) {
+                startTime
+                vulnDown: table(
+                    fightIDs: $id
+                    dataType: Buffs
+                    abilityID: 1002198
+                    hostilityType: Enemies
+                )
+                }
+            }
+        }
+        """
+        variables = {"code": report_id, "id": [fight_id]}
+        response = self.gql_query(headers, query, variables, "vulnDown")
+
+        vuln_times = self._get_buff_times(response, "vulnDown", add_report_start=True)
+
+        # No buff data, do nothing.
+        if vuln_times[0][0] == -1:
+            return actions_df
+
+        target_id = response["data"]["reportData"]["report"]["vulnDown"]["data"][
+            "auras"
+        ][0]["id"]
+        vuln_condition = (
+            actions_df["timestamp"].between(vuln_times[0][0], vuln_times[0][1])
+        ) & (actions_df["targetID"] == target_id)
+
+        actions_df = self._apply_buffs(actions_df, vuln_condition, "vuln_down")
+        actions_df.loc[vuln_condition, "multiplier"] *= 0.5
+
+        return actions_df
 
     def m5s_apply_perfect_groove(
         self, headers: dict[str, str], actions_df: pd.DataFrame
@@ -96,4 +153,23 @@ class EncounterSpecifics(BuffQuery):
                 actions_df = self._apply_buffs(actions_df, groove_condition, "groove")
                 # Apply buff to multiplier
                 actions_df.loc[groove_condition, "multiplier"] *= GROOVE_BUFF_STRENGTH
+        return actions_df
+
+    def m7s_exclude_final_blooming(self, actions_df, blooming_abomination_game_id: int):
+        """Mark the final set of Blooming Abominations to be excluded by.
+
+        Args:
+            actions_df (_type_): _description_
+            blooming_abomination_game_id (int): _description_
+        """
+
+        # We want to keep the first set but exclude the second set.
+        # As of now, both sets are marked to be removed by their excluded_enemy_ids.
+        # First set is before 200s, make the targetID negative so it doesn't get filtered out.
+        # Negative ID is guaranteed to be unique.
+        actions_df.loc[
+            (actions_df["targetID"] == blooming_abomination_game_id)
+            & (actions_df["elapsed_time"] < 200),
+            "targetID",
+        ] *= -1
         return actions_df

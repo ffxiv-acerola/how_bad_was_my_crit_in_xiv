@@ -113,9 +113,9 @@ class RotationTable(ActionTable):
             guaranteed_hits_by_buff_table,
             encounter_phases,
             pet_ids,
+            excluded_enemy_ids,
             debug,
         )
-        self.excluded_enemy_ids = excluded_enemy_ids
 
         self._setup_potency_table(potency_table)
         self.rotation_df = self.make_rotation_df(self.actions_df)
@@ -775,13 +775,13 @@ if __name__ == "__main__":
     api_key = FFLOGS_TOKEN  # or copy/paste your key here
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
 
-    RotationTable(
+    r = RotationTable(
         # fflogs_client,
         headers,
-        "37RhavcnAxYrCBK1",
-        7,
+        "HkwxMGAdLrcyanFB",
+        23,
         "Pictomancer",
-        21,
+        327,
         3174,
         1542,
         2310,
@@ -794,6 +794,7 @@ if __name__ == "__main__":
         guaranteed_hits_by_buff_table,
         potency_table,
         encounter_phases,
+        excluded_enemy_ids=[425],
         # pet_ids=[36, 35, 38, 34, 32, 37],
     )
     print("")
