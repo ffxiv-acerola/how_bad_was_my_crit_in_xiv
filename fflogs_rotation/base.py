@@ -106,5 +106,70 @@ class BuffQuery(FFLogsClient):
         return actions_df
 
     @staticmethod
-    def disjunction(*conditions):
+    def disjunction(*conditions) -> pd.Series:
+        """Take a list of Pandas masks and apply `OR` to all conditions.
+
+        Commonly used to apply buffs to multiple aura windows.
+
+        Returns:
+            pd.Series: Boolean mask
+        """
         return reduce(np.logical_or, conditions)
+
+    @staticmethod
+    def normalize_damage(
+        actions_df: pd.DataFrame,
+        potion_multiplier: float,
+    ) -> pd.DataFrame:
+        """Normalize damage variance due to hit types, buffs, and medication.
+
+        Damage bonuses are divided out. Note that the +/- 5% roll is still present.
+
+        Args:
+            actions_df (pd.DataFrame): DataFrame of actions, containing damage amount, multiplier, hitType, directHit, and main_stat_add.
+            potion_multiplier (float): Damage multiplier for critical hit.
+
+        Returns:
+            pd.DataFrame: DataFrame of actions, with a `normalized_damage` field.
+        """
+
+        l_c = actions_df["l_c"].iloc[0]
+
+        actions_df["normalized_damage"] = (
+            actions_df["amount"] / actions_df["multiplier"]
+        )
+        actions_df.loc[actions_df["hitType"] == 2, "normalized_damage"] /= l_c / 1000
+        actions_df.loc[actions_df["directHit"] == True, "normalized_damage"] /= 1.25
+
+        # Approximately factor out medication buff
+        actions_df.loc[actions_df["main_stat_add"] > 0, "normalized_damage"] /= (
+            potion_multiplier
+        )
+
+        return actions_df
+
+    @staticmethod
+    def potency_estimate(
+        actions_df: pd.DataFrame,
+        d2_100_potency: int,
+    ) -> pd.DataFrame:
+        """Estimate the potency of an action based off its normalized damage and.
+
+        base damage of a 100 potency action.
+
+        Note that this does not adjust for the +/-5% damage roll.
+
+        Not to be used for DoT damage as FFLogs reports damage amounts that do not
+        correspond to the actual potency
+
+        Args:
+            actions_df (pd.DataFrame): Actions DataFrame with normalized damage column
+            d2_100_potency (int): Base damage from an action with 100 potency.
+
+        Returns:
+            pd.DataFrame: Actions DataFrame with estimated potency.
+        """
+        actions_df["estimated_potency"] = (
+            actions_df["normalized_damage"] / d2_100_potency * 100
+        )
+        return actions_df

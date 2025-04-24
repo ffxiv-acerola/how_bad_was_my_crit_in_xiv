@@ -10,7 +10,6 @@ from dash import Input, Output, State, callback, dcc, html
 from dash.exceptions import PreventUpdate
 
 from crit_app.cards import (
-    initialize_action_card,
     initialize_fflogs_card,
     initialize_job_build,
     initialize_new_action_card,
@@ -168,7 +167,7 @@ def layout(analysis_id=None):
         job_build = initialize_job_build()
         fflogs_card = initialize_fflogs_card()
         rotation_card = initialize_rotation_card()
-        action_card = initialize_action_card()
+        action_card = initialize_new_action_card()
         result_card = initialize_results(rotation_card, action_card, True)
         return dash.html.Div(
             [
@@ -556,9 +555,7 @@ def layout(analysis_id=None):
         rotation_card = initialize_rotation_card(
             rotation_graph, rotation_percentile_table
         )
-        # action_card = initialize_action_card(
-        #     action_graph, action_summary_table, action_options, action_values
-        # )
+
         action_card = initialize_new_action_card(action_graph)
         result_card = initialize_results(
             character,
@@ -1391,6 +1388,11 @@ def analyze_and_register_rotation(
     secondary_stat_type, secondary_stat_pre_bonus, secondary_stat = set_secondary_stats(
         role, abbreviated_job_map[job_no_space].upper(), main_stat_multiplier, tenacity
     )
+    if role == "Tank":
+        tenacity = tenacity
+    else:
+        tenacity = None
+
     delay = weapon_delays[abbreviated_job_map[job_no_space].upper()]
 
     # Predefined values from: https://www.fflogs.com/reports/NJz2cbM4mZd1hajC#fight=12&type=damage-done
@@ -1455,6 +1457,8 @@ def analyze_and_register_rotation(
             ch,
             dh,
             determination,
+            main_stat_pre_bonus,
+            wd,
             level,
             fight_phase,
             damage_buff_table,
@@ -1466,6 +1470,7 @@ def analyze_and_register_rotation(
             encounter_phases,
             pet_ids,
             excluded_enemy_ids,
+            tenacity,
         )
 
         rotation_df = rotation.rotation_df

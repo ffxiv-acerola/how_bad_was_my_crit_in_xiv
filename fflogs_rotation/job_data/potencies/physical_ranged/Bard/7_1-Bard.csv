@@ -5,8 +5,6 @@ Bard,7409,Refulgent Arrow,100,,280,direct,,,,,,,
 Bard,8,Shot,100,,80,auto,,,,,,,
 Bard,117,Rain of Death,100,,100,direct,,,,,,,
 Bard,16494,Shadowbite,100,,170,direct,,,,,,,
-Bard,16496,Apex Arrow,100,gauge_90,540,direct,,,,,,,
-Bard,16496,Apex Arrow,100,gauge_100,600,direct,,,,,,,
 Bard,3558,Empyreal Arrow,100,,260,direct,,,,,,,
 Bard,7404,Pitch Perfect,100,pp1,100,direct,,,,,,,1;0.4
 Bard,7404,Pitch Perfect,100,pp2,220,direct,,,,,,,1;0.4
@@ -27,3 +25,20 @@ Bard,36977,Radiant Encore,100,c1,500,direct,,,,,,,1;0.5
 Bard,36977,Radiant Encore,100,c2,600,direct,,,,,,,1;0.5
 Bard,36977,Radiant Encore,100,c3,900,direct,,,,,,,1;0.5
 Bard,36976,Resonant Arrow,100,,600,direct,,,,,,,1;0.5
+Bard,16496,Apex Arrow,100,gauge_20,120,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_25,150,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_30,180,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_35,210,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_40,240,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_45,270,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_50,300,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_55,330,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_60,360,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_65,390,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_70,420,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_75,450,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_80,480,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_85,510,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_90,540,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_95,570,direct,,,,,,
+Bard,16496,Apex Arrow,100,gauge_100,600,direct,,,,,,
