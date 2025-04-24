@@ -81,6 +81,69 @@ def test_estimate_pitch_perfect_potency(bard_actions, actions_df_rows, expected_
 
 
 @pytest.mark.parametrize(
+    "actions_df_rows, expected_gauge_buffs",
+    [
+        (
+            [
+                (16496, "Apex Arrow", 2000, 1, False, 1, 0, 1.2, [], 1, 600),
+            ],
+            ["gauge_100"],
+        ),
+        (
+            [
+                (16496, "Apex Arrow", 1400, 1, False, 1, 0, 1.2, [], 2, 350),
+            ],
+            ["gauge_60"],
+        ),
+        # Multi-target case with same packetID should use averaged potency
+        (
+            [
+                (16496, "Apex Arrow", 1200, 1, False, 1, 0, 1.2, [], 3, 300),
+                (16496, "Apex Arrow", 1100, 1, False, 1, 0, 1.2, [], 3, 290),
+            ],
+            ["gauge_50"],
+        ),
+        (
+            [
+                (16495, "Burst Shot", 1000, 1, False, 1, 0, 1.2, [], 4, 220),
+                (16496, "Apex Arrow", 800, 1, False, 1, 0, 1.2, [], 5, 200),
+            ],
+            ["gauge_35"],
+        ),
+    ],
+)
+def test_estimate_apex_arrow_potency(bard_actions, actions_df_rows, expected_gauge_buffs):
+    columns = [
+        "abilityGameID",
+        "action_name",
+        "amount",
+        "hitType",
+        "directHit",
+        "multiplier",
+        "main_stat_add",
+        "l_c",
+        "buffs",
+        "packetID",
+        "estimated_potency",
+    ]
+
+    actions_df = pd.DataFrame(actions_df_rows, columns=columns)
+    result = bard_actions.estimate_apex_arrow_potency(actions_df)
+
+    # Filter for Apex Arrow entries
+    apex_rows = result[result["abilityGameID"] == 16496]
+
+    if not apex_rows.empty:
+        buffs = apex_rows.iloc[-1]["buffs"]
+        action_name = apex_rows.iloc[-1]["action_name"]
+        expected_name = f"Apex Arrow_{expected_gauge_buffs[0]}"
+
+        # Verify action name and buffs
+        assert action_name == expected_name
+        assert buffs == expected_gauge_buffs
+
+
+@pytest.mark.parametrize(
     "game_id, elapsed_time, buffs, expected",
     [
         (36977, 0.0, [], ["c1"]),
