@@ -66,6 +66,7 @@ encounter_phases = {
 
 # These phases have downtime between them, so a new t_clip needs to be found
 custom_t_clip_encounter_phases = {1079: [1, 2, 3, 4]}
+custom_t_clip_encounter_phases = {100: [1]}
 # Fixed length encounters
 # TODO: Add 4?
 skip_kill_time_analysis_phases = {1079: [2, 3]}
