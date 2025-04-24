@@ -139,6 +139,8 @@ def test_tank_end_to_end(mock_action_table_api_via_file, mock_gql_query_integrat
         crit_stat=critical_hit,
         dh_stat=1000,
         determination=1000,
+        main_stat=4900,
+        weapon_damage=146,
         level=100,
         phase=phase,
         damage_buff_table=damage_buff_table,
@@ -150,6 +152,7 @@ def test_tank_end_to_end(mock_action_table_api_via_file, mock_gql_query_integrat
         encounter_phases=encounter_phases,
         pet_ids=pet_ids,
         excluded_enemy_ids=excluded_enemy_ids,
+        tenacity=868,
     )
     # Assert expected behavior based on the mock JSON response
 

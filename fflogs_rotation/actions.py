@@ -3,9 +3,10 @@ import warnings
 import numpy as np
 import pandas as pd
 from ffxiv_stats import Rate
+from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
 from fflogs_rotation.bard import BardActions
-from fflogs_rotation.base import FFLogsClient
+from fflogs_rotation.base import BuffQuery
 from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.dark_knight import DarkKnightActions
 from fflogs_rotation.dragoon import DragoonActions
@@ -20,7 +21,7 @@ from fflogs_rotation.samurai import SamuraiActions
 from fflogs_rotation.viper import ViperActions
 
 
-class ActionTable(FFLogsClient):
+class ActionTable(BuffQuery):
     """
     Processes FFXIV combat log data into action tables for damage analysis.
 
@@ -41,6 +42,8 @@ class ActionTable(FFLogsClient):
         crit_stat: int,
         dh_stat: int,
         determination: int,
+        main_stat: int,
+        weapon_damage: int,
         level: int,
         phase: int,
         damage_buff_table: pd.DataFrame,
@@ -51,6 +54,7 @@ class ActionTable(FFLogsClient):
         encounter_phases,
         pet_ids: list[int] | None = None,
         excluded_enemy_ids: list[int] | None = None,
+        tenacity: int | None = None,
         debug: bool = False,
     ) -> None:
         self.report_id = report_id
@@ -62,9 +66,12 @@ class ActionTable(FFLogsClient):
         self.phase = phase
         self.critical_hit_stat = crit_stat
         self.direct_hit_stat = dh_stat
+        self.main_stat = main_stat
+        self.weapon_damage = weapon_damage
         self.determination = determination
         self.debug = debug
         self.encounter_phases = encounter_phases
+        self.tenacity = tenacity
 
         super().__init__(api_url="https://www.fflogs.com/api/v2/client")
 
@@ -73,6 +80,27 @@ class ActionTable(FFLogsClient):
         # Fetch fight information and set timings
         fight_info_response = self._query_fight_information(headers)
         self._set_fight_information(headers, fight_info_response)
+
+        self.d2_100 = self._get_100_potency_d2_value(
+            main_stat,
+            determination,
+            weapon_damage,
+            level,
+            job,
+            self.medication_amt,
+            tenacity,
+        )
+
+        self.medication_multiplier = self._estimate_medication_multiplier(
+            self.medication_amt,
+            self.main_stat,
+            self.determination,
+            self.weapon_damage,
+            self.level,
+            self.job,
+            tenacity,
+        )
+
         # Fetch damage events from FFLogs
         self.actions = self._query_damage_events(headers)
 
@@ -100,9 +128,16 @@ class ActionTable(FFLogsClient):
 
         # Build initial actions DataFrame
         self.actions_df = self.create_action_df()
+
+        self.actions_df = self.normalize_damage(
+            self.actions_df, self.medication_multiplier
+        )
+        self.actions_df = self.potency_estimate(self.actions_df, self.d2_100)
+
         # Apply job-specific mechanics
         self._apply_job_specifics(headers)
         self._apply_encounter_specifics(headers)
+
         # Final cleanup of actions DataFrame
         # Remove unpaired actions, which still count towards gauge generation
         if "unpaired" in self.actions_df.columns:
@@ -497,6 +532,102 @@ class ActionTable(FFLogsClient):
         actions.extend(response["data"]["reportData"]["report"]["events"]["data"])
         return actions
 
+    @staticmethod
+    def _get_100_potency_d2_value(
+        main_stat: int,
+        determination: int,
+        weapon_damage: int,
+        level: int,
+        job: str,
+        medication_amount: int = 0,
+        tenacity: int | None = None,
+    ) -> int:
+        from crit_app.job_data.roles import role_mapping
+
+        role = role_mapping[job]
+
+        # Crit/DH/delay/speed have no bearing on direct damage base value.
+        base_stats = {
+            "det": determination,
+            "crit_stat": 1000,
+            "dh_stat": 1000,
+            "weapon_damage": weapon_damage,
+            "delay": 3.0,
+            "level": level,
+            "pet_attack_power": 1000,
+        }
+
+        if role == "Healer":
+            base_stats["mind"] = main_stat
+            base_stats["strength"] = 400
+            base_stats["spell_speed"] = 500
+            role_obj = Healer(**base_stats)
+
+        elif role == "Tank":
+            base_stats["strength"] = main_stat
+            base_stats["skill_speed"] = 500
+            base_stats["tenacity"] = tenacity
+            base_stats["job"] = job
+            role_obj = Tank(**base_stats)
+
+        elif role == "Magical Ranged":
+            base_stats["intelligence"] = main_stat
+            base_stats["strength"] = 400
+            base_stats["spell_speed"] = 500
+            role_obj = MagicalRanged(**base_stats)
+
+        elif role == "Physical Ranged":
+            base_stats["dexterity"] = main_stat
+            base_stats["skill_speed"] = 500
+            role_obj = PhysicalRanged(**base_stats)
+
+        elif role == "Melee":
+            base_stats["main_stat"] = main_stat
+            base_stats["skill_speed"] = 500
+            base_stats["job"] = job
+            role_obj = Melee(**base_stats)
+
+        d2 = role_obj.direct_d2(100, medication_amount)
+        return d2
+
+    @staticmethod
+    def _estimate_medication_multiplier(
+        medication_amount: int,
+        main_stat: int,
+        determination: int,
+        weapon_damage: int,
+        level: int,
+        job: str,
+        tenacity: int | None = None,
+    ) -> float:
+        """Estimate the damage multiplier medication confers.
+
+        Args:
+            medication_amount (int): Number of main stat points increased by medication.
+            main_stat (int): Main stat amount.
+            determination (int): Determination stat amount.
+            weapon_damage (int): Weapon damage stat.
+            level (int): Level.
+            job (str): Job name.
+
+        Returns:
+            float: Medication multiplier strength.
+        """
+
+        medication_multiplier = ActionTable._get_100_potency_d2_value(
+            main_stat,
+            determination,
+            weapon_damage,
+            level,
+            job,
+            medication_amount,
+            tenacity,
+        ) / ActionTable._get_100_potency_d2_value(
+            main_stat, determination, weapon_damage, level, job, 0, tenacity
+        )
+
+        return medication_multiplier
+
     def _filter_buff_tables(
         self,
         damage_buff_table: pd.DataFrame,
@@ -882,6 +1013,7 @@ class ActionTable(FFLogsClient):
             "sourceID",
             "targetID",
             "packetID",
+            "targetInstance",
             "abilityGameID",
             "ability_name",
             "buffs",
@@ -919,6 +1051,9 @@ class ActionTable(FFLogsClient):
         if "bonusPercent" not in actions_df.columns:
             actions_df["bonusPercent"] = pd.NA
             actions_df["bonusPercent"] = actions_df["bonusPercent"].astype("Int64")
+
+        if "targetInstance" not in actions_df.columns:
+            actions_df["targetInstance"] = 1
 
         # Damage over time/ground effect ticks
         if "tick" in actions_df.columns:
@@ -1188,8 +1323,11 @@ class ActionTable(FFLogsClient):
             self.actions_df = self.job_specifics.apply_mch_potencies(self.actions_df)
 
         elif self.job == "Bard":
-            self.job_specifics = BardActions()
+            self.job_specifics = BardActions(self.d2_100, self.patch_number)
             self.actions_df = self.job_specifics.estimate_pitch_perfect_potency(
+                self.actions_df
+            )
+            self.actions_df = self.job_specifics.estimate_apex_arrow_potency(
                 self.actions_df
             )
             if self.patch_number >= 7.0:
@@ -1247,13 +1385,15 @@ if __name__ == "__main__":
 
     a = ActionTable(
         headers,
-        "PFAWB3trqYNV1ZdX",
-        3,
-        "Scholar",
-        4,
-        3000,
-        1000,
-        2000,
+        "HK1xC6p4k28B79GA",
+        10,
+        "Bard",
+        2,
+        3090,
+        2222,
+        2190,
+        5928 // 1.05,
+        152,
         100,
         0,
         damage_buff_table,
@@ -1265,4 +1405,5 @@ if __name__ == "__main__":
         # excluded_enemy_ids=[425],
     )
 
-    print()
+    # ActionTable._estimate_medication_multiplier(0, 5925, 5000, 100, "DarkKnight")
+    # print()

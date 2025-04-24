@@ -32,6 +32,8 @@ class RotationTable(ActionTable):
         crit_stat: int,
         dh_stat: int,
         determination: int,
+        main_stat: int,
+        weapon_damage: int,
         level: int,
         phase: int,
         damage_buff_table: pd.DataFrame,
@@ -43,6 +45,7 @@ class RotationTable(ActionTable):
         encounter_phases,
         pet_ids: list[int] | None = None,
         excluded_enemy_ids: list[int] | None = None,
+        tenacity: int | None = None,
         debug: bool = False,
     ) -> None:
         """
@@ -104,6 +107,8 @@ class RotationTable(ActionTable):
             crit_stat,
             dh_stat,
             determination,
+            main_stat,
+            weapon_damage,
             level,
             phase,
             damage_buff_table,
@@ -114,6 +119,7 @@ class RotationTable(ActionTable):
             encounter_phases,
             pet_ids,
             excluded_enemy_ids,
+            tenacity,
             debug,
         )
 
@@ -776,15 +782,16 @@ if __name__ == "__main__":
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
 
     r = RotationTable(
-        # fflogs_client,
         headers,
-        "HkwxMGAdLrcyanFB",
-        23,
-        "Pictomancer",
-        327,
-        3174,
-        1542,
-        2310,
+        "HK1xC6p4k28B79GA",
+        10,
+        "Bard",
+        2,
+        3090,
+        2222,
+        2190,
+        5928 // 1.05,
+        152,
         100,
         0,
         damage_buff_table,
@@ -794,7 +801,6 @@ if __name__ == "__main__":
         guaranteed_hits_by_buff_table,
         potency_table,
         encounter_phases,
-        excluded_enemy_ids=[425],
         # pet_ids=[36, 35, 38, 34, 32, 37],
     )
     print("")

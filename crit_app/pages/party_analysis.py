@@ -1233,6 +1233,7 @@ def analyze_party_rotation(
             weapon_damage,
             main_stat_multiplier,
             -1,
+            job_build_url,
             str(e),
             traceback.format_exc(),
         )
@@ -1427,7 +1428,6 @@ def player_analysis_loop(
             secondary_stat_buff = (
                 None if secondary_stat_buff == "None" else secondary_stat_buff
             )
-
             job_build_id, build_provider = parse_build_uuid(job_build_url[a], 0)
 
             job_rotation_analyses_list.append(
@@ -1440,6 +1440,8 @@ def player_analysis_loop(
                     crit[a],
                     dh[a],
                     determination[a],
+                    main_stat_no_buff[a],
+                    weapon_damage[a],
                     level,
                     fight_phase,
                     damage_buff_table,
@@ -1450,6 +1452,7 @@ def player_analysis_loop(
                     potency_table,
                     encounter_phases=encounter_phases,
                     pet_ids=pet_id_map[player_id[a]],
+                    tenacity=secondary_stat_buff,
                 )
             )
 

@@ -7,47 +7,69 @@ class BardActions(BuffQuery):
     def __init__(
         self,
         # FIXME: read in from potency.csv
-        pitch_perfect_potencies: dict[int, int] = {1: 100, 2: 220, 3: 360},
+        d2_100_potency: int,
+        patch_number: float,
         burst_shot_potency: int = 220,
         pitch_perfect_id: int = 7404,
         burst_shot_id: int = 16495,
         radiant_encore_id: int = 36977,
+        apex_arrow_id: int = 16496,
     ) -> None:
         super().__init__()
 
-        self.pitch_perfect_potencies = pitch_perfect_potencies
+        self.d2_100_potency = d2_100_potency
+        self.patch_number = patch_number
+
+        self.pitch_perfect_potencies = self.get_pitch_perfect_potency_map(
+            self.patch_number
+        )
+        self.apex_arrow_potency = self.get_apex_arrow_potency_map(self.patch_number)
         self.burst_shot_potency = burst_shot_potency
 
         self.pitch_perfect_id = pitch_perfect_id
         self.burst_shot_id = burst_shot_id
 
         self.radiant_encore_id = radiant_encore_id
+        self.apex_arrow_id = apex_arrow_id
 
-    def _normalize_damage(
-        self, actions_df: pd.DataFrame, l_c: float, is_pitch_perfect: bool = False
-    ) -> pd.DataFrame:
-        """
-        Normalize damage values by dividing out crits, direct hits, and multipliers.
+    @staticmethod
+    def get_pitch_perfect_potency_map(patch_number: float) -> dict[int, int]:
+        # Currently unchanged since EW.
+        return {1: 100, 2: 220, 3: 360}
 
-        Parameters:
-            actions_df (pd.DataFrame): DataFrame containing action/damage data.
-            l_c (float): Crit multiplier.
-            is_pitch_perfect (bool): Whether the damage is for Pitch Perfect actions.
-
-        Returns:
-            pd.DataFrame: DataFrame with normalized damage values.
-        """
-        actions_df["normalized_damage"] = (
-            actions_df["amount"] / actions_df["multiplier"]
-        )
-        actions_df.loc[actions_df["hitType"] == 2, "normalized_damage"] /= l_c / 1000
-        actions_df.loc[actions_df["directHit"] == True, "normalized_damage"] /= 1.25
-
-        # Approximately factor out potion for PP
-        if is_pitch_perfect:
-            actions_df.loc[actions_df["main_stat_add"] > 0, "normalized_damage"] /= 1.05
-
-        return actions_df
+    @staticmethod
+    def get_apex_arrow_potency_map(patch_number: float) -> dict[int, int]:
+        # Pre-DT
+        # 20 Gauge -> 100 potency
+        # 100 Gauge -> 500 potency
+        # 25 potency / 5 gauge
+        if patch_number < 7.0:
+            return pd.DataFrame(
+                [
+                    {
+                        "abilityGameID": 16496,
+                        "gauge": f"gauge_{20 + idx * 5}",
+                        "aa_potency": x,
+                    }
+                    for idx, x in enumerate(range(100, 525, 25))
+                ]
+            )
+        # Peri-DT
+        # 20 Gauge -> 120 potency
+        # 100 Gauge -> 600 potency
+        # 30 potency / 5 gauge
+        elif patch_number >= 7.0:
+            return pd.DataFrame(
+                [
+                    {
+                        "abilityGameID": 16496,
+                        "gauge": f"gauge_{20 + idx * 5}",
+                        "aa_potency": x,
+                    }
+                    for idx, x in enumerate(range(120, 630, 30))
+                ]
+            )
+        pass
 
     def _compute_potency_boundary(self, boundary_index: int) -> float:
         """
@@ -62,56 +84,10 @@ class BardActions(BuffQuery):
         if boundary_index > 2:
             raise ValueError("Invalid index. Use 1 for pp1-pp2 or 2 for pp2-pp3.")
 
-        return (
-            0.5
-            * (
-                self.pitch_perfect_potencies[boundary_index]
-                + self.pitch_perfect_potencies[boundary_index + 1]
-            )
-            / self.burst_shot_potency
+        return 0.5 * (
+            self.pitch_perfect_potencies[boundary_index]
+            + self.pitch_perfect_potencies[boundary_index + 1]
         )
-
-    def _assign_pitch_perfect_stacks(
-        self, actions_df: pd.DataFrame, dmg_boundaries: dict[str, float]
-    ) -> pd.DataFrame:
-        """
-        Assign Pitch Perfect stacks based on relative damage amounts.
-
-        Parameters:
-            actions_df (pd.DataFrame): DataFrame containing action data.
-            dmg_boundaries (Dict[str, float]): Damage boundaries for pp1-pp2 and pp2-pp3.
-
-        Returns:
-            pd.DataFrame: Updated DataFrame with assigned Pitch Perfect stacks.
-        """
-        pp_filter = actions_df["abilityGameID"] == self.pitch_perfect_id
-
-        # 1 PP stack
-        actions_df.loc[
-            pp_filter
-            & (actions_df["relative_damage"] < dmg_boundaries["dmg_boundary_1_2"]),
-            "pp_buff",
-        ] = "pp1"
-
-        # 2 PP stacks
-        actions_df.loc[
-            pp_filter
-            & actions_df["relative_damage"].between(
-                dmg_boundaries["dmg_boundary_1_2"],
-                dmg_boundaries["dmg_boundary_2_3"],
-                inclusive="both",
-            ),
-            "pp_buff",
-        ] = "pp2"
-
-        # 3 PP stacks
-        actions_df.loc[
-            pp_filter
-            & (actions_df["relative_damage"] > dmg_boundaries["dmg_boundary_2_3"]),
-            "pp_buff",
-        ] = "pp3"
-
-        return actions_df
 
     def estimate_pitch_perfect_potency(self, actions_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -125,31 +101,46 @@ class BardActions(BuffQuery):
         """
         original_columns = actions_df.columns
 
-        l_c = actions_df["l_c"].iloc[0]
-
-        # Normalize burst shot damage
-        burst_shot_damage = actions_df[
-            actions_df["abilityGameID"] == self.burst_shot_id
-        ][["amount", "hitType", "directHit", "multiplier", "main_stat_add"]]
-        # Don't include burst shots with Potion
-        burst_shot_damage = burst_shot_damage[burst_shot_damage["main_stat_add"] == 0]
-        burst_shot_damage = self._normalize_damage(burst_shot_damage, l_c)
-        burst_shot_base_dmg = burst_shot_damage["normalized_damage"].mean()
-
-        # Normalize Pitch Perfect damage
-        pp_filter = actions_df["abilityGameID"] == self.pitch_perfect_id
-        actions_df = self._normalize_damage(actions_df, l_c, is_pitch_perfect=True)
-        actions_df.loc[pp_filter, "relative_damage"] = (
-            actions_df[pp_filter]["normalized_damage"] / burst_shot_base_dmg
-        )
-
-        # Compute damage boundaries and assign stacks
         dmg_boundaries = {
             "dmg_boundary_1_2": self._compute_potency_boundary(1),
             "dmg_boundary_2_3": self._compute_potency_boundary(2),
         }
-        actions_df = self._assign_pitch_perfect_stacks(actions_df, dmg_boundaries)
 
+        pp_filter = actions_df["abilityGameID"] == self.pitch_perfect_id
+
+        actions_df["pp_buff"] = None
+
+        # 1 PP stack
+        actions_df.loc[
+            pp_filter
+            & (actions_df["estimated_potency"] < dmg_boundaries["dmg_boundary_1_2"]),
+            "pp_buff",
+        ] = "pp1"
+
+        # 2 PP stacks
+        actions_df.loc[
+            pp_filter
+            & actions_df["estimated_potency"].between(
+                dmg_boundaries["dmg_boundary_1_2"],
+                dmg_boundaries["dmg_boundary_2_3"],
+                inclusive="both",
+            ),
+            "pp_buff",
+        ] = "pp2"
+
+        # 3 PP stacks
+        actions_df.loc[
+            pp_filter
+            & (actions_df["estimated_potency"] > dmg_boundaries["dmg_boundary_2_3"]),
+            "pp_buff",
+        ] = "pp3"
+
+        # Ignore potency falloff, this will be handled later.
+        # Instead take the highest pp value.
+        actions_df.loc[pp_filter, "pp_buff"] = (
+            actions_df[pp_filter].groupby("packetID")["pp_buff"].transform("max")
+        )
+        # Don't use self._apply_buffs here because it is conditional
         actions_df.loc[~actions_df["pp_buff"].isna(), "action_name"] += (
             "_" + actions_df["pp_buff"]
         )
@@ -159,7 +150,56 @@ class BardActions(BuffQuery):
 
         return actions_df[original_columns]
 
-    def estimate_radiant_encore_potency(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+    def estimate_apex_arrow_potency(self, actions_df: pd.DataFrame):
+        """Estimate the potency of Apex Arrow, added as a buff in actions_df.
+
+        Potency scales with gauge, which is unavailable through FFLogs.
+        Note that the potency difference between gauge increments can overlap due to the +/-5%
+        damage roll, so values are not perfectly matched.
+
+        Args:
+            actions_df (pd.DataFrame): DataFrame with potency indicator buff added to Apex Arrow.
+        """
+        original_columns = actions_df.columns
+        apex_arrow_df = actions_df[actions_df["abilityGameID"] == self.apex_arrow_id][
+            ["packetID", "abilityGameID", "estimated_potency"]
+        ].copy()
+        # Average any multi target for better statistical power
+        apex_arrow_df = apex_arrow_df.groupby("packetID", as_index=False).mean(
+            "estimated_potency"
+        )
+
+        apex_arrow_df = apex_arrow_df.merge(
+            self.apex_arrow_potency, how="left", on="abilityGameID"
+        )
+
+        # Find gauge value of closest matching potency
+        apex_arrow_df["aa_potency_estimate"] = (
+            apex_arrow_df["estimated_potency"] - apex_arrow_df["aa_potency"]
+        ).abs()
+
+        apex_arrow_df = (
+            apex_arrow_df.sort_values(["packetID", "aa_potency_estimate"])
+            .groupby("packetID", as_index=False)
+            .first()
+        )
+
+        actions_df = actions_df.merge(
+            apex_arrow_df[["packetID", "gauge"]], how="left", on="packetID"
+        )
+
+        # Don't use self._apply_buffs here because it is conditional
+        actions_df.loc[~actions_df["gauge"].isna(), "action_name"] += (
+            "_" + actions_df["gauge"]
+        )
+        actions_df.loc[~actions_df["gauge"].isna()].apply(
+            lambda x: x["buffs"].append(x["gauge"]), axis=1
+        )
+        return actions_df[original_columns]
+
+    def estimate_radiant_encore_potency(
+        self, actions_df: pd.DataFrame, phase=0
+    ) -> pd.DataFrame:
         """
         Incredibly simple method of estimating Radiant Encore potency:
 

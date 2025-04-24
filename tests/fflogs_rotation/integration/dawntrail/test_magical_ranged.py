@@ -125,6 +125,8 @@ def test_magical_ranged_end_to_end(mock_action_table_api_via_file, mock_gql_quer
         crit_stat=critical_hit,
         dh_stat=1000,
         determination=1000,
+        main_stat=4900,
+        weapon_damage=146,
         level=100,
         phase=phase,
         damage_buff_table=damage_buff_table,
