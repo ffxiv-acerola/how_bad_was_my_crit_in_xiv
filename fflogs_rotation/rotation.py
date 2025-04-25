@@ -783,14 +783,14 @@ if __name__ == "__main__":
 
     r = RotationTable(
         headers,
-        "HK1xC6p4k28B79GA",
-        10,
-        "Bard",
-        2,
-        3090,
-        2222,
-        2190,
-        5928 // 1.05,
+        "BThRPZj72C9x4HLn",
+        17,
+        "Monk",
+        8,
+        3446,
+        1600,
+        2141,
+        5845 // 1.05,
         152,
         100,
         0,
@@ -801,6 +801,7 @@ if __name__ == "__main__":
         guaranteed_hits_by_buff_table,
         potency_table,
         encounter_phases,
+        excluded_enemy_ids=[47],
         # pet_ids=[36, 35, 38, 34, 32, 37],
     )
     print("")

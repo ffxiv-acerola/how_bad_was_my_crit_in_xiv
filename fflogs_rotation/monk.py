@@ -22,6 +22,7 @@ class MonkActions(BuffQuery):
         leaping_opo_id: int = 36945,
         rising_raptor_id: int = 36946,
         pouncing_coeurl_id: int = 36947,
+        six_sided_star_id: int = 16476,
     ) -> None:
         """
         Initialize the MonkActions class.
@@ -63,9 +64,38 @@ class MonkActions(BuffQuery):
         self.rising_raptor_id = rising_raptor_id
         self.pouncing_coeurl_id = pouncing_coeurl_id
 
-        (self.opo_opo_times, self.formless_fist_times, self.leaden_fist_times) = (
-            self._set_mnk_buff_times(headers)
+        self.six_sided_star_id = six_sided_star_id
+        self.sss_potency_df = self._get_six_sided_star_potencies()
+
+        (
+            self.opo_opo_times,
+            self.formless_fist_times,
+            self.leaden_fist_times,
+            self.perfect_balance_times,
+        ) = self._set_mnk_buff_times(headers)
+
+    def _get_six_sided_star_potencies(self):
+        """Potency of Six-sided star based on chakra count.
+
+        Returns:
+            pd.DataFrame: DataFrame of chakra potencies with unique buff ID.
+        """
+        POTENCY_START = 780
+        POTENCY_STEP = 80
+        N_CHAKRAS = 10
+        sss_potency_df = pd.DataFrame(
+            [
+                {
+                    "abilityGameID": self.six_sided_star_id,
+                    "gauge": f"chakra_{idx}",
+                    "sss_potency": POTENCY_START + x,
+                }
+                for idx, x in enumerate(
+                    range(0, POTENCY_STEP * (N_CHAKRAS + 1), POTENCY_STEP)
+                )
+            ]
         )
+        return sss_potency_df
 
     def _set_mnk_buff_times(self, headers: dict) -> None:
         """
@@ -101,6 +131,12 @@ class MonkActions(BuffQuery):
                         sourceID: $playerID
                         abilityID: $formlessFistID
                     )
+                    perfectBalance: table(
+                        fightIDs: $id
+                        dataType: Buffs
+                        sourceID: $playerID
+                        abilityID: 1000110
+                    )
                     leadenFist: table(
                         fightIDs: $id
                         dataType: Buffs
@@ -129,8 +165,16 @@ class MonkActions(BuffQuery):
         leaden_fist_times = self._get_buff_times(
             response, "leadenFist", add_report_start=True
         )
+        perfect_balance_times = self._get_buff_times(
+            response, "perfectBalance", add_report_start=True
+        )
 
-        return opo_opo_times, formless_fist_times, leaden_fist_times
+        return (
+            opo_opo_times,
+            formless_fist_times,
+            leaden_fist_times,
+            perfect_balance_times,
+        )
 
     def apply_endwalker_mnk_buffs(self, actions_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -300,6 +344,46 @@ class MonkActions(BuffQuery):
             "fury",
         )
 
+    def _estimate_six_sided_star_potency(self, actions_df: pd.DataFrame):
+        """Estimate six sided star potency based off the damage.
+
+        Could probably do a bunch of counting based on crits, but potency estimates are computed
+        and the gap is by 80 potency, so that's a lot easier.
+
+        Args:
+            actions_df (pd.DataFrame): DataFrame of actions.
+
+        Returns:
+            pd.DataFrame: DataFrame of actions, with potency estimates for Six-sided star.
+        """
+        original_columns = actions_df.columns
+
+        sss_df = actions_df[
+            actions_df["abilityGameID"] == self.six_sided_star_id
+        ].copy()
+        sss_df = sss_df.merge(self.sss_potency_df, on="abilityGameID", how="left")
+        sss_df["sss_potency_estimate"] = (
+            sss_df["sss_potency"] - sss_df["estimated_potency"]
+        ).abs()
+        sss_df = (
+            sss_df.sort_values(["packetID", "sss_potency_estimate"])
+            .groupby("packetID", as_index=False)
+            .first()
+        )
+
+        actions_df = actions_df.merge(
+            sss_df[["packetID", "gauge"]], how="left", on="packetID"
+        )
+
+        # Don't use self._apply_buffs here because it is conditional
+        actions_df.loc[~actions_df["gauge"].isna(), "action_name"] += (
+            "_" + actions_df["gauge"]
+        )
+        actions_df.loc[~actions_df["gauge"].isna()].apply(
+            lambda x: x["buffs"].append(x["gauge"]), axis=1
+        )
+        return actions_df[original_columns]
+
     def apply_bootshine_autocrit(
         self,
         actions_df: pd.DataFrame,
@@ -340,15 +424,36 @@ class MonkActions(BuffQuery):
 
             return multiplier, p[0], p[1], p[2], p[3]
 
+        # Autocrit is with opo-opo, perfect balance, or formless fist buff.
+        opo_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1]) for b in self.opo_opo_times
+        )
+        perfect_balance_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1])
+            for b in self.perfect_balance_times
+        )
+        formless_fist_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1])
+            for b in self.formless_fist_times
+        )
+
+        actions_df["bootshine_autocrit_indicator"] = 0
         actions_df.loc[
-            actions_df["abilityGameID"].isin([self.bootshine_id, self.leaping_opo_id]),
+            (actions_df["abilityGameID"].isin([self.bootshine_id, self.leaping_opo_id]))
+            & (
+                self.disjunction(*opo_betweens)
+                | self.disjunction(*perfect_balance_betweens)
+                | self.disjunction(*formless_fist_betweens)
+            ),
+            "bootshine_autocrit_indicator",
+        ] = 1
+
+        # Apply autocrit to valid actions
+        actions_df.loc[
+            actions_df["bootshine_autocrit_indicator"] == 1,
             ["multiplier", "p_n", "p_c", "p_d", "p_cd"],
         ] = (
-            actions_df[
-                actions_df["abilityGameID"].isin(
-                    [self.bootshine_id, self.leaping_opo_id]
-                )
-            ]
+            actions_df[actions_df["bootshine_autocrit_indicator"] == 1]
             .apply(
                 lambda x: critical_hit_rate_increase(x["buffs"], x["multiplier"]),
                 axis=1,
@@ -363,5 +468,5 @@ class MonkActions(BuffQuery):
 if __name__ == "__main__":
     from fflogs_rotation.rotation import headers
 
-    mnk = MonkActions(headers, "gVkPC9HXaz7tjWbn", 5, 59, 7.01)
+    mnk = MonkActions(headers, "z4ZkFHAyMK8Twbcf", 13, 245, 7.2)
     mnk._dawntrail_beast_gauge_tracking(None)
