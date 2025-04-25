@@ -1255,6 +1255,10 @@ class ActionTable(BuffQuery):
                 self.critical_hit_rate_buffs,
                 self.level,
             )
+
+            self.actions_df = self.job_specifics._estimate_six_sided_star_potency(
+                self.actions_df
+            )
             pass
 
         elif self.job == "Ninja":
@@ -1390,14 +1394,14 @@ if __name__ == "__main__":
 
     a = ActionTable(
         headers,
-        "HK1xC6p4k28B79GA",
-        10,
-        "Bard",
-        2,
-        3090,
-        2222,
-        2190,
-        5928 // 1.05,
+        "BThRPZj72C9x4HLn",
+        17,
+        "Monk",
+        8,
+        3446,
+        1600,
+        2141,
+        5845 // 1.05,
         152,
         100,
         0,
