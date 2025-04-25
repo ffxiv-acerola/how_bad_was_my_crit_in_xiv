@@ -1,6 +1,5 @@
-from typing import Dict
-
 import pandas as pd
+from numpy.typing import NDArray
 
 from fflogs_rotation.base import BuffQuery, disjunction
 
@@ -10,7 +9,7 @@ from fflogs_rotation.base import BuffQuery, disjunction
 class DragoonActions(BuffQuery):
     def __init__(
         self,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         report_id: str,
         fight_id: int,
         player_id: int,
@@ -20,7 +19,9 @@ class DragoonActions(BuffQuery):
         fang_and_claw_bared_id: int = 1000802,
         wheel_in_motion_id: int = 1000803,
         life_of_the_dragon_id: int = 1003177,
+        piercing_talon_id: int = 90,
     ) -> None:
+        super().__init__()
         self.report_id = report_id
         self.fight_id = fight_id
         self.player_id = player_id
@@ -33,10 +34,18 @@ class DragoonActions(BuffQuery):
         self.wheel_in_motion_id = wheel_in_motion_id
 
         self.life_of_the_dragon_id = life_of_the_dragon_id
+        self.piercing_talon_id = piercing_talon_id
+
         if patch_number < 7.0:
             self._set_combo_finisher_timings(headers)
 
-    def _set_combo_finisher_timings(self, headers: Dict[str, str]) -> None:
+        # Enhanced piercing talon
+        if patch_number >= 7.2:
+            self.enhanced_piercing_times = self._get_enhanced_piercing_talon_times(
+                headers
+            )
+
+    def _set_combo_finisher_timings(self, headers: dict[str, str]) -> None:
         """
         Set the timings for combo finishers based on the provided headers.
 
@@ -137,6 +146,40 @@ class DragoonActions(BuffQuery):
             int
         ).to_numpy()
 
+    def _get_enhanced_piercing_talon_times(self, headers: dict[str, str]) -> NDArray:
+        """Get timing bands when Enhanced Piercing Talon buff was up."""
+        query = """
+        query dragoonEnhancedTalon(
+            $code: String!
+            $id: [Int]!
+            $playerID: Int!
+        ) {
+            reportData {
+                report(code: $code) {
+                    startTime
+                    enhancedTalon: table(
+                            fightIDs: $id
+                            dataType: Buffs
+                            sourceID: $playerID
+                            abilityID: 1001870
+                    )
+                }
+            }
+        }
+        """
+
+        variables = {
+            "code": self.report_id,
+            "id": [self.fight_id],
+            "playerID": self.player_id,
+        }
+
+        response = self.gql_query(headers, query, variables, "dragoonEnhancedTalon")
+        enhancing_piercing_timings = self._get_buff_times(
+            response, "enhancedTalon", add_report_start=True
+        )
+        return enhancing_piercing_timings
+
     def apply_endwalker_combo_finisher_potencies(
         self, actions_df: pd.DataFrame
     ) -> pd.DataFrame:
@@ -215,6 +258,27 @@ class DragoonActions(BuffQuery):
         actions_df = self._apply_buffs(
             actions_df, fang_finisher_conditions, "combo_finisher"
         )
+        return actions_df
+
+    def apply_enhanced_piercing_talon(self, actions_df: pd.DataFrame) -> pd.DataFrame:
+        """Apply Enhanced Piercing Talon buff to Piercing Talon.
+
+        Args:
+            actions_df (pd.DataFrame): DataFrame of actions.
+
+        Returns:
+            pd.DataFrame: DataFrame of actions with enhanced added as a buff to Piercing Talon.
+        """
+        talon_betweens = list(
+            actions_df["timestamp"].between(b[0], b[1], inclusive="right")
+            for b in self.enhanced_piercing_times
+        )
+
+        talon_condition = disjunction(*talon_betweens) & (
+            actions_df["abilityGameID"] == self.piercing_talon_id
+        )
+
+        actions_df = self._apply_buffs(actions_df, talon_condition, 1001870)
         return actions_df
 
 

@@ -1287,6 +1287,11 @@ class ActionTable(BuffQuery):
                     )
                 )
 
+            if self.patch_number >= 7.2:
+                self.actions_df = self.job_specifics.apply_enhanced_piercing_talon(
+                    self.actions_df
+                )
+
         elif self.job == "Reaper":
             self.job_specifics = ReaperActions(
                 headers, self.report_id, self.fight_id, self.player_id
