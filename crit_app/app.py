@@ -33,6 +33,7 @@ nav = dbc.Nav(
         dbc.NavItem(
             dbc.NavLink("Party Analysis", active="partial", href="/party_analysis")
         ),
+        dbc.NavItem(dbc.NavLink("Analysis History", active="partial", href="/history")),
         dbc.DropdownMenu(
             [
                 dbc.DropdownMenuItem(
@@ -78,11 +79,80 @@ header = html.Div(
     ]
 )
 
+history_data = [
+    {
+        "link": "Player analysis",
+        "analysis date": "3/10/2025 8:27",
+        "fight": "m5s",
+        "kill time": "8:27",
+        "job": "drg",
+        "player": "Acerola Paracletus",
+        "percentile": 0.81,
+        "type": None,
+    },
+    {
+        "link": "Player analysis",
+        "analysis date": "3/11/2025 9:27",
+        "fight": "m5s",
+        "kill time": "9:27",
+        "job": "drg",
+        "player": "Acerola Paracletus",
+        "percentile": 0.88,
+        "type": None,
+    },
+    {
+        "link": "Party Analysis",
+        "analysis date": "4/10/2025 11:30",
+        "fight": "m8s",
+        "kill time": "11:30",
+        "job": "",
+        "player": "",
+        "percentile": 0.92,
+        "type": "Parent",
+    },
+    {
+        "link": "Player analysis",
+        "analysis date": "4/10/2025 11:30",
+        "fight": "m8s",
+        "kill time": "11:30",
+        "job": "drk",
+        "player": "A B",
+        "percentile": 0.75,
+        "type": "Child",
+    },
+    {
+        "link": "Player analysis",
+        "analysis date": "4/10/2025 11:30",
+        "fight": "m8s",
+        "kill time": "11:30",
+        "job": "sch",
+        "player": "D E",
+        "percentile": 0.95,
+        "type": "Child",
+    },
+    {
+        "link": "Player analysis",
+        "analysis date": "4/10/2025 11:30",
+        "fight": "m8s",
+        "kill time": "11:30",
+        "job": "nin",
+        "player": "E F",
+        "percentile": 0.62,
+        "type": "Child",
+    },
+]
+
 # Putting it all together
 app.layout = dbc.Container(
     [
         # dcc.Location(id="url", refresh="callback-nav"),
         dcc.Location(id="url", refresh=True),
+        dcc.Store(
+            id="analysis-history",
+            storage_type="local",
+            data=history_data,
+            clear_data=True,
+        ),
         header,
         dash.page_container,
     ],
@@ -126,6 +196,22 @@ def toggle_party_analysis_modal(n1, n2, is_open):
     if n1 or n2:
         return not is_open
     return is_open
+
+
+# # Callback to seed history store once when there's no existing data
+# @app.callback(
+#     Output("analysis-history", "data"),
+#     Input("url", "pathname"),
+#     State("analysis-history", "data"),
+#     prevent_initial_call=False,
+# )
+# def seed_history_store(pathname, current_data):
+#     """Initialize localStorage with mock history data if empty"""
+#     # Only write if there's no existing data
+#     if not current_data:
+#         return history_data
+#     # Otherwise, do nothing
+#     return dash.no_update
 
 
 if __name__ == "__main__":
