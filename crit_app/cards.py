@@ -418,7 +418,7 @@ def initialize_fflogs_card(
                 [
                     html.Span("Job selection:", id="role-tooltip"),
                     dbc.Tooltip(
-                        "If a supported role is greyed out, select the correct role above, enter the correct stats, and then click the Submit button for the FFLogs URL again.",
+                        "Use the role selector to analyze jobs in another role.",
                         target="role-tooltip",
                     ),
                 ],

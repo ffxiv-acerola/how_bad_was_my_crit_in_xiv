@@ -34,18 +34,17 @@ def make_rotation_pdf_figure(
         Figure: Plotly figure object displaying rotation DPS distribution.
     """
     t_div = active_dps_time / analysis_time
+    support = rotation_obj.rotation_dps_support
+    density = rotation_obj.rotation_dps_distribution
     if t_div == 1:
-        support = rotation_obj.rotation_dps_support
-        density = rotation_obj.rotation_dps_distribution
+        pass
     else:
-        support = rotation_obj.rotation_dps_support / active_dps_time
-        density = rotation_obj.rotation_dps_distribution / np.trapz(
-            rotation_obj.rotation_dps_distribution, support
-        )
+        support = support / t_div
+        density = density * t_div
 
     max_density = density.max()
     x = support[density > max_density * 5e-6]
-    x_min, x_max = x[0], x[-1]
+    x_min, x_max = x.min(), x.max()
 
     # Percentiles
     dx = support[1] - support[0]
@@ -59,6 +58,7 @@ def make_rotation_pdf_figure(
         name="DPS distribution",
         marker={"color": "#009670"},
         hovertext=[f"Percentile: {p:.1%}" for p in np.abs(F_percentile)],
+        line=dict(width=3),  # Thicker line for better visibility
     )
 
     # Actual dps data points
@@ -80,11 +80,54 @@ def make_rotation_pdf_figure(
     sigma = rotation_obj.rotation_std / t_div
     fig.update_layout(
         title=f"Rotation DPS distribution: μ = {mu:.0f} DPS, σ = {sigma:.0f} DPS, γ = {rotation_obj.rotation_skewness:.3f}",
-        xaxis_title="Damage per second (DPS)",
-        yaxis_title="Frequency",
+        xaxis_title=dict(
+            text="Damage per second (DPS)",
+            font=dict(size=16, family="Arial, sans-serif"),
+        ),
+        yaxis_title=dict(
+            text="Frequency",
+            font=dict(size=16, family="Arial, sans-serif"),
+        ),
         height=500,
         legend=dict(orientation="h", yanchor="bottom", y=0.97, xanchor="center", x=0.5),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(20,20,20,0.8)",
+        font=dict(family="Arial, sans-serif"),
+        xaxis=dict(
+            gridcolor="rgba(80,80,80,0.2)",
+            titlefont=dict(size=16),
+            tickfont=dict(size=14),
+        ),
+        yaxis=dict(
+            gridcolor="rgba(80,80,80,0.2)",
+            titlefont=dict(size=16),
+            tickfont=dict(size=14),
+        ),
+        margin=dict(l=40, r=40, t=80, b=40),
+        hoverlabel=dict(
+            bgcolor="rgba(30,30,30,0.95)",
+            font_color="white",
+            bordercolor="rgba(50,50,50,0.95)",
+        ),
     )
+
+    # Add rounded corners via shape outlines
+    fig.update_layout(
+        shapes=[
+            dict(
+                type="rect",
+                xref="paper",
+                yref="paper",
+                x0=0,
+                y0=0,
+                x1=1,
+                y1=1,
+                line=dict(width=0),
+                fillcolor="rgba(0,0,0,0)",
+            )
+        ]
+    )
+
     return fig
 
 
@@ -128,12 +171,23 @@ def make_rotation_percentile_table(
             "DPS": support[percentile_idx],
         }
     )
+
+    # Modern styling for the table matching analysis_history.py
     style_rotation_percentile = [
         {
             "if": {"filter_query": "{{Percentile}} = {}".format(rotation_percentile)},
             "backgroundColor": "#009670",
-        }
+            "color": "white",
+            "fontWeight": "bold",
+        },
+        # Hover state styling
+        {
+            "if": {"state": "selected"},
+            "backgroundColor": "inherit",
+            "border": "inherit",
+        },
     ]
+
     percentile_format = FormatTemplate.percentage(1)
     columns = [
         dict(
@@ -146,14 +200,64 @@ def make_rotation_percentile_table(
             format=Format(precision=2, scheme=Scheme.decimal_integer),
         ),
     ]
+
     rotation_percentile_table = [
         dash_table.DataTable(
             data=rotation_percentile_df.to_dict("records"),
             columns=columns,
             cell_selectable=False,
             style_data_conditional=style_rotation_percentile,
-            style_header={"backgroundColor": "rgb(48, 48, 48)", "color": "white"},
-            style_data={"backgroundColor": "rgb(50, 50, 50)", "color": "white"},
+            style_header={
+                "backgroundColor": "#222",
+                "color": "white",
+                "fontWeight": "bold",
+                "textAlign": "left",
+                "border": "none",
+                "borderBottom": "1px solid #333",
+                "padding": "10px 15px",
+                "fontFamily": "sans-serif",
+            },
+            style_data={
+                "backgroundColor": "#333",
+                "color": "white",
+                "textAlign": "left",
+                "padding": "10px 15px",
+                "fontFamily": "sans-serif",
+                "border": "none",
+                "borderBottom": "1px solid #292929",
+            },
+            style_table={
+                "overflowX": "auto",
+                "borderRadius": "5px",
+                "overflow": "hidden",
+                "boxShadow": "0 3px 6px rgba(0,0,0,0.16)",
+            },
+            style_cell={
+                "textAlign": "left",
+                "padding": "10px 15px",
+                "fontFamily": "sans-serif",
+                "border": "none",
+                "borderBottom": "1px solid #292929",
+                "userSelect": "none",
+            },
+            css=[
+                {
+                    "selector": ".dash-spreadsheet",
+                    "rule": "font-family: sans-serif; border-radius: 5px; overflow: hidden; box-shadow: 0 3px 6px rgba(0,0,0,0.16);",
+                },
+                {
+                    "selector": ".dash-table-container .dash-spreadsheet td, .dash-table-container .dash-spreadsheet th",
+                    "rule": "border-color: #292929 !important;",
+                },
+                {
+                    "selector": ".dash-spreadsheet tr:last-child td",
+                    "rule": "border-bottom: none !important;",
+                },
+                {
+                    "selector": ".dash-cell-value",
+                    "rule": "caret-color: transparent !important;",
+                },
+            ],
         )
     ]
     return rotation_percentile_table
@@ -287,6 +391,10 @@ def make_action_box_and_whisker_figure(
             name="DPS Distribution",
             marker_color="#009670",
             hoverinfo="skip",
+            boxmean=True,  # Show the mean as a dashed line
+            boxpoints=False,  # Don't show outliers
+            line=dict(width=2),  # Thicker box lines
+            fillcolor="rgba(0, 150, 112, 0.4)",  # Semi-transparent fill
             **box_percentiles,
         )
     )
@@ -298,20 +406,47 @@ def make_action_box_and_whisker_figure(
             y=list(range(n_actions)),
             mode="markers",
             name="Actual DPS",
-            marker=dict(size=9, color="#FFA15A"),
+            marker=dict(
+                size=9,
+                color="#FFA15A",
+                line=dict(width=1, color="#FF8C00"),
+                symbol="diamond",
+            ),
             customdata=custom_data,
             hovertemplate=hovertemplate_text,
         )
     )
 
-    fig.update_yaxes(labelalias=ytick_labels, dtick=1, range=[-0.5, n_actions - 0.5])
-    fig.update_xaxes(title="Damage per second (DPS)")
+    fig.update_yaxes(
+        labelalias=ytick_labels,
+        dtick=1,
+        range=[-0.5, n_actions - 0.5],
+        gridcolor="rgba(80,80,80,0.2)",
+        tickfont=dict(size=14),
+    )
+    fig.update_xaxes(
+        title=dict(
+            text="Damage per second (DPS)",
+            font=dict(size=16, family="Arial, sans-serif"),
+        ),
+        gridcolor="rgba(80,80,80,0.2)",
+        tickfont=dict(size=14),
+    )
 
     # Title and place the legend at the top
     # Horizontal space much more constrained than vertical.
     fig.update_layout(
         title="DPS distributions by action",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(20,20,20,0.8)",  # Darker background
+        font=dict(family="Arial, sans-serif"),
+        margin=dict(l=40, r=40, t=80, b=40),
+        hoverlabel=dict(
+            bgcolor="rgba(30,30,30,0.95)",
+            font_color="white",
+            bordercolor="rgba(50,50,50,0.95)",
+        ),
     )
     return fig
 

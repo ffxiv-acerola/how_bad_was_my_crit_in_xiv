@@ -12,3 +12,226 @@
     padding-bottom: 5px !important;
     line-height: 42px !important;
 }
+
+/* Modern styling with rounded corners and shadows */
+
+/* Cards styling */
+.card {
+    border-radius: 12px !important;
+    box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
+    overflow: hidden !important;
+    border: none !important;
+}
+
+.card-body {
+    padding: 1.5rem !important;
+}
+
+/* Figures and graphs styling */
+.js-plotly-plot, .plotly, .plot-container {
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+}
+
+/* Make sure all plot SVG elements get rounded corners */
+.main-svg, .svg-container {
+    border-radius: 10px !important;
+}
+
+/* Target the plot container to ensure rounded corners */
+.js-plotly-plot > .plot-container > .svg-container > .main-svg {
+    border-radius: 10px !important;
+    overflow: hidden !important;
+}
+
+/* Additional plot canvas styling */
+canvas {
+    border-radius: 10px !important;
+}
+
+/* Remove rectangular edges from modebar */
+.modebar-container {
+    border-radius: 8px !important;
+}
+
+/* Tables styling */
+.dash-table-container {
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+}
+
+/* Select and dropdown styling */
+select.form-select,
+.Select-control,
+.Select--single > .Select-control .Select-value,
+.Select-placeholder {
+    background-color: #222 !important;
+    color: white !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(150, 150, 150, 0.3) !important;
+    transition: all 0.2s ease !important;
+}
+
+select.form-select:focus,
+.Select.is-focused > .Select-control {
+    background-color: #333 !important;
+    border-color: #009670 !important;
+    box-shadow: 0 0 0 0.25rem rgba(0, 150, 112, 0.25) !important;
+}
+
+/* Dropdown menu styling */
+.Select-menu-outer {
+    background-color: #222 !important;
+    border: 1px solid rgba(150, 150, 150, 0.3) !important;
+    border-radius: 0 0 8px 8px !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.Select-option {
+    background-color: #222 !important;
+    color: white !important;
+    padding: 8px 10px !important;
+}
+
+.Select-option:hover,
+.Select-option.is-focused {
+    background-color: #333 !important;
+}
+
+.Select-option.is-selected {
+    background-color: rgba(0, 150, 112, 0.25) !important;
+    color: white !important;
+}
+
+.Select-clear-zone {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.Select-arrow {
+    border-color: white transparent transparent !important;
+}
+
+.Select.is-open > .Select-control .Select-arrow {
+    border-color: transparent transparent white !important;
+}
+
+.Select-menu {
+    background-color: #222 !important;
+}
+
+/* Form elements */
+.form-control, .Select-control, .Select--single > .Select-control .Select-value, .Select-placeholder {
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+    border: 1px solid rgba(150, 150, 150, 0.15) !important;
+}
+
+.form-control:focus, .Select.is-focused:not(.is-open) > .Select-control {
+    box-shadow: 0 0 0 0.25rem rgba(0, 150, 112, 0.25) !important;
+    border-color: #009670 !important;
+}
+
+/* Button styling */
+.btn {
+    border-radius: 8px !important;
+    padding: 0.5rem 1.25rem !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease !important;
+    border: none !important;
+}
+
+.btn-primary {
+    background-color: #009670 !important;
+    box-shadow: 0 4px 8px rgba(0, 150, 112, 0.3) !important;
+}
+
+.btn-primary:hover {
+    background-color: #008062 !important;
+}
+
+.btn:active {
+    transform: translateY(1px) !important;
+    box-shadow: none !important;
+}
+
+/* Alerts styling */
+.alert {
+    border-radius: 10px !important;
+    border: none !important;
+    box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
+}
+
+/* Radio buttons and checkboxes */
+.form-check-input {
+    border-radius: 6px !important;
+    transition: all 0.2s ease !important;
+}
+
+.form-check-input:checked {
+    background-color: #009670 !important;
+    border-color: #009670 !important;
+}
+
+/* Improve spacing */
+.mb-3 {
+    margin-bottom: 1.5rem !important;
+}
+
+/* Dropdown styling */
+.dropdown-menu {
+    border-radius: 10px !important;
+    box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
+    border: none !important;
+    padding: 0.5rem !important;
+    background-color: #222 !important;
+}
+
+.dropdown-item {
+    border-radius: 6px !important;
+    margin: 0.1rem 0 !important;
+    color: white !important;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+    background-color: #333 !important;
+    color: white !important;
+}
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600 !important;
+}
+
+/* Link styling */
+a {
+    text-decoration: none !important;
+    transition: color 0.2s ease !important;
+}
+
+a:hover {
+    color: #008062 !important;
+}
+
+/* Dark mode table improvements */
+.dash-spreadsheet-container .dash-spreadsheet-inner th,
+.dash-spreadsheet-container .dash-spreadsheet-inner td {
+    border-color: rgba(150, 150, 150, 0.15) !important;
+}
+
+.dash-spreadsheet-container .dash-spreadsheet-inner th {
+    background-color: rgba(60, 60, 60, 0.5) !important;
+}
+
+.dash-spreadsheet-container .dash-spreadsheet-inner tr:nth-child(even) {
+    background-color: rgba(50, 50, 50, 0.3) !important;
+}
