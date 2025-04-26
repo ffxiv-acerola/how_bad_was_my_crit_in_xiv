@@ -2,3 +2,13 @@
     font-family: "job-icons";
     src: url("/assets/job-icons.ttf");
 }
+
+/* Fix for markdown link alignment in analysis history table */
+.dash-table-container .dash-cell[data-dash-column="link"] a {
+    vertical-align: middle !important;
+    position: relative !important;
+    top: -5px !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    line-height: 42px !important;
+}

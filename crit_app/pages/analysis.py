@@ -77,6 +77,10 @@ from crit_app.util.db import (
     update_player_analysis_creation_table,
     update_report_table,
 )
+from crit_app.util.history import (
+    serialize_analysis_history_record,
+    upsert_local_store_record,
+)
 from crit_app.util.player_dps_distribution import job_analysis_to_data_class
 from fflogs_rotation.job_data.data import (
     critical_hit_rate_table,
@@ -1136,10 +1140,10 @@ def display_compute_button(
 
     Parameters:
     healers (list[dict[str, Any]]): List of healer job options.
-    tanks (list[dict[str, Any]]): List of tank job options.
+    tanks (list[dict, Any]): List of tank job options.
     melees (list[dict[str, Any]]): List of melee job options.
     phys_ranged (list[dict[str, Any]]): List of physical ranged job options.
-    magic_ranged (list[dict[str, Any]]): List of magical ranged job options.
+    magic_ranged (list[dict, Any]): List of magical ranged job options.
     healer_value (str | None): Selected healer job.
     tank_value (str | None): Selected tank job.
     melee_value (str | None): Selected melee job.
@@ -1238,6 +1242,7 @@ def copy_analysis_link(n: int, selected: str) -> str:
     Output("compute-dmg-button", "disabled", allow_duplicate=True),
     Output("crit-result-text", "children"),
     Output("results-div", "hidden"),
+    Output("analysis-history", "data", allow_duplicate=True),
     Input("compute-dmg-button", "n_clicks"),
     State("main-stat", "value"),
     State("TEN", "value"),
@@ -1251,6 +1256,7 @@ def copy_analysis_link(n: int, selected: str) -> str:
     State("fflogs-url", "value"),
     State("phase-select", "value"),
     State("job-build-url", "value"),
+    State("analysis-history", "data"),
     Input("healer-jobs", "value"),
     Input("tank-jobs", "value"),
     Input("melee-jobs", "value"),
@@ -1272,6 +1278,7 @@ def analyze_and_register_rotation(
     fflogs_url: str,
     fight_phase: int | None,
     job_build_url: str,
+    analysis_history: list[dict],
     healer_jobs: str | None = None,
     tank_jobs: str | None = None,
     melee_jobs: str | None = None,
@@ -1304,15 +1311,11 @@ def analyze_and_register_rotation(
     """
     updated_url = dash.no_update
 
-    player_id = [healer_jobs, tank_jobs, melee_jobs, phys_ranged_jobs, magical_jobs]
-
+    # Prevent the callback from executing when the button doesn't exist yet
     if n_clicks is None:
         raise PreventUpdate
 
-    if isinstance(fight_phase, list):
-        fight_phase = fight_phase[0]
-    else:
-        fight_phase = int(fight_phase)
+    player_id = [healer_jobs, tank_jobs, melee_jobs, phys_ranged_jobs, magical_jobs]
 
     # Noticed this was causing errors by selecting from empty list
     # Couldn't repro, but it's easy to check.
@@ -1324,6 +1327,7 @@ def analyze_and_register_rotation(
             False,
             [error_alert("No player selected.")],
             False,
+            analysis_history,
         )
 
     player_id = player_id[0]
@@ -1344,6 +1348,7 @@ def analyze_and_register_rotation(
             False,
             [error_alert(error_message)],
             False,
+            analysis_history,
         )
     (
         player_name,
@@ -1364,7 +1369,14 @@ def analyze_and_register_rotation(
             False,
             [error_alert("Please resubmit Log URL, linked log changed.")],
             False,
+            analysis_history,
         )
+
+    if isinstance(fight_phase, list):
+        fight_phase = fight_phase[0]
+    else:
+        fight_phase = int(fight_phase)
+
     # Edge case example: fight analyzing phase 5 is loaded
     # user switches log url to a phase where phase 1 was reached
     # if they don't hit submit, phase 5 can still be selected, which is
@@ -1445,6 +1457,7 @@ def analyze_and_register_rotation(
                 False,
                 [],
                 False,
+                analysis_history,
             )
 
         # if n_prior_reports == 0:
@@ -1502,12 +1515,29 @@ def analyze_and_register_rotation(
         redo_rotation_flag = 0
         redo_dps_pdf_flag = 0
 
+        rotation_dps = float(
+            rotation.actions_df["amount"].sum() / job_analysis_data.active_dps_t
+        )
+
+        log_datetime = datetime.datetime.fromtimestamp(rotation.fight_start_time / 1000)
+        rotation_percentile = float(
+            get_dps_dmg_percentile(
+                rotation_dps
+                * job_analysis_data.active_dps_t
+                / job_analysis_data.analysis_t,
+                job_analysis_data.rotation_dps_distribution,
+                job_analysis_data.rotation_dps_support,
+            )
+            / 100
+        )
+
         if not DRY_RUN:
             with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
                 pickle.dump(rotation, f)
             with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
                 pickle.dump(job_analysis_data, f)
 
+            analysis_datetime = datetime.datetime.now()
             # FIXME: remove medication amt
             db_row = (
                 analysis_id,
@@ -1538,9 +1568,27 @@ def analyze_and_register_rotation(
                 redo_rotation_flag,
             )
             update_report_table(db_row)
-            update_player_analysis_creation_table(
-                (analysis_id, datetime.datetime.now())
+            update_player_analysis_creation_table((analysis_id, analysis_datetime))
+
+            new_history_record = serialize_analysis_history_record(
+                analysis_id,
+                "Player Analysis",
+                analysis_datetime,
+                log_datetime,
+                encounter_id,
+                fight_phase,
+                t,
+                job_no_space,
+                player_name,
+                rotation_percentile,
+                None,
+                None,
             )
+
+            analysis_history = upsert_local_store_record(
+                analysis_history, new_history_record
+            )
+
         del job_analysis_object
 
     # Catch any error and display it, then reset the button/prompt
@@ -1581,9 +1629,10 @@ def analyze_and_register_rotation(
             False,
             [error_alert(str(e))],
             False,
+            analysis_history,
         )
     updated_url = f"/analysis/{analysis_id}"
-    return (updated_url, ["Analyze rotation"], False, [], False)
+    return (updated_url, ["Analyze rotation"], False, [], False, analysis_history)
 
 
 @callback(

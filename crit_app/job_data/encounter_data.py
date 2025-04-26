@@ -115,122 +115,149 @@ encounter_information = [
     {
         "encounter_id": 88,
         "encounter_name": "Kokytos",
+        "encounter_short_name": "p9s",
         "content_type": "Raid",
         "relevant_patch": "6.4 - 6.5",
     },
     {
         "encounter_id": 89,
         "encounter_name": "Pandaemonium",
+        "encounter_short_name": "p10s",
         "content_type": "Raid",
         "relevant_patch": "6.4 - 6.5",
     },
     {
         "encounter_id": 90,
         "encounter_name": "Themis",
+        "encounter_short_name": "p11s",
         "content_type": "Raid",
         "relevant_patch": "6.4 - 6.5",
     },
     {
         "encounter_id": 91,
         "encounter_name": "Athena",
+        "encounter_short_name": "p12sp1",
         "content_type": "Raid",
         "relevant_patch": "6.4 - 6.5",
     },
     {
         "encounter_id": 92,
         "encounter_name": "Pallas Athena",
+        "encounter_short_name": "p12sp2",
         "content_type": "Raid",
         "relevant_patch": "6.4 - 6.5",
     },
     {
         "encounter_id": 93,
         "encounter_name": "Black Cat",
+        "encounter_short_name": "m1s",
         "content_type": "Raid",
         "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 94,
         "encounter_name": "Honey B. Lovely",
+        "encounter_short_name": "m2s",
         "content_type": "Raid",
         "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 95,
         "encounter_name": "Brute Bomber",
+        "encounter_short_name": "m3s",
         "content_type": "Raid",
         "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 96,
         "encounter_name": "Wicked Thunder",
+        "encounter_short_name": "m4s",
         "content_type": "Raid",
         "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 97,
         "encounter_name": "Dancing Green",
+        "encounter_short_name": "m5s",
         "content_type": "Raid",
         "relevant_patch": "7.2 - 7.3",
     },
     {
         "encounter_id": 98,
         "encounter_name": "Sugar Riot",
+        "encounter_short_name": "m6s",
         "content_type": "Raid",
         "relevant_patch": "7.2 - 7.3",
     },
     {
         "encounter_id": 99,
         "encounter_name": "Brute Abominator",
+        "encounter_short_name": "m7s",
         "content_type": "Raid",
         "relevant_patch": "7.2 - 7.3",
     },
     {
         "encounter_id": 100,
         "encounter_name": "Howling Blade",
+        "encounter_short_name": "m8s",
         "content_type": "Raid",
         "relevant_patch": "7.2 - 7.3",
     },
     {
         "encounter_id": 1069,
         "encounter_name": "Golbez",
+        "encounter_short_name": "DT EX6",
         "content_type": "Extreme",
         "relevant_patch": "6.4 - 6.5",
     },
     {
         "encounter_id": 1070,
         "encounter_name": "Zeromus",
+        "encounter_short_name": "EW EX7",
         "content_type": "Extreme",
         "relevant_patch": "6.4 - 6.5",
     },
     {
         "encounter_id": 1072,
         "encounter_name": "Zoraal Ja",
+        "encounter_short_name": "DT EX2",
         "content_type": "Extreme",
         "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 1078,
         "encounter_name": "Queen Eternal",
+        "encounter_short_name": "DT EX3",
         "content_type": "Extreme",
         "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 1079,
         "encounter_name": "Futures Rewritten",
+        "encounter_short_name": "FRU",
         "content_type": "Ultimate",
         "relevant_patch": "7.0 - 7.1",
     },
     {
         "encounter_id": 1080,
         "encounter_name": "Zelenia",
+        "encounter_short_name": "DT EX4",
         "content_type": "Extreme",
         "relevant_patch": "7.2 - 7.3",
     },
     {
         "encounter_id": 3009,
         "encounter_name": "Byakko",
+        "encounter_short_name": "Byakko",
         "content_type": "Unreal",
         "relevant_patch": "7.0 - 7.1",
+    },
+    {
+        "encounter_id": 3009,
+        "encounter_name": "Suzaku",
+        "encounter_short_name": "Suzaku",
+        "content_type": "Unreal",
+        "relevant_patch": "7.2 - 7.3",
     },
 ]
 
@@ -324,4 +351,10 @@ world_to_region = {
     "Titan": "JP",
     "Belias": "JP",
     "Kaguya": "JP",
+}
+
+# Create a dictionary for quickly mapping encounter IDs to their short names
+encounter_id_to_short_name = {
+    encounter["encounter_id"]: encounter["encounter_short_name"]
+    for encounter in encounter_information
 }

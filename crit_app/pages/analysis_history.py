@@ -15,13 +15,14 @@ def create_empty_dataframe():
     return pd.DataFrame(
         columns=[
             "link",
-            "analysis date",
+            "log_datetime",
             "fight",
             "kill time",
             "job",
             "player",
-            "type",
             "percentile",
+            "analysis date",
+            "analysis_id",
         ]
     )
 
@@ -29,8 +30,8 @@ def create_empty_dataframe():
 def layout():
     """Display analysis history table with pagination and filtering."""
     columns = [
-        {"name": "Link", "id": "link"},
-        {"name": "Analysis date", "id": "analysis date"},
+        {"name": "Link", "id": "link", "presentation": "markdown"},
+        {"name": "Log date", "id": "log_datetime"},
         {"name": "Fight", "id": "fight"},
         {"name": "Kill time", "id": "kill time"},
         {"name": "Job", "id": "job"},
@@ -41,6 +42,7 @@ def layout():
             "type": "numeric",
             "format": FormatTemplate.percentage(0),
         },
+        {"name": "Analysis date", "id": "analysis date"},
     ]
 
     # Create base styling for the table
@@ -71,6 +73,10 @@ def layout():
     return html.Div(
         [
             html.H2("Analysis History", className="mb-4"),
+            html.P(
+                "This page keeps track of all your previous analyses. "
+                "You can filter/order the table by any column or click on the links to revisit your analyses."
+            ),
             html.Hr(),
             # Store for loading data from app-level store
             dcc.Store(id="analysis-history-local", storage_type="memory"),
@@ -107,6 +113,7 @@ def layout():
                     }
                 ],
                 style_cell_conditional=[
+                    # per-column style
                     {
                         "if": {"column_id": col},
                         "borderLeft": "none",
@@ -114,7 +121,6 @@ def layout():
                         "fontFamily": "sans-serif",
                     }
                     for col in create_empty_dataframe().columns
-                    if col != "type"
                 ]
                 + [
                     {
@@ -125,10 +131,15 @@ def layout():
                         "fontSize": "1.4em",
                         "paddingTop": "4px",
                         "paddingBottom": "4px",
-                    }
+                    },
+                    # Add specific styling for link column to fix vertical alignment
+                    {
+                        "if": {"column_id": "link"},
+                        "height": "50px",
+                        "verticalAlign": "middle",
+                    },
                 ],
-                # Don't display the type column
-                hidden_columns=["type"],
+                # Don't need hidden columns anymore
                 # Other table options
                 cell_selectable=False,
                 column_selectable=False,
@@ -207,6 +218,11 @@ def layout():
                         "selector": '.dash-table-container .dash-filter input[id^="job-filter"]',
                         "rule": "font-family: sans-serif !important; font-size: 1em !important;",
                     },
+                    # Fix vertical alignment for markdown links
+                    {
+                        "selector": '.dash-table-container .dash-cell[data-dash-column="link"] a',
+                        "rule": "position: relative; top: 50px; display: inline-block;",
+                    },
                 ],
             ),
         ],
@@ -232,31 +248,58 @@ def initialize_history_data(history_data):
         and history_data
         and "analysis_scope" in history_data[0]
     ):
+        # Sort the data by analysis_datetime in descending order (newest first)
+        from datetime import datetime
+
+        # Define a sorting function that can handle potential parsing errors
+        def get_datetime_for_sorting(item):
+            analysis_date = item.get("analysis_datetime", "")
+            try:
+                return datetime.strptime(analysis_date, "%Y-%m-%dT%H:%M:%S.%f")
+            except (ValueError, TypeError):
+                # Return a very old date for items that can't be parsed
+                return datetime(1900, 1, 1)
+
+        # Sort the list in place
+        history_data.sort(key=get_datetime_for_sorting, reverse=True)
+
         # Convert from the API format to the expected format
         transformed_data = []
         for item in history_data:
+            # Format the analysis date and log date as yyyy-mm-dd
+            analysis_date = item.get("analysis_datetime", "")
+            log_date = item.get("log_datetime", "")
+            try:
+                # Try to parse the dates and reformat them
+                # Handle common date formats like "4/10/2025 11:30"
+                parsed_analysis_date = datetime.strptime(
+                    analysis_date, "%Y-%m-%dT%H:%M:%S.%f"
+                )
+                formatted_analysis_date = parsed_analysis_date.strftime(
+                    "%Y-%m-%d %I:%M %p"
+                )
+
+                parsed_log_date = datetime.strptime(log_date, "%Y-%m-%dT%H:%M:%S.%f")
+                formatted_log_date = parsed_log_date.strftime("%Y-%m-%d")
+            except (ValueError, TypeError):
+                # If parsing fails, keep the original format
+                formatted_analysis_date = analysis_date
+                formatted_log_date = log_date
+
             transformed_data.append(
                 {
                     "link": item.get("analysis_scope", ""),
-                    "analysis date": item.get("analysis_datetime", ""),
+                    "log_datetime": formatted_log_date,
+                    "analysis date": formatted_analysis_date,
                     "fight": item.get("encounter_short_name", ""),
                     "kill time": item.get("kill_time", ""),
                     "job": item.get("job", ""),
                     "player": item.get("player_name", ""),
                     "percentile": item.get("analysis_percentile", 0),
-                    "type": item.get("hierarchy", None),
+                    "analysis_id": item.get("analysis_id", ""),
                 }
             )
         return transformed_data
-
-    # If data is already in the correct format with expected keys
-    if (
-        isinstance(history_data, list)
-        and history_data
-        and all(key in history_data[0] for key in ["link", "analysis date", "fight"])
-    ):
-        return history_data
-
     return create_empty_dataframe().to_dict("records")
 
 
@@ -272,28 +315,8 @@ def update_table_with_styling(history_data):
     if not history_data:
         raise PreventUpdate
 
-    # Base conditional styling
+    # Base conditional styling - simplified without parent/child hierarchy
     styles = [
-        # Parent row styling
-        {
-            "if": {"filter_query": '{type} = "Parent"'},
-            "backgroundColor": "#333",
-            "borderTop": "2px solid #444",
-            "borderBottom": "0px",
-        },
-        # Child row styling
-        {
-            "if": {"filter_query": '{type} = "Child"'},
-            "backgroundColor": "#2a2a2a",
-            "paddingLeft": "20px",
-            "borderBottom": "1px solid #292929",
-        },
-        # Right align link field in child rows
-        {
-            "if": {"filter_query": '{type} = "Child"', "column_id": "link"},
-            "textAlign": "right",
-            "paddingRight": "15px",
-        },
         # Apply job-icons font only to job column data cells
         {
             "if": {"column_id": "job"},
@@ -312,39 +335,26 @@ def update_table_with_styling(history_data):
 
     # Process data to records format
     if isinstance(history_data, list):
-        data = history_data
+        data = history_data.copy()  # Create a copy to avoid modifying the original
     else:
         data = pd.DataFrame(history_data).to_dict("records")
 
-    # Add styling for last child in each group
-    df = (
-        pd.DataFrame(data)
-        if not isinstance(history_data, pd.DataFrame)
-        else history_data
-    )
+    # Convert link text to markdown format based on analysis type
+    for row in data:
+        analysis_id = row.get("analysis_id", "")
+        link_text = row.get("link", "")
 
-    if not df.empty and "type" in df.columns:
-        # Find indices of last child in each group
-        last_child_indices = []
-        for i in range(len(df)):
-            if (
-                i < len(df) - 1
-                and df.iloc[i].get("type") == "Child"
-                and df.iloc[i + 1].get("type") != "Child"
-            ):
-                last_child_indices.append(i)
-            elif i == len(df) - 1 and df.iloc[i].get("type") == "Child":
-                last_child_indices.append(i)
+        # Determine the URL based on the link text
+        if link_text == "Party Analysis":
+            # For party analyses
+            url = f"/party_analysis/{analysis_id}"
+            link_text = "Party Analysis"
+        else:
+            # For individual player analyses
+            url = f"/analysis/{analysis_id}"
+            link_text = "Player analysis"
 
-        # Add style for each last child
-        for idx in last_child_indices:
-            styles.append(
-                {
-                    "if": {
-                        "filter_query": f'{{type}} = "Child" && {{row_index}} = {idx}'
-                    },
-                    "borderBottom": "2px solid #444",  # Darker border
-                }
-            )
+        # Create markdown format link
+        row["link"] = f"[{link_text}]({url})"
 
     return data, styles
