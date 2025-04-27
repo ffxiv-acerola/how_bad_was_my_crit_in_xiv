@@ -80,6 +80,7 @@ header = html.Div(
 )
 
 # Putting it all together
+# Add a hidden div at the top of the layout for clientside callbacks to use
 app.layout = dbc.Container(
     [
         # dcc.Location(id="url", refresh="callback-nav"),
@@ -87,6 +88,9 @@ app.layout = dbc.Container(
         dcc.Store(
             id="analysis-history", storage_type="local", data=[], clear_data=False
         ),
+        dcc.Store(id="saved-gearsets", storage_type="local", data=[], clear_data=False),
+        # Add this hidden div for clientside callbacks
+        html.Div(id="_dummy_output", style={"display": "none"}),
         header,
         dash.page_container,
     ],
@@ -130,22 +134,6 @@ def toggle_party_analysis_modal(n1, n2, is_open):
     if n1 or n2:
         return not is_open
     return is_open
-
-
-# # Callback to seed history store once when there's no existing data
-# @app.callback(
-#     Output("analysis-history", "data"),
-#     Input("url", "pathname"),
-#     State("analysis-history", "data"),
-#     prevent_initial_call=False,
-# )
-# def seed_history_store(pathname, current_data):
-#     """Initialize localStorage with mock history data if empty"""
-#     # Only write if there's no existing data
-#     if not current_data:
-#         return history_data
-#     # Otherwise, do nothing
-#     return dash.no_update
 
 
 if __name__ == "__main__":

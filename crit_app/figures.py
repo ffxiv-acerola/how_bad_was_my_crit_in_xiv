@@ -16,6 +16,10 @@ from plotly.graph_objs import Figure
 
 from crit_app.dmg_distribution import get_dps_dmg_percentile
 
+# Module level styling parameters
+ACCENT_COLOR = "#FFA15A"  # Orange accent color for actual values
+ACCENT_COLOR = "#F25F5C"  # Orange accent color for actual values
+
 
 def make_rotation_pdf_figure(
     rotation_obj: Any, rotation_dps: float, active_dps_time: float, analysis_time: float
@@ -70,7 +74,7 @@ def make_rotation_pdf_figure(
         y=[y],
         mode="markers",
         name="Actual DPS",
-        marker={"size": 14, "color": "#FFA15A"},
+        marker={"size": 14, "color": ACCENT_COLOR},
         hovertext=f"Percentile = {get_dps_dmg_percentile(x, density, support):.1f}%",
     )
 
@@ -408,7 +412,7 @@ def make_action_box_and_whisker_figure(
             name="Actual DPS",
             marker=dict(
                 size=9,
-                color="#FFA15A",
+                color=ACCENT_COLOR,
                 line=dict(width=1, color="#FF8C00"),
                 symbol="diamond",
             ),
@@ -674,7 +678,7 @@ def make_party_rotation_pdf_figure(party_analysis_data: Any) -> Figure:
             go.Scatter(
                 x=[party_dps_x],
                 y=[party_dps_y],
-                marker={"size": 14, "color": "#FFA15A"},
+                marker={"size": 14, "color": ACCENT_COLOR},
                 name="Actual DPS",
                 hovertext=f"Percentile: {F_percentile[np.abs(party_support - party_dps_x).argmin()]:.1%}",
             ),

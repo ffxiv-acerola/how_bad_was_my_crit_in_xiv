@@ -275,6 +275,58 @@ def initialize_job_build(
         id="bottom-build-row",
     )
 
+    # Create the gearset management table with proper dbc structure
+    # Define table headers
+    table_headers = [
+        {"label": "Select", "width": "10%"},
+        {"label": "Role", "width": "15%"},
+        {"label": "Gearset name", "width": "35%"},
+        {"label": "Default set", "width": "15%"},
+        {"label": "Update", "width": "12.5%"},
+        {"label": "Delete", "width": "12.5%"},
+    ]
+
+    # Create table header
+    table_header = html.Thead(
+        html.Tr(
+            [html.Th(h["label"], style={"width": h["width"]}) for h in table_headers]
+        )
+    )
+
+    # Empty table body - will be populated via callback
+    table_body = html.Tbody([], id="gearset-table-body")
+
+    # Create the gearset table
+    gearset_table = dbc.Table(
+        [table_header, table_body],
+        dark=True,
+        striped=True,
+        hover=True,
+        bordered=False,
+        responsive=True,
+        style={"width": "100%"},
+        id="gearset-table",
+    )
+
+    # Add saved gearsets accordion
+    saved_gearsets_accordion = html.Div(
+        [
+            dbc.Accordion(
+                [
+                    dbc.AccordionItem(
+                        # Gearset management table
+                        [gearset_table],
+                        title="Manage saved gearsets",
+                    )
+                ],
+                flush=True,
+                id="saved-gearsets-accordion",
+                start_collapsed=True,
+            ),
+        ],
+        style={"margin-top": "20px"},
+    )
+
     job_build_card = html.Div(
         dbc.Card(
             dbc.CardBody(
@@ -308,6 +360,7 @@ def initialize_job_build(
                             top_stat_row,
                             middle_stat_row,
                             bottom_stat_row,
+                            saved_gearsets_accordion,
                         ]
                     ),
                 ]

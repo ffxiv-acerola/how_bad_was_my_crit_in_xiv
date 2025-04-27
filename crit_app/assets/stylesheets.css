@@ -235,3 +235,31 @@ a:hover {
 .dash-spreadsheet-container .dash-spreadsheet-inner tr:nth-child(even) {
     background-color: rgba(50, 50, 50, 0.3) !important;
 }
+
+/* Navigation styling */
+.nav-pills .nav-link {
+    color: rgba(255, 255, 255, 0.7) !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+    margin: 0 0.2rem !important;
+}
+
+.nav-pills .nav-link:hover {
+    background-color: rgba(121, 166, 239, 0.1) !important;
+    color: white !important;
+}
+
+.nav-pills .nav-link.active {
+    background-color: #466daa !important;
+    color: white !important;
+    box-shadow: 0 4px 8px #6398ee21 !important;
+}
+
+/* Dropdown nav item styling */
+.nav-pills .dropdown-toggle::after {
+    margin-left: 0.5rem !important;
+}
+
+.nav-pills .dropdown-menu {
+    margin-top: 0.5rem !important;
+}

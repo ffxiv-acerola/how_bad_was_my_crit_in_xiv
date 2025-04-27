@@ -1,4 +1,5 @@
 import datetime
+import json
 import pickle
 import traceback
 from typing import Any
@@ -6,7 +7,7 @@ from uuid import uuid4
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, dcc, html
+from dash import ALL, MATCH, Input, Output, State, callback, ctx, dcc, html
 from dash.exceptions import PreventUpdate
 
 from crit_app.cards import (
@@ -177,6 +178,9 @@ def layout(analysis_id=None):
             [
                 dcc.Store(id="xiv-gear-sheet-data"),
                 dcc.Store(id="fflogs-encounter"),
+                html.Div(
+                    id="_dummy_output", style={"display": "none"}
+                ),  # Add this line
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -314,6 +318,7 @@ def layout(analysis_id=None):
                     int(speed_stat),
                     int(crit),
                     int(direct_hit),
+                    int(weapon_damage),
                     int(weapon_damage),
                     delay,
                     -1,
@@ -581,6 +586,9 @@ def layout(analysis_id=None):
             [
                 dcc.Store(id="xiv-gear-sheet-data"),
                 dcc.Store(id="fflogs-encounter"),
+                html.Div(
+                    id="_dummy_output", style={"display": "none"}
+                ),  # Add this line
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -759,8 +767,8 @@ def process_job_build_url(
 
 
 @callback(
-    Output("xiv-gear-select", "options"),
-    Output("xiv-gear-select", "value"),
+    Output("xiv-gear-build-selector", "options"),
+    Output("xiv-gear-build-selector", "value"),
     Input("xiv-gear-sheet-data", "data"),
 )
 def fill_xiv_gear_build_selector(data):
@@ -786,7 +794,7 @@ def fill_xiv_gear_build_selector(data):
     Output("WD", "value", allow_duplicate=True),
     Output("TEN", "value", allow_duplicate=True),
     Input("xiv-gear-sheet-data", "data"),
-    Input("xiv-gear-select", "value"),
+    Input("xiv-gear-build-selector", "value"),
     prevent_initial_call=True,
 )
 def fill_job_build_via_xiv_gear_select(xiv_gear_sheet_data, index):
@@ -1126,7 +1134,7 @@ def display_compute_button(
     tanks: list[dict[str, Any]],
     melees: list[dict[str, Any]],
     phys_ranged: list[dict[str, Any]],
-    magic_ranged: list[dict[str, Any]],
+    magic_ranged: list[dict, Any],
     healer_value: str | None,
     tank_value: str | None,
     melee_value: str | None,
@@ -1143,7 +1151,7 @@ def display_compute_button(
     tanks (list[dict, Any]): List of tank job options.
     melees (list[dict[str, Any]]): List of melee job options.
     phys_ranged (list[dict[str, Any]]): List of physical ranged job options.
-    magic_ranged (list[dict, Any]): List of magical ranged job options.
+    magic_ranged (list[dict, Any]]): List of magical ranged job options.
     healer_value (str | None): Selected healer job.
     tank_value (str | None): Selected tank job.
     melee_value (str | None): Selected melee job.
@@ -1813,3 +1821,294 @@ def valid_tenacity(tenacity: int, role: str) -> tuple:
         return valid_stat_return
     else:
         return invalid_stat_return
+
+
+# First, let's keep our sanitize_gearsets function
+def sanitize_gearsets(gearsets_data):
+    """
+    Sanitize the gearsets data to ensure it's a list of dictionaries.
+
+    Args:
+        gearsets_data: The gearsets data to sanitize
+
+    Returns:
+        A sanitized version of the gearsets data
+    """
+    if not gearsets_data:
+        return []
+
+    # Ensure gearsets_data is a list
+    if not isinstance(gearsets_data, list):
+        return []
+
+    # Filter out any non-dictionary items
+    return [g for g in gearsets_data if isinstance(g, dict)]
+
+
+@callback(
+    Output("gearset-table-body", "children"),
+    Input("saved-gearsets", "data"),
+)
+def populate_gearset_table(gearsets_data):
+    """Populate the gearset management table with data from local storage."""
+    tbody_rows = []
+
+    # Sanitize the gearsets data first
+    gearsets_data = sanitize_gearsets(gearsets_data)
+
+    # Add existing gearset rows if any exist
+    if gearsets_data:
+        for i, gearset in enumerate(gearsets_data):
+            # Make the entire row selectable by adding an id and clickable style
+            tbody_rows.append(
+                html.Tr(
+                    [
+                        html.Td(
+                            dbc.RadioButton(
+                                id={"type": "gearset-select", "index": i},
+                                className="gearset-select",
+                                value=gearset.get("is_selected", False),
+                                name="gearset-select-group",
+                            )
+                        ),
+                        html.Td(gearset.get("role", "")),
+                        html.Td(
+                            gearset.get("name", ""),
+                            style={"whiteSpace": "normal", "wordWrap": "break-word"},
+                        ),
+                        html.Td(
+                            dbc.Checkbox(
+                                id={"type": "gearset-default", "index": i},
+                                className="gearset-default",
+                                value=gearset.get("is_default", False),
+                            )
+                        ),
+                        html.Td(
+                            dbc.Button(
+                                html.I(className="fas fa-arrows-rotate"),
+                                id={"type": "gearset-update", "index": i},
+                                color="link",
+                                size="sm",
+                            )
+                        ),
+                        html.Td(
+                            dbc.Button(
+                                html.I(className="fas fa-trash"),
+                                id={"type": "gearset-delete", "index": i},
+                                color="link",
+                                className="text-danger",
+                                size="sm",
+                            )
+                        ),
+                    ],
+                    id={"type": "gearset-row", "index": i},
+                    className="gearset-row",
+                    # Make the row look clickable with a pointer cursor and hover effect
+                    style={"cursor": "pointer"},
+                )
+            )
+
+    # Always add the "Save" button row at the end
+    tbody_rows.append(
+        html.Tr(
+            [
+                html.Td(
+                    dbc.Button(
+                        "Save",
+                        id="save-gearset-button",
+                        color="success",
+                        size="sm",
+                        disabled=True,
+                    )
+                ),
+                html.Td(""),
+                html.Td(
+                    dbc.Input(
+                        id="new-gearset-name",
+                        placeholder="Enter gearset name",
+                        type="text",
+                    )
+                ),
+                html.Td(""),
+                html.Td(""),
+                html.Td(""),
+            ]
+        )
+    )
+
+    return tbody_rows
+
+
+# Modify handle_row_click to be more robust
+@callback(
+    Output({"type": "gearset-select", "index": MATCH}, "value"),
+    Input({"type": "gearset-row", "index": MATCH}, "n_clicks"),
+    State({"type": "gearset-select", "index": MATCH}, "value"),
+    prevent_initial_call=True,
+)
+def handle_row_click(n_clicks, current_value):
+    """Handle clicks on gearset rows to select the gearset."""
+    if n_clicks is None:
+        raise PreventUpdate
+
+    # Always set to True when row is clicked, even if already selected
+    # This ensures the form update callbacks will fire
+    return True
+
+
+# Improve the load_selected_gearset callback to use the triggered property
+@callback(
+    Output("role-select", "value", allow_duplicate=True),
+    Output("main-stat", "value", allow_duplicate=True),
+    Output("DET", "value", allow_duplicate=True),
+    Output("speed-stat", "value", allow_duplicate=True),
+    Output("CRT", "value", allow_duplicate=True),
+    Output("DH", "value", allow_duplicate=True),
+    Output("WD", "value", allow_duplicate=True),
+    Output("TEN", "value", allow_duplicate=True),
+    Input({"type": "gearset-select", "index": ALL}, "value"),
+    State({"type": "gearset-select", "index": ALL}, "id"),
+    State("saved-gearsets", "data"),
+    prevent_initial_call=True,
+)
+def load_selected_gearset(radio_values, radio_ids, saved_gearsets):
+    """Load the selected gearset data into the form fields when a radio button is selected."""
+    # Get the triggered component
+    triggered = ctx.triggered[0] if ctx.triggered else None
+    if triggered is None:
+        raise PreventUpdate
+
+    # Parse the triggered component's property ID to get index
+    try:
+        triggered_id = json.loads(triggered["prop_id"].split(".")[0])
+        triggered_index = triggered_id["index"]
+
+        # Only proceed if this radio button was just selected (turned ON)
+        if not triggered["value"]:
+            raise PreventUpdate
+    except Exception:
+        # Fall back to scanning all radio values
+        selected_index = None
+        for i, val in enumerate(radio_values):
+            if val and i < len(radio_ids):
+                selected_index = radio_ids[i]["index"]
+                break
+
+        # If no radio is selected, do nothing
+        if selected_index is None:
+            raise PreventUpdate
+
+        triggered_index = selected_index
+
+    # Sanitize saved_gearsets and check if index is valid
+    saved_gearsets = sanitize_gearsets(saved_gearsets)
+    if not saved_gearsets or triggered_index >= len(saved_gearsets):
+        raise PreventUpdate
+
+    # Get the selected gearset
+    selected_gearset = saved_gearsets[triggered_index]
+
+    # Return values to fill in the form fields
+    return (
+        selected_gearset.get("role", ""),
+        selected_gearset.get("main_stat", None),
+        selected_gearset.get("determination", None),
+        selected_gearset.get("speed", None),
+        selected_gearset.get("crit", None),
+        selected_gearset.get("direct_hit", None),
+        selected_gearset.get("weapon_damage", None),
+        selected_gearset.get("tenacity", None),
+    )
+
+
+# Also modify the load_initial_gearset callback to include allow_duplicate=True
+@callback(
+    Output("role-select", "value", allow_duplicate=True),
+    Output("main-stat", "value", allow_duplicate=True),
+    Output("DET", "value", allow_duplicate=True),
+    Output("speed-stat", "value", allow_duplicate=True),
+    Output("CRT", "value", allow_duplicate=True),
+    Output("DH", "value", allow_duplicate=True),
+    Output("WD", "value", allow_duplicate=True),
+    Output("TEN", "value", allow_duplicate=True),
+    Input("saved-gearsets", "data"),
+    prevent_initial_call="initial_duplicate",
+)
+def load_initial_gearset(saved_gearsets):
+    """Load the initial gearset data into the form fields if no gearset is selected."""
+    # Sanitize saved_gearsets
+    saved_gearsets = sanitize_gearsets(saved_gearsets)
+    if not saved_gearsets:
+        raise PreventUpdate
+
+    # Find the first gearset that is selected
+    for gearset in saved_gearsets:
+        if gearset.get("is_selected"):
+            selected_gearset = gearset
+            break
+    else:
+        # If no gearset is selected, do nothing
+        raise PreventUpdate
+
+    # Return values to fill in the form fields
+    return (
+        selected_gearset.get("role", ""),
+        selected_gearset.get("main_stat", None),
+        selected_gearset.get("determination", None),
+        selected_gearset.get("speed", None),
+        selected_gearset.get("crit", None),
+        selected_gearset.get("direct_hit", None),
+        selected_gearset.get("weapon_damage", None),
+        selected_gearset.get("tenacity", None),
+    )
+
+
+# Update the storage callback to mark the selected index
+@callback(
+    Output("saved-gearsets", "data", allow_duplicate=True),
+    Input({"type": "gearset-select", "index": ALL}, "value"),
+    State({"type": "gearset-select", "index": ALL}, "id"),
+    State("saved-gearsets", "data"),
+    prevent_initial_call=True,
+)
+def handle_radio_selection(radio_values, radio_ids, saved_gearsets):
+    """
+    Handle radio button selection state changes.
+
+    When a radio button is selected, update the selection state in the data store.
+    """
+    # Get the triggered component
+    triggered = ctx.triggered[0] if ctx.triggered else None
+    if not triggered:
+        raise PreventUpdate
+
+    # Find which radio button was selected (turned ON)
+    triggered_index = None
+    try:
+        # Try to get index from triggered component
+        prop_id = triggered["prop_id"].split(".")[0]
+        triggered_id = json.loads(prop_id)
+        idx = triggered_id.get("index")
+        if triggered["value"] and idx is not None:
+            triggered_index = idx
+    except Exception:
+        # Fall back to scanning all radio values
+        for i, val in enumerate(radio_values):
+            if val and i < len(radio_ids):
+                triggered_index = radio_ids[i]["index"]
+                break
+
+    # If no radio was selected or the index is invalid, do nothing
+    if triggered_index is None:
+        raise PreventUpdate
+
+    # Sanitize saved_gearsets
+    saved_gearsets = sanitize_gearsets(saved_gearsets)
+    if not saved_gearsets or triggered_index >= len(saved_gearsets):
+        raise PreventUpdate
+
+    # Update the is_selected flag in storage
+    for i, gearset in enumerate(saved_gearsets):
+        gearset["is_selected"] = i == triggered_index
+
+    return saved_gearsets
