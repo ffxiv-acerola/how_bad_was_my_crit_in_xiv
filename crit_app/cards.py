@@ -280,10 +280,9 @@ def initialize_job_build(
     table_headers = [
         {"label": "Select", "width": "10%"},
         {"label": "Role", "width": "15%"},
-        {"label": "Gearset name", "width": "35%"},
-        {"label": "Default set", "width": "15%"},
-        {"label": "Update", "width": "12.5%"},
-        {"label": "Delete", "width": "12.5%"},
+        {"label": "Gearset name", "width": "40%"},  # Adjusted width
+        {"label": "Default set", "width": "20%"},  # Adjusted width
+        {"label": "Delete", "width": "15%"},  # Adjusted width
     ]
 
     # Create table header
@@ -308,14 +307,27 @@ def initialize_job_build(
         id="gearset-table",
     )
 
+    # Add update button below the table
+    update_button = html.Div(
+        dbc.Button(
+            [html.I(className="fas fa-sync-alt me-2"), "Update selected set"],
+            id="update-gearset-button",
+            color="primary",
+            size="sm",
+            disabled=True,
+            className="mt-2",
+        ),
+        className="text-end",
+    )
+
     # Add saved gearsets accordion
     saved_gearsets_accordion = html.Div(
         [
             dbc.Accordion(
                 [
                     dbc.AccordionItem(
-                        # Gearset management table
-                        [gearset_table],
+                        # Gearset management table and update button
+                        [gearset_table, update_button],
                         title="Manage saved gearsets",
                     )
                 ],
