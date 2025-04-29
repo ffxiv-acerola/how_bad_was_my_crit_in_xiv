@@ -118,13 +118,59 @@ select.form-select:focus,
     color: rgba(255, 255, 255, 0.5) !important;
 }
 
+/* Remove previous border-color styling for the default arrow */
+/*
 .Select-arrow {
     border-color: #466daa transparent transparent !important;
+    opacity: 0.8 !important;
 }
 
 .Select.is-open > .Select-control .Select-arrow {
     border-color: transparent transparent #466daa !important;
+    opacity: 0.8 !important;
 }
+*/
+.Select-arrow {
+    border-color: #5a80bc transparent transparent !important;
+    border-width: 8px 8px 0 !important;
+}
+
+.Select.is-open > .Select-control .Select-arrow {
+    border-color: transparent transparent #5a80bc !important;
+    border-width: 0 8px 8px !important;
+}
+
+/* Add a subtle glow effect to the arrow */
+.Select-arrow-zone {
+    position: relative !important;
+}
+
+.Select-arrow-zone::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 18px !important;
+    height: 18px !important;
+    background-color: rgba(90, 128, 188, 0.15) !important; /* Subtle blue glow */
+    border-radius: 50% !important;
+    z-index: -1 !important;
+}
+
+/* Make arrow zone more clickable */
+.Select-arrow-zone {
+    padding-right: 8px !important;
+    width: 30px !important;
+    cursor: pointer !important;
+}
+
+/* For Bootstrap form-selects */
+select.form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%235a80bc' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+    background-size: 16px 12px !important;
+}
+
 
 .Select-menu {
     background-color: #222 !important;

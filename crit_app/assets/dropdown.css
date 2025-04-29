@@ -132,3 +132,16 @@ input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
+
+/* Remove previous border-color styling for the default arrow */
+/*
+.Select-arrow {
+    border-color: #466daa transparent transparent !important;
+    opacity: 0.8 !important;
+}
+
+.Select.is-open > .Select-control .Select-arrow {
+    border-color: transparent transparent #466daa !important;
+    opacity: 0.8 !important;
+}
+*/
