@@ -276,21 +276,32 @@ def initialize_job_build(
     )
 
     # Create the gearset management table with proper dbc structure
-    # Define table headers
+    # Define table headers with widths for specific columns
     table_headers = [
-        {"label": "Select", "width": "10%"},
-        {"label": "Role", "width": "15%"},
-        {"label": "Gearset name", "width": "40%"},  # Adjusted width
-        {"label": "Default set", "width": "20%"},  # Adjusted width
-        {"label": "Delete", "width": "15%"},  # Adjusted width
+        {"label": "Select", "width": "80px"},
+        {"label": "Role"},
+        {"label": "Gearset name"},
+        {"label": "Default set", "width": "120px"},
+        {"label": "Delete", "width": "80px"},
     ]
 
-    # Create table header
-    table_header = html.Thead(
-        html.Tr(
-            [html.Th(h["label"], style={"width": h["width"]}) for h in table_headers]
-        )
-    )
+    # Create table header with conditional styling for width and tooltip for Default set
+    table_header_cells = []
+    for h in table_headers:
+        header_content = h["label"]
+        style = {"width": h["width"]} if "width" in h else {}
+        if h["label"] == "Default set":
+            header_content = html.Span(h["label"], id="default-set-tooltip-target")
+            style.update(
+                {
+                    "textDecoration": "underline",
+                    "textDecorationStyle": "dotted",
+                    "cursor": "pointer",
+                }
+            )
+        table_header_cells.append(html.Th(header_content, style=style))
+
+    table_header = html.Thead(html.Tr(table_header_cells))
 
     # Empty table body - will be populated via callback
     table_body = html.Tbody([], id="gearset-table-body")
@@ -303,7 +314,7 @@ def initialize_job_build(
         hover=True,
         bordered=False,
         responsive=True,
-        style={"width": "100%"},
+        # style={"width": "100%"}, # Removed style
         id="gearset-table",
     )
 
@@ -327,7 +338,14 @@ def initialize_job_build(
                 [
                     dbc.AccordionItem(
                         # Gearset management table and update button
-                        [gearset_table, update_button],
+                        [
+                            gearset_table,
+                            dbc.Tooltip(
+                                "Marking a set as default will automatically load its stats and role when the page loads.",
+                                target="default-set-tooltip-target",
+                            ),
+                            update_button,
+                        ],
                         title="Manage saved gearsets",
                     )
                 ],

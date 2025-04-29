@@ -1899,7 +1899,8 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
                                 className="gearset-select",
                                 value=is_selected,
                                 name="gearset-select-group",
-                            )
+                            ),
+                            style={"textAlign": "center"},  # Keep centered
                         ),
                         html.Td(gearset.get("role", "")),
                         html.Td(
@@ -1911,7 +1912,8 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
                                 id={"type": "gearset-default", "index": i},
                                 className="gearset-default",
                                 value=gearset.get("is_default", False),
-                            )
+                            ),
+                            style={"textAlign": "center"},  # Keep centered
                         ),
                         html.Td(
                             dbc.Button(
@@ -1920,7 +1922,8 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
                                 color="link",
                                 className="text-danger",
                                 size="sm",
-                            )
+                            ),
+                            style={"textAlign": "center"},  # Keep centered
                         ),
                     ],
                     id={"type": "gearset-row", "index": i},
@@ -1934,16 +1937,16 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
     tbody_rows.append(
         html.Tr(
             [
+                html.Td(""),
                 html.Td(
                     dbc.Button(
-                        "Save",
+                        "Add new set",
                         id="save-gearset-button",
-                        color="success",
+                        color="primary",
                         size="sm",
                         disabled=True,
                     )
                 ),
-                html.Td(""),
                 html.Td(
                     dbc.Input(
                         id="new-gearset-name",
@@ -2343,3 +2346,75 @@ def handle_default_checkbox(checkbox_values, checkbox_ids, saved_gearsets):
     # If we get here (checkbox being unchecked), don't allow it
     # This prevents users from having no default set
     raise PreventUpdate
+
+
+@callback(
+    Output("saved-gearsets", "data", allow_duplicate=True),
+    Input("update-gearset-button", "n_clicks"),
+    State("role-select", "value"),
+    State("main-stat", "value"),
+    State("TEN", "value"),
+    State("DET", "value"),
+    State("speed-stat", "value"),
+    State("CRT", "value"),
+    State("DH", "value"),
+    State("WD", "value"),
+    State("saved-gearsets", "data"),
+    State({"type": "gearset-select", "index": ALL}, "value"),
+    State({"type": "gearset-select", "index": ALL}, "id"),
+    prevent_initial_call=True,
+)
+def update_selected_gearset(
+    n_clicks,
+    role,
+    main_stat,
+    tenacity,
+    determination,
+    speed,
+    crit,
+    direct_hit,
+    weapon_damage,
+    saved_gearsets,
+    radio_values,
+    radio_ids,
+):
+    """Update the selected gearset with current form values."""
+    if n_clicks is None:
+        raise PreventUpdate
+
+    # Find which gearset is selected
+    selected_index = None
+    for i, val in enumerate(radio_values):
+        if val and i < len(radio_ids):
+            selected_index = radio_ids[i]["index"]
+            break
+
+    if selected_index is None:
+        raise PreventUpdate
+
+    # Getthe current gearset to preserve name and default status
+    current_gearset = saved_gearsets[selected_index]
+    current_name = current_gearset.get("name", "Untitled")
+    is_default = current_gearset.get("is_default", False)
+
+    # Update the gearset with new values
+    saved_gearsets[selected_index] = {
+        "role": role,
+        "name": current_name,
+        "main_stat": main_stat,
+        "determination": determination,
+        "speed": speed,
+        "crit": crit,
+        "direct_hit": direct_hit,
+        "weapon_damage": weapon_damage,
+        "is_default": is_default,
+        "is_selected": True,
+    }
+
+    # Add tenacity for tanks
+    if role == "Tank" and tenacity is not None:
+        saved_gearsets[selected_index]["tenacity"] = tenacity
+    elif "tenacity" in saved_gearsets[selected_index]:
+        del saved_gearsets[selected_index]["tenacity"]
+
+    return saved_gearsets

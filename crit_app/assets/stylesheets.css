@@ -17,7 +17,7 @@
 
 /* Cards styling */
 .card {
-    border-radius: 12px !important;
+    border-radius: 10px !important;
     box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
     overflow: hidden !important;
     border: none !important;
@@ -29,19 +29,19 @@
 
 /* Figures and graphs styling */
 .js-plotly-plot, .plotly, .plot-container {
-    border-radius: 10px !important;
+    border-radius: 8px !important;
     overflow: hidden !important;
     box-shadow: none !important;
 }
 
 /* Make sure all plot SVG elements get rounded corners */
 .main-svg, .svg-container {
-    border-radius: 10px !important;
+    border-radius: 8px !important;
 }
 
 /* Target the plot container to ensure rounded corners */
 .js-plotly-plot > .plot-container > .svg-container > .main-svg {
-    border-radius: 10px !important;
+    border-radius: 8px !important;
     overflow: hidden !important;
 }
 
@@ -57,7 +57,7 @@ canvas {
 
 /* Tables styling */
 .dash-table-container {
-    border-radius: 10px !important;
+    border-radius: 8px !important;
     overflow: hidden !important;
     box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
 }
@@ -65,7 +65,7 @@ canvas {
 .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
     border-collapse: separate !important;
     border-spacing: 0 !important;
-    border-radius: 10px !important;
+    border-radius: 8px !important;
     overflow: hidden !important;
 }
 
@@ -79,13 +79,15 @@ select.form-select,
     border-radius: 8px !important;
     border: 1px solid rgba(150, 150, 150, 0.3) !important;
     transition: all 0.2s ease !important;
+    /* Removed custom SVG arrow and appearance override */
+    /* Let Bootstrap handle the default arrow */
 }
 
 select.form-select:focus,
 .Select.is-focused > .Select-control {
     background-color: #333 !important;
-    border-color: #009670 !important;
-    box-shadow: 0 0 0 0.25rem rgba(0, 150, 112, 0.25) !important;
+    border-color: #466daa !important;
+    box-shadow: 0 0 0 0.25rem rgba(99, 152, 238, 0.25) !important;
 }
 
 /* Dropdown menu styling */
@@ -117,11 +119,11 @@ select.form-select:focus,
 }
 
 .Select-arrow {
-    border-color: white transparent transparent !important;
+    border-color: #466daa transparent transparent !important;
 }
 
 .Select.is-open > .Select-control .Select-arrow {
-    border-color: transparent transparent white !important;
+    border-color: transparent transparent #466daa !important;
 }
 
 .Select-menu {
@@ -136,8 +138,8 @@ select.form-select:focus,
 }
 
 .form-control:focus, .Select.is-focused:not(.is-open) > .Select-control {
-    box-shadow: 0 0 0 0.25rem rgba(0, 150, 112, 0.25) !important;
-    border-color: #009670 !important;
+    box-shadow: 0 0 0 0.25rem rgba(99, 152, 238, 0.25) !important;
+    border-color: #466daa !important;
 }
 
 /* Button styling */
@@ -150,17 +152,37 @@ select.form-select:focus,
 }
 
 .btn-primary {
-    background-color: #009670 !important;
-    box-shadow: 0 4px 8px rgba(0, 150, 112, 0.3) !important;
+    background-color: #466daa !important;
+    box-shadow: 0 4px 8px rgba(99, 152, 238, 0.21) !important;
+    color: white !important;
 }
 
 .btn-primary:hover {
-    background-color: #008062 !important;
+    background-color: #5a80bc !important;
 }
 
-.btn:active {
-    transform: translateY(1px) !important;
+/* Disabled button styling - keep blue theme */
+.btn:disabled, .btn.disabled {
+    background-color: #466daa !important;
+    opacity: 0.65 !important;
+    color: white !important;
+    cursor: not-allowed !important;
     box-shadow: none !important;
+}
+
+.btn-primary:disabled, .btn-primary.disabled {
+    background-color: #466daa !important;
+    opacity: 0.65 !important;
+}
+
+/* Form controls that use btn class should follow the same color scheme */
+.form-control-btn {
+    background-color: #466daa !important;
+    color: white !important;
+}
+
+.form-control-btn:hover {
+    background-color: #5a80bc !important;
 }
 
 /* Alerts styling */
@@ -174,11 +196,28 @@ select.form-select:focus,
 .form-check-input {
     border-radius: 6px !important;
     transition: all 0.2s ease !important;
+    border: 1px solid rgba(150, 150, 150, 0.3) !important;
 }
 
 .form-check-input:checked {
-    background-color: #009670 !important;
-    border-color: #009670 !important;
+    background-color: #466daa !important;
+    border-color: #466daa !important;
+    box-shadow: 0 1px 3px rgba(99, 152, 238, 0.2) !important;
+}
+
+.form-check-input:focus {
+    border-color: #5a80bc !important;
+    box-shadow: 0 0 0 0.25rem rgba(99, 152, 238, 0.25) !important;
+}
+
+.form-check-input:hover:not(:checked) {
+    border-color: #5a80bc !important;
+    cursor: pointer !important;
+}
+
+/* Specific styling for radio buttons to ensure proper roundness */
+.form-check-input[type="radio"] {
+    border-radius: 50% !important;
 }
 
 /* Improve spacing */
@@ -220,6 +259,91 @@ a {
 
 a:hover {
     color: #008062 !important;
+}
+
+/* Accordion styling */
+.accordion-button {
+    background-color: #222 !important;
+    color: white !important;
+    box-shadow: none !important;
+    transition: all 0.2s ease !important;
+    border-radius: 6px !important;
+}
+
+.accordion-item .accordion-button.collapsed {
+    border-radius: 6px !important;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #1f1f1f !important;
+    color: white !important;
+    border-bottom: 1px solid rgba(99, 152, 238, 0.3) !important;
+    box-shadow: 0 1px 3px rgba(99, 152, 238, 0.15) !important;
+    border-bottom-right-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+}
+
+.accordion-button:hover {
+    background-color: #2a2a2a !important;
+}
+
+.accordion-button:focus {
+    box-shadow: 0 0 0 0.25rem rgba(99, 152, 238, 0.25) !important;
+    border-color: #466daa !important;
+}
+
+.accordion-button::after {
+    filter: brightness(3) !important; /* Makes the dropdown arrow white */
+}
+
+/* Accordion body background */
+.accordion-body {
+    background-color: #303030 !important;
+}
+
+/* Bootstrap table styling */
+#gearset-table {
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
+}
+
+#gearset-table thead th:first-child {
+    border-top-left-radius: 8px !important;
+}
+
+#gearset-table thead th:last-child {
+    border-top-right-radius: 8px !important;
+}
+
+#gearset-table tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 8px !important;
+}
+
+#gearset-table tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 8px !important;
+}
+
+/* Remove bottom border from last row */
+#gearset-table tbody tr:last-child td {
+    border-bottom: none !important;
+}
+
+/* Add padding to the Select column radio button */
+#gearset-table tbody tr td:first-child {
+    padding-left: 20px !important;
+}
+
+/* Add padding to the Default Set column checkbox */
+#gearset-table tbody tr td:nth-child(4) {
+    padding-left: 40px !important;
+}
+
+/* Add vertical padding and center alignment to the first 4 columns */
+#gearset-table tbody tr td:nth-child(-n+4) {
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    vertical-align: middle !important;
 }
 
 /* Dark mode table improvements */

@@ -93,7 +93,7 @@ def make_rotation_pdf_figure(
             font=dict(size=16, family="Arial, sans-serif"),
         ),
         height=500,
-        legend=dict(orientation="h", yanchor="bottom", y=0.97, xanchor="center", x=0.5),
+        legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="center", x=0.5),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(20,20,20,0.8)",
         font=dict(family="Arial, sans-serif"),
@@ -106,8 +106,9 @@ def make_rotation_pdf_figure(
             gridcolor="rgba(80,80,80,0.2)",
             titlefont=dict(size=16),
             tickfont=dict(size=14),
+            automargin=True,
         ),
-        margin=dict(l=40, r=40, t=80, b=40),
+        margin=dict(l=50, r=40, t=80, b=40),
         hoverlabel=dict(
             bgcolor="rgba(30,30,30,0.95)",
             font_color="white",
@@ -445,7 +446,6 @@ def make_action_box_and_whisker_figure(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(20,20,20,0.8)",  # Darker background
         font=dict(family="Arial, sans-serif"),
-        margin=dict(l=40, r=40, t=80, b=40),
         hoverlabel=dict(
             bgcolor="rgba(30,30,30,0.95)",
             font_color="white",
