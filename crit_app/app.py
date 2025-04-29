@@ -89,6 +89,7 @@ app.layout = dbc.Container(
             id="analysis-history", storage_type="local", data=[], clear_data=False
         ),
         dcc.Store(id="saved-gearsets", storage_type="local", data=[], clear_data=False),
+        dcc.Store(id="analysis-indicator", storage_type="session", data=None),
         # Add this hidden div for clientside callbacks
         html.Div(id="_dummy_output", style={"display": "none"}),
         header,

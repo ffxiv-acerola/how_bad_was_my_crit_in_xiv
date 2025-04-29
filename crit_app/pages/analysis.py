@@ -163,24 +163,47 @@ dash.register_page(
 
 
 def layout(analysis_id=None):
-    """
-    Display a previously-analyzed rotation by its analysis ID.
+    """Display a previously-analyzed rotation by its analysis ID."""
 
-    If no analysis ID exists, display blank everything.
-    """
     if analysis_id is None:
-        job_build = initialize_job_build()
+        # Get default gearset if it exists
+        app = dash.get_app()
+        default_gearset = None
+        if hasattr(app, "initial_load") and app.initial_load:
+            saved_gearsets = app.layout["saved-gearsets"].data
+            if saved_gearsets:
+                default_gearset = next(
+                    (g for g in saved_gearsets if g.get("is_default", False)), None
+                )
+
+        # Initialize with default gearset values if available
+        if default_gearset:
+            job_build = initialize_job_build(
+                role=default_gearset.get("role", "Healer"),
+                main_stat=default_gearset.get("main_stat"),
+                tenacity=default_gearset.get("tenacity"),
+                determination=default_gearset.get("determination"),
+                speed=default_gearset.get("speed"),
+                crit=default_gearset.get("crit"),
+                direct_hit=default_gearset.get("direct_hit"),
+                weapon_damage=default_gearset.get("weapon_damage"),
+            )
+        else:
+            job_build = initialize_job_build()
+
+        # Set analysis indicator to None for new analysis
+        analysis_indicator = None
         fflogs_card = initialize_fflogs_card()
         rotation_card = initialize_rotation_card()
         action_card = initialize_new_action_card()
         result_card = initialize_results(rotation_card, action_card, True)
+
         return dash.html.Div(
             [
                 dcc.Store(id="xiv-gear-sheet-data"),
                 dcc.Store(id="fflogs-encounter"),
-                html.Div(
-                    id="_dummy_output", style={"display": "none"}
-                ),  # Add this line
+                dcc.Store(id="analysis-indicator", data=analysis_indicator),
+                html.Div(id="_dummy_output", style={"display": "none"}),
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -188,7 +211,11 @@ def layout(analysis_id=None):
                 result_card,
             ]
         )
+
     else:
+        # Analysis view - load values from analysis
+        # Set analysis indicator to True for existing analysis
+        analysis_indicator = True
         analysis_url = f"https://howbadwasmycritinxiv.com/analysis/{analysis_id}"
         # Check if analysis ID exists, 404 if not
 
@@ -586,9 +613,8 @@ def layout(analysis_id=None):
             [
                 dcc.Store(id="xiv-gear-sheet-data"),
                 dcc.Store(id="fflogs-encounter"),
-                html.Div(
-                    id="_dummy_output", style={"display": "none"}
-                ),  # Add this line
+                dcc.Store(id="analysis-indicator", data=analysis_indicator),
+                html.Div(id="_dummy_output", style={"display": "none"}),
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -1847,8 +1873,9 @@ def sanitize_gearsets(gearsets_data):
 @callback(
     Output("gearset-table-body", "children"),
     Input("saved-gearsets", "data"),
+    Input("analysis-indicator", "data"),
 )
-def populate_gearset_table(gearsets_data):
+def populate_gearset_table(gearsets_data, analysis_indicator):
     """Populate the gearset management table with data from local storage."""
     tbody_rows = []
 
@@ -1858,7 +1885,11 @@ def populate_gearset_table(gearsets_data):
     # Add existing gearset rows if any exist
     if gearsets_data:
         for i, gearset in enumerate(gearsets_data):
-            # Make the entire row selectable by adding an id and clickable style
+            # Only select the default gearset if this is not an analysis view
+            is_selected = (
+                gearset.get("is_default", False) and analysis_indicator is None
+            )
+
             tbody_rows.append(
                 html.Tr(
                     [
@@ -1866,7 +1897,7 @@ def populate_gearset_table(gearsets_data):
                             dbc.RadioButton(
                                 id={"type": "gearset-select", "index": i},
                                 className="gearset-select",
-                                value=gearset.get("is_selected", False),
+                                value=is_selected,
                                 name="gearset-select-group",
                             )
                         ),
@@ -1899,7 +1930,7 @@ def populate_gearset_table(gearsets_data):
                 )
             )
 
-    # Always add the "Save" button row at the end
+    # Add save button row
     tbody_rows.append(
         html.Tr(
             [
@@ -2018,55 +2049,6 @@ def load_selected_gearset(radio_values, radio_ids, saved_gearsets):
     )
 
 
-# Also modify the load_initial_gearset callback to include job build name
-@callback(
-    Output("role-select", "value", allow_duplicate=True),
-    Output("main-stat", "value", allow_duplicate=True),
-    Output("DET", "value", allow_duplicate=True),
-    Output("speed-stat", "value", allow_duplicate=True),
-    Output("CRT", "value", allow_duplicate=True),
-    Output("DH", "value", allow_duplicate=True),
-    Output("WD", "value", allow_duplicate=True),
-    Output("TEN", "value", allow_duplicate=True),
-    Output("job-build-name-div", "children", allow_duplicate=True),
-    Input("saved-gearsets", "data"),
-    prevent_initial_call="initial_duplicate",
-)
-def load_initial_gearset(saved_gearsets):
-    """Load the initial gearset data into the form fields if no gearset is selected."""
-    # Sanitize saved_gearsets
-    saved_gearsets = sanitize_gearsets(saved_gearsets)
-    if not saved_gearsets:
-        raise PreventUpdate
-
-    # Find the first gearset that is selected
-    for gearset in saved_gearsets:
-        if gearset.get("is_selected"):
-            selected_gearset = gearset
-            break
-    else:
-        # If no gearset is selected, do nothing
-        raise PreventUpdate
-
-    # Create job build name div content
-    job_build_name_div = [
-        html.H4(f"Build name: {selected_gearset.get('name', 'Untitled')}")
-    ]
-
-    # Return values to fill in the form fields
-    return (
-        selected_gearset.get("role", ""),
-        selected_gearset.get("main_stat", None),
-        selected_gearset.get("determination", None),
-        selected_gearset.get("speed", None),
-        selected_gearset.get("crit", None),
-        selected_gearset.get("direct_hit", None),
-        selected_gearset.get("weapon_damage", None),
-        selected_gearset.get("tenacity", None),
-        job_build_name_div,
-    )
-
-
 # Add job build name update to the update_existing_gearset callback
 @callback(
     Output("update-gearset-button", "disabled"),
@@ -2142,11 +2124,10 @@ def enable_update_button(
 
 @callback(
     Output("saved-gearsets", "data", allow_duplicate=True),
-    Output("job-build-name-div", "children", allow_duplicate=True),
-    Input("update-gearset-button", "n_clicks"),
-    State({"type": "gearset-select", "index": ALL}, "value"),
-    State({"type": "gearset-select", "index": ALL}, "id"),
+    Output("new-gearset-name", "value"),
+    Input("save-gearset-button", "n_clicks"),
     State("role-select", "value"),
+    State("new-gearset-name", "value"),
     State("main-stat", "value"),
     State("TEN", "value"),
     State("DET", "value"),
@@ -2157,11 +2138,10 @@ def enable_update_button(
     State("saved-gearsets", "data"),
     prevent_initial_call=True,
 )
-def update_existing_gearset(
+def save_new_gearset(
     n_clicks,
-    radio_values,
-    radio_ids,
     role,
+    gearset_name,
     main_stat,
     tenacity,
     determination,
@@ -2171,68 +2151,43 @@ def update_existing_gearset(
     weapon_damage,
     saved_gearsets,
 ):
-    """
-    Update an existing gearset with the current stats when the Update button is clicked.
-
-    Parameters:
-    n_clicks (int): Number of clicks on the update button
-    radio_values (list): List of radio button values
-    radio_ids (list): List of radio button IDs
-    role (str): The selected role
-    main_stat (int): Main stat value
-    tenacity (int): Tenacity stat value
-    determination (int): Determination stat value
-    speed (int): Speed stat value
-    crit (int): Critical hit stat value
-    direct_hit (int): Direct hit stat value
-    weapon_damage (int): Weapon damage stat value
-    saved_gearsets (list): Existing saved gearsets
-
-    Returns:
-    tuple: (updated gearsets data, updated job build name div)
-    """
+    """Save a new gearset to local storage."""
     if n_clicks is None:
         raise PreventUpdate
 
     # Sanitize saved_gearsets to ensure it's a list of dictionaries
     saved_gearsets = sanitize_gearsets(saved_gearsets)
 
-    # Find the selected gearset index
-    selected_index = None
-    for i, val in enumerate(radio_values):
-        if val and i < len(radio_ids):
-            selected_index = radio_ids[i]["index"]
-            break
+    # Deselect all existing gearsets
+    for gearset in saved_gearsets:
+        gearset["is_selected"] = False
 
-    # If no gearset is selected or index is invalid, do nothing
-    if selected_index is None or selected_index >= len(saved_gearsets):
-        raise PreventUpdate
+    # Determine if this should be the default gearset (if it's the first one)
+    is_default = len(saved_gearsets) == 0
 
-    # Get the selected gearset and update its values
-    gearset = saved_gearsets[selected_index]
-    gearset_name = gearset.get("name", "Untitled")  # Keep the existing name
+    # Create new gearset record
+    new_gearset = {
+        "role": role,
+        "name": gearset_name,
+        "main_stat": main_stat,
+        "determination": determination,
+        "speed": speed,
+        "crit": crit,
+        "direct_hit": direct_hit,
+        "weapon_damage": weapon_damage,
+        "is_default": is_default,
+        "is_selected": True,  # Mark this gearset as selected
+    }
 
-    # Update gearset with current values
-    gearset["role"] = role
-    gearset["main_stat"] = main_stat
-    gearset["determination"] = determination
-    gearset["speed"] = speed
-    gearset["crit"] = crit
-    gearset["direct_hit"] = direct_hit
-    gearset["weapon_damage"] = weapon_damage
-
-    # Handle tenacity for tanks
+    # Add tenacity for tanks
     if role == "Tank" and tenacity is not None:
-        gearset["tenacity"] = tenacity
-    elif "tenacity" in gearset:
-        # Remove tenacity if role is not tank
-        del gearset["tenacity"]
+        new_gearset["tenacity"] = tenacity
 
-    # Create updated job build name div
-    job_build_name_div = [html.H4(f"Build name: {gearset_name}")]
+    # Append the new gearset to saved_gearsets
+    saved_gearsets.append(new_gearset)
 
-    # Return the updated gearsets data and job build name div
-    return saved_gearsets, job_build_name_div
+    # Return updated gearsets and clear the name input field
+    return saved_gearsets, ""
 
 
 @callback(
@@ -2280,9 +2235,9 @@ def delete_gearset(n_clicks_list, saved_gearsets):
     Input("TEN", "valid"),
     Input("DET", "valid"),
     Input("speed-stat", "valid"),
-    Input("CRT", "valid"),
-    Input("DH", "valid"),
-    Input("WD", "valid"),
+    Input("CRT", "value"),
+    Input("DH", "value"),
+    Input("WD", "value"),
 )
 def validate_gearset(
     role,
@@ -2342,94 +2297,6 @@ def validate_gearset(
 
 @callback(
     Output("saved-gearsets", "data", allow_duplicate=True),
-    Output("new-gearset-name", "value"),
-    Input("save-gearset-button", "n_clicks"),
-    State("role-select", "value"),
-    State("new-gearset-name", "value"),
-    State("main-stat", "value"),
-    State("TEN", "value"),
-    State("DET", "value"),
-    State("speed-stat", "value"),
-    State("CRT", "value"),
-    State("DH", "value"),
-    State("WD", "value"),
-    State("saved-gearsets", "data"),
-    prevent_initial_call=True,
-)
-def save_new_gearset(
-    n_clicks,
-    role,
-    gearset_name,
-    main_stat,
-    tenacity,
-    determination,
-    speed,
-    crit,
-    direct_hit,
-    weapon_damage,
-    saved_gearsets,
-):
-    """
-    Save a new gearset to local storage when the Save button is clicked.
-
-    The newly created gearset will be automatically selected.
-
-    Parameters:
-    n_clicks (int): Number of clicks on the save button
-    role (str): The selected role
-    gearset_name (str): Name for the gearset
-    main_stat (int): Main stat value
-    tenacity (int): Tenacity stat value
-    determination (int): Determination stat value
-    speed (int): Speed stat value
-    crit (int): Critical hit stat value
-    direct_hit (int): Direct hit stat value
-    weapon_damage (int): Weapon damage stat value
-    saved_gearsets (list): Existing saved gearsets
-
-    Returns:
-    tuple: (updated gearsets data, empty string to clear input field)
-    """
-    if n_clicks is None:
-        raise PreventUpdate
-
-    # Sanitize saved_gearsets to ensure it's a list of dictionaries
-    saved_gearsets = sanitize_gearsets(saved_gearsets)
-
-    # Deselect all existing gearsets
-    for gearset in saved_gearsets:
-        gearset["is_selected"] = False
-
-    # Determine if this should be the default gearset (if it's the first one)
-    is_default = len(saved_gearsets) == 0
-
-    # Create new gearset record
-    new_gearset = {
-        "role": role,
-        "name": gearset_name,
-        "main_stat": main_stat,
-        "determination": determination,
-        "speed": speed,
-        "crit": crit,
-        "direct_hit": direct_hit,
-        "weapon_damage": weapon_damage,
-        "is_default": is_default,
-        "is_selected": True,  # Mark this gearset as selected
-    }
-
-    # Add tenacity for tanks
-    if role == "Tank" and tenacity is not None:
-        new_gearset["tenacity"] = tenacity
-
-    # Append the new gearset to saved_gearsets
-    saved_gearsets.append(new_gearset)
-
-    # Return updated gearsets and clear the name input field
-    return saved_gearsets, ""
-
-
-@callback(
-    Output("saved-gearsets", "data", allow_duplicate=True),
     Input({"type": "gearset-default", "index": ALL}, "value"),
     State({"type": "gearset-default", "index": ALL}, "id"),
     State("saved-gearsets", "data"),
@@ -2476,36 +2343,3 @@ def handle_default_checkbox(checkbox_values, checkbox_ids, saved_gearsets):
     # If we get here (checkbox being unchecked), don't allow it
     # This prevents users from having no default set
     raise PreventUpdate
-
-
-# Replace app.clientside_callback with dash.clientside_callback
-dash.clientside_callback(
-    """
-    function(saved_gearsets) {
-        if (!saved_gearsets || saved_gearsets.length === 0) {
-            return saved_gearsets;
-        }
-
-        // Check if any gearset is already selected
-        const anySelected = saved_gearsets.some(gearset => gearset.is_selected);
-        if (anySelected) {
-            return saved_gearsets;
-        }
-
-        // Find the default gearset
-        const defaultIdx = saved_gearsets.findIndex(gearset => gearset.is_default);
-        if (defaultIdx === -1) {
-            return saved_gearsets;
-        }
-
-        // Select the default gearset
-        return saved_gearsets.map((gearset, idx) => ({
-            ...gearset,
-            is_selected: idx === defaultIdx
-        }));
-    }
-    """,
-    Output("saved-gearsets", "data", allow_duplicate=True),
-    Input("saved-gearsets", "data"),
-    prevent_initial_call="initial_duplicate",
-)
