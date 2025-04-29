@@ -171,10 +171,17 @@ def layout(analysis_id=None):
         default_gearset = None
         if hasattr(app, "initial_load") and app.initial_load:
             saved_gearsets = app.layout["saved-gearsets"].data
-            if saved_gearsets:
-                default_gearset = next(
-                    (g for g in saved_gearsets if g.get("is_default", False)), None
-                )
+            default_gear_index = app.layout["default-gear-index"].data
+
+            if (
+                saved_gearsets
+                and default_gear_index is not None
+                and default_gear_index >= 0
+            ):
+                try:
+                    default_gearset = saved_gearsets[default_gear_index]
+                except IndexError:
+                    default_gearset = None
 
         # Initialize with default gearset values if available
         if default_gearset:
@@ -677,14 +684,14 @@ def fill_role_stat_labels(role: str) -> tuple[str, str, str, str]:
     Output("job-build-url", "valid"),
     Output("job-build-url", "invalid"),
     Output("job-build-name-div", "children", allow_duplicate=True),
-    Output("role-select", "value"),
-    Output("main-stat", "value"),
-    Output("DET", "value"),
-    Output("speed-stat", "value"),
-    Output("CRT", "value"),
-    Output("DH", "value"),
-    Output("WD", "value"),
-    Output("TEN", "value"),
+    Output("role-select", "value", allow_duplicate=True),
+    Output("main-stat", "value", allow_duplicate=True),
+    Output("DET", "value", allow_duplicate=True),
+    Output("speed-stat", "value", allow_duplicate=True),
+    Output("CRT", "value", allow_duplicate=True),
+    Output("DH", "value", allow_duplicate=True),
+    Output("WD", "value", allow_duplicate=True),
+    Output("TEN", "value", allow_duplicate=True),
     Output("xiv-gear-sheet-data", "data"),
     Input("job-build-url-button", "n_clicks"),
     State("job-build-url", "value"),
@@ -1160,7 +1167,7 @@ def display_compute_button(
     tanks: list[dict[str, Any]],
     melees: list[dict[str, Any]],
     phys_ranged: list[dict[str, Any]],
-    magic_ranged: list[dict, Any],
+    magic_ranged: list[dict[str, Any]],
     healer_value: str | None,
     tank_value: str | None,
     melee_value: str | None,
@@ -1886,9 +1893,7 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
     if gearsets_data:
         for i, gearset in enumerate(gearsets_data):
             # Only select the default gearset if this is not an analysis view
-            is_selected = (
-                gearset.get("is_default", False) and analysis_indicator is None
-            )
+            is_selected = False  # We'll handle default selection separately now
 
             tbody_rows.append(
                 html.Tr(
@@ -1899,21 +1904,12 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
                                 className="gearset-select",
                                 value=is_selected,
                                 name="gearset-select-group",
-                            ),
-                            style={"textAlign": "center"},  # Keep centered
+                            )
                         ),
                         html.Td(gearset.get("role", "")),
                         html.Td(
                             gearset.get("name", ""),
                             style={"whiteSpace": "normal", "wordWrap": "break-word"},
-                        ),
-                        html.Td(
-                            dbc.Checkbox(
-                                id={"type": "gearset-default", "index": i},
-                                className="gearset-default",
-                                value=gearset.get("is_default", False),
-                            ),
-                            style={"textAlign": "center"},  # Keep centered
                         ),
                         html.Td(
                             dbc.Button(
@@ -1922,13 +1918,11 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
                                 color="link",
                                 className="text-danger",
                                 size="sm",
-                            ),
-                            style={"textAlign": "center"},  # Keep centered
+                            )
                         ),
                     ],
                     id={"type": "gearset-row", "index": i},
                     className="gearset-row",
-                    # Make the row look clickable with a pointer cursor and hover effect
                     style={"cursor": "pointer"},
                 )
             )
@@ -1937,16 +1931,16 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
     tbody_rows.append(
         html.Tr(
             [
-                html.Td(""),
                 html.Td(
                     dbc.Button(
-                        "Add new set",
+                        "Save",
                         id="save-gearset-button",
-                        color="primary",
+                        color="success",
                         size="sm",
                         disabled=True,
                     )
                 ),
+                html.Td(""),
                 html.Td(
                     dbc.Input(
                         id="new-gearset-name",
@@ -1954,7 +1948,6 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
                         type="text",
                     )
                 ),
-                html.Td(""),
                 html.Td(""),
             ]
         )
@@ -2268,7 +2261,7 @@ def validate_gearset(
     wd_valid (bool): Whether weapon damage is valid
 
     Returns:
-    bool: False if button should be enabled (all inputs valid), True otherwise
+    bool: False if button should be enabled, True otherwise
     """
     # Check if name is provided
     if not gearset_name or len(gearset_name.strip()) == 0:
@@ -2298,123 +2291,173 @@ def validate_gearset(
     )
 
 
+# Update the load_default_gearset callback to conditionally load the default stat values only when creating a new analysis, while always loading the default set name and selector options.
 @callback(
-    Output("saved-gearsets", "data", allow_duplicate=True),
-    Input({"type": "gearset-default", "index": ALL}, "value"),
-    State({"type": "gearset-default", "index": ALL}, "id"),
+    Output("role-select", "value"),
+    Output("main-stat", "value"),
+    Output("DET", "value"),
+    Output("speed-stat", "value"),
+    Output("CRT", "value"),
+    Output("DH", "value"),
+    Output("WD", "value"),
+    Output("TEN", "value"),
+    Output("job-build-name-div", "children"),
+    Output("current-default-set-display", "children"),
+    Output("default-set-selector", "options"),
+    Input("analysis-indicator", "data"),
+    State("default-gear-index", "data"),
     State("saved-gearsets", "data"),
-    prevent_initial_call=True,
-    # Set a high priority
-    running=[(Output("_dummy_output", "children"), True, False)],
-)
-def handle_default_checkbox(checkbox_values, checkbox_ids, saved_gearsets):
-    """
-    Ensure only one gearset can be marked as default at a time.
-
-    When a checkbox is checked, uncheck all other checkboxes and update
-    the is_default property for all gearsets.
-    """
-    # Get the triggered component
-    triggered = ctx.triggered[0] if ctx.triggered else None
-    if not triggered:
-        raise PreventUpdate
-
-    # Try to get index from triggered component
-    try:
-        prop_id = triggered["prop_id"].split(".")[0]
-        triggered_id = json.loads(prop_id)
-        idx = triggered_id.get("index")
-
-        # Only proceed if this was a checkbox being checked ON
-        if idx is not None and triggered["value"] is True:
-            # Sanitize saved_gearsets
-            saved_gearsets = sanitize_gearsets(saved_gearsets)
-
-            # Update is_default for all gearsets
-            for i, gearset in enumerate(saved_gearsets):
-                gearset["is_default"] = i == idx
-
-            # Also select this gearset
-            for i, gearset in enumerate(saved_gearsets):
-                gearset["is_selected"] = i == idx
-
-            return saved_gearsets
-    except Exception:
-        # If any error occurs, just return unchanged data
-        pass
-
-    # If we get here (checkbox being unchecked), don't allow it
-    # This prevents users from having no default set
-    raise PreventUpdate
-
-
-@callback(
-    Output("saved-gearsets", "data", allow_duplicate=True),
-    Input("update-gearset-button", "n_clicks"),
+    # Add current stat values as State inputs to preserve them when viewing an analysis
     State("role-select", "value"),
     State("main-stat", "value"),
-    State("TEN", "value"),
     State("DET", "value"),
     State("speed-stat", "value"),
     State("CRT", "value"),
     State("DH", "value"),
     State("WD", "value"),
-    State("saved-gearsets", "data"),
-    State({"type": "gearset-select", "index": ALL}, "value"),
-    State({"type": "gearset-select", "index": ALL}, "id"),
-    prevent_initial_call=True,
+    State("TEN", "value"),
 )
-def update_selected_gearset(
-    n_clicks,
-    role,
-    main_stat,
-    tenacity,
-    determination,
-    speed,
-    crit,
-    direct_hit,
-    weapon_damage,
+def load_default_gearset(
+    analysis_indicator,
+    default_gear_index,
     saved_gearsets,
-    radio_values,
-    radio_ids,
+    current_role,
+    current_main_stat,
+    current_det,
+    current_speed,
+    current_crit,
+    current_dh,
+    current_wd,
+    current_ten,
 ):
-    """Update the selected gearset with current form values."""
-    if n_clicks is None:
-        raise PreventUpdate
+    """
+    Load default gearset info and conditionally apply default stats.
 
-    # Find which gearset is selected
-    selected_index = None
-    for i, val in enumerate(radio_values):
-        if val and i < len(radio_ids):
-            selected_index = radio_ids[i]["index"]
-            break
+    Only applies default stat values when creating a new analysis.
+    Always loads default set name and selector options.
+    """
+    # Handle case when no gearsets exist
+    saved_gearsets = sanitize_gearsets(saved_gearsets)
+    if not saved_gearsets:
+        # No gearsets saved, return empty default info
+        empty_job_build_name = []
+        empty_default_display = ""
+        empty_options = []
 
-    if selected_index is None:
-        raise PreventUpdate
+        if analysis_indicator is not None:
+            # Return current values for analysis view
+            return (
+                current_role,
+                current_main_stat,
+                current_det,
+                current_speed,
+                current_crit,
+                current_dh,
+                current_wd,
+                current_ten,
+                empty_job_build_name,
+                empty_default_display,
+                empty_options,
+            )
+        else:
+            # Return empty values for new analysis with no default
+            return (
+                "Healer",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                empty_job_build_name,
+                empty_default_display,
+                empty_options,
+            )
 
-    # Getthe current gearset to preserve name and default status
-    current_gearset = saved_gearsets[selected_index]
-    current_name = current_gearset.get("name", "Untitled")
-    is_default = current_gearset.get("is_default", False)
+    # Prepare selector options (always needed)
+    selector_options = [
+        {"label": s["name"], "value": idx} for idx, s in enumerate(saved_gearsets)
+    ]
 
-    # Update the gearset with new values
-    saved_gearsets[selected_index] = {
-        "role": role,
-        "name": current_name,
-        "main_stat": main_stat,
-        "determination": determination,
-        "speed": speed,
-        "crit": crit,
-        "direct_hit": direct_hit,
-        "weapon_damage": weapon_damage,
-        "is_default": is_default,
-        "is_selected": True,
-    }
+    # Handle invalid default index
+    if (
+        default_gear_index is None
+        or default_gear_index < 0
+        or default_gear_index >= len(saved_gearsets)
+    ):
+        # No valid default set
+        empty_job_build_name = []
+        empty_default_display = "None selected"
 
-    # Add tenacity for tanks
-    if role == "Tank" and tenacity is not None:
-        saved_gearsets[selected_index]["tenacity"] = tenacity
-    elif "tenacity" in saved_gearsets[selected_index]:
-        del saved_gearsets[selected_index]["tenacity"]
+        if analysis_indicator is not None:
+            # Return current values for analysis view
+            return (
+                current_role,
+                current_main_stat,
+                current_det,
+                current_speed,
+                current_crit,
+                current_dh,
+                current_wd,
+                current_ten,
+                empty_job_build_name,
+                empty_default_display,
+                selector_options,
+            )
+        else:
+            # Return empty values for new analysis with no default
+            return (
+                "Healer",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                empty_job_build_name,
+                empty_default_display,
+                selector_options,
+            )
 
-    return saved_gearsets
+    # We have a valid default gearset```python
+    default_gearset = saved_gearsets[default_gear_index]
+    default_name = default_gearset.get("name", "Unnamed")
+    default_role = default_gearset.get("role", "Unknown")
+
+    # Create job build name div and default display (always updated)
+    default_display = f"{default_name} ({default_role})"
+    job_build_name = []
+
+    if analysis_indicator is not None:
+        # For an existing analysis, don't load default stat values
+        return (
+            current_role,
+            current_main_stat,
+            current_det,
+            current_speed,
+            current_crit,
+            current_dh,
+            current_wd,
+            current_ten,
+            job_build_name,
+            default_display,
+            selector_options,
+        )
+    else:
+        # For a new analysis, load the default values
+        job_build_name = [html.H4(f"Build name: {default_name}")]
+        return (
+            default_gearset.get("role", "Healer"),
+            default_gearset.get("main_stat", None),
+            default_gearset.get("determination", None),
+            default_gearset.get("speed", None),
+            default_gearset.get("crit", None),
+            default_gearset.get("direct_hit", None),
+            default_gearset.get("weapon_damage", None),
+            default_gearset.get("tenacity", None),
+            job_build_name,
+            default_display,
+            selector_options,
+        )

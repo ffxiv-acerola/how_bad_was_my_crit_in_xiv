@@ -281,24 +281,14 @@ def initialize_job_build(
         {"label": "Select", "width": "80px"},
         {"label": "Role"},
         {"label": "Gearset name"},
-        {"label": "Default set", "width": "120px"},
         {"label": "Delete", "width": "80px"},
     ]
 
-    # Create table header with conditional styling for width and tooltip for Default set
+    # Create table header with conditional styling for width
     table_header_cells = []
     for h in table_headers:
         header_content = h["label"]
         style = {"width": h["width"]} if "width" in h else {}
-        if h["label"] == "Default set":
-            header_content = html.Span(h["label"], id="default-set-tooltip-target")
-            style.update(
-                {
-                    "textDecoration": "underline",
-                    "textDecorationStyle": "dotted",
-                    "cursor": "pointer",
-                }
-            )
         table_header_cells.append(html.Th(header_content, style=style))
 
     table_header = html.Thead(html.Tr(table_header_cells))
@@ -314,8 +304,53 @@ def initialize_job_build(
         hover=True,
         bordered=False,
         responsive=True,
-        # style={"width": "100%"}, # Removed style
         id="gearset-table",
+    )
+
+    # Add default set selector above the table
+    default_set_controls = html.Div(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            html.H5("Default Gearset:", className="d-inline me-2"),
+                            html.Div(
+                                id="current-default-set-display", className="d-inline"
+                            ),
+                            dbc.Row(
+                                [
+                                    dbc.Col(
+                                        [
+                                            dbc.Select(
+                                                id="default-set-selector",
+                                                placeholder="Select a gearset",
+                                                options=[],  # Will be populated by callback
+                                            )
+                                        ],
+                                        width=9,
+                                    ),
+                                    dbc.Col(
+                                        [
+                                            dbc.Button(
+                                                "Set Default",
+                                                id="set-default-button",
+                                                color="primary",
+                                                size="sm",
+                                                className="ml-2",
+                                            )
+                                        ],
+                                        width=3,
+                                    ),
+                                ]
+                            ),
+                        ],
+                        width=12,
+                    )
+                ],
+                className="mb-3",
+            )
+        ]
     )
 
     # Add update button below the table
@@ -337,13 +372,10 @@ def initialize_job_build(
             dbc.Accordion(
                 [
                     dbc.AccordionItem(
-                        # Gearset management table and update button
+                        # Default set controls and gearset management table and update button
                         [
+                            default_set_controls,
                             gearset_table,
-                            dbc.Tooltip(
-                                "Marking a set as default will automatically load its stats and role when the page loads.",
-                                target="default-set-tooltip-target",
-                            ),
                             update_button,
                         ],
                         title="Manage saved gearsets",
