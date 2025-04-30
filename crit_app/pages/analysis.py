@@ -1902,7 +1902,7 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
                             dbc.RadioButton(
                                 id={"type": "gearset-select", "index": i},
                                 className="gearset-select",
-                                value=is_selected,
+                                value=is_selected,  # Use is_selected property to control radio button state
                                 name="gearset-select-group",
                             )
                         ),
@@ -1912,12 +1912,16 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
                             style={"whiteSpace": "normal", "wordWrap": "break-word"},
                         ),
                         html.Td(
-                            dbc.Button(
-                                html.I(className="fas fa-trash"),
-                                id={"type": "gearset-delete", "index": i},
-                                color="link",
-                                className="text-danger",
-                                size="sm",
+                            html.Div(
+                                dbc.Button(
+                                    html.I(className="fas fa-trash"),
+                                    id={"type": "gearset-delete", "index": i},
+                                    color="link",
+                                    className="text-danger",
+                                    size="sm",
+                                ),
+                                # Add this onClick attribute that stops event propagation
+                                # **{"data-no-propagate": "true"},
                             )
                         ),
                     ],
@@ -1956,7 +1960,6 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
     return tbody_rows
 
 
-# Modify handle_row_click to be more robust
 @callback(
     Output({"type": "gearset-select", "index": MATCH}, "value"),
     Input({"type": "gearset-row", "index": MATCH}, "n_clicks"),
@@ -1967,6 +1970,13 @@ def handle_row_click(n_clicks, current_value):
     """Handle clicks on gearset rows to select the gearset."""
     if n_clicks is None:
         raise PreventUpdate
+
+    # Check if the click originated from a delete button
+    # We can do this by examining the triggered element's data attributes
+    if ctx.triggered_id and hasattr(dash.callback_context, "triggered_element"):
+        # If the click was on or inside an element with data-no-propagate attribute, don't select
+        if getattr(dash.callback_context.triggered_element, "data-no-propagate", False):
+            raise PreventUpdate
 
     # Always set to True when row is clicked, even if already selected
     # This ensures the form update callbacks will fire
@@ -2161,7 +2171,7 @@ def save_new_gearset(
         gearset["is_selected"] = False
 
     # Determine if this should be the default gearset (if it's the first one)
-    is_default = len(saved_gearsets) == 0
+    is_first_gearset = len(saved_gearsets) == 0
 
     # Create new gearset record
     new_gearset = {
@@ -2173,7 +2183,6 @@ def save_new_gearset(
         "crit": crit,
         "direct_hit": direct_hit,
         "weapon_damage": weapon_damage,
-        "is_default": is_default,
         "is_selected": True,  # Mark this gearset as selected
     }
 
@@ -2184,8 +2193,22 @@ def save_new_gearset(
     # Append the new gearset to saved_gearsets
     saved_gearsets.append(new_gearset)
 
+    # Update the selector options
+    selector_options = [
+        {"label": s["name"], "value": i} for i, s in enumerate(saved_gearsets)
+    ]
+
+    # If this is the first gearset, set it as default
+    if is_first_gearset:
+        default_gear_index = 0
+        default_display = f"{gearset_name} ({role})"
+    else:
+        # Keep existing default
+        default_gear_index = ""
+        default_display = ""
+
     # Return updated gearsets and clear the name input field
-    return saved_gearsets, "", ""
+    return saved_gearsets, default_gear_index, selector_options, default_display
 
 
 @callback(
@@ -2390,7 +2413,7 @@ def load_default_gearset(
     if not saved_gearsets:
         # No gearsets saved, return empty default info
         empty_job_build_name = []
-        empty_default_display = ""
+        empty_default_display = "None selected"
         empty_options = []
 
         if analysis_indicator is not None:
@@ -2428,6 +2451,15 @@ def load_default_gearset(
     selector_options = [
         {"label": s["name"], "value": idx} for idx, s in enumerate(saved_gearsets)
     ]
+
+    # Handle type conversion for default_gear_index
+    try:
+        # Convert to int if it's a string or keep as is if already an int or None
+        default_gear_index = (
+            int(default_gear_index) if default_gear_index not in (None, "") else None
+        )
+    except (ValueError, TypeError):
+        default_gear_index = None
 
     # Handle invalid default index
     if (
@@ -2546,3 +2578,86 @@ def set_default_gearset(n_clicks, selected_index, saved_gearsets):
 
     except Exception as e:
         return None, f"Error: {str(e)}"
+
+
+@callback(
+    Output("saved-gearsets", "data", allow_duplicate=True),
+    Input("update-gearset-button", "n_clicks"),
+    State({"type": "gearset-select", "index": ALL}, "value"),
+    State({"type": "gearset-select", "index": ALL}, "id"),
+    State("role-select", "value"),
+    State("main-stat", "value"),
+    State("DET", "value"),
+    State("speed-stat", "value"),
+    State("CRT", "value"),
+    State("DH", "value"),
+    State("WD", "value"),
+    State("TEN", "value"),
+    State("saved-gearsets", "data"),
+    prevent_initial_call=True,
+)
+def update_selected_gearset(
+    n_clicks,
+    radio_values,
+    radio_ids,
+    role,
+    main_stat,
+    determination,
+    speed,
+    crit,
+    direct_hit,
+    weapon_damage,
+    tenacity,
+    saved_gearsets,
+):
+    """Update the selected gearset with current stat values."""
+    if n_clicks is None:
+        raise PreventUpdate
+
+    # Sanitize saved_gearsets to ensure it's a list of dictionaries
+    saved_gearsets = sanitize_gearsets(saved_gearsets)
+
+    # Find the selected gearset index
+    selected_index = None
+    for i, val in enumerate(radio_values):
+        if val and i < len(radio_ids):
+            selected_index = radio_ids[i]["index"]
+            break
+
+    # If no gearset is selected, do nothing
+    if selected_index is None or selected_index >= len(saved_gearsets):
+        raise PreventUpdate
+
+    # Get the selected gearset
+    selected_gearset = saved_gearsets[selected_index]
+
+    # Create updated gearset with current values
+    updated_gearset = {
+        "role": role,
+        "name": selected_gearset.get("name", "Untitled"),  # Preserve name
+        "main_stat": main_stat,
+        "determination": determination,
+        "speed": speed,
+        "crit": crit,
+        "direct_hit": direct_hit,
+        "weapon_damage": weapon_damage,
+        "is_selected": True,  # Keep it selected
+    }
+
+    # Add tenacity for tanks
+    if role == "Tank" and tenacity is not None:
+        updated_gearset["tenacity"] = tenacity
+
+    # Update the gearset in the list
+    saved_gearsets[selected_index] = updated_gearset
+
+    return saved_gearsets
+
+
+@callback(
+    Output("set-default-button", "disabled"),
+    Input("default-set-selector", "value"),
+)
+def toggle_set_default_button(selected_value):
+    """Disable the Set Default button when no gearset is selected."""
+    return selected_value is None or selected_value == ""
