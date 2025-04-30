@@ -1935,7 +1935,7 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
                     dbc.Button(
                         "Save",
                         id="save-gearset-button",
-                        color="success",
+                        color="primary",
                         size="sm",
                         disabled=True,
                     )
@@ -2120,7 +2120,9 @@ def enable_update_button(
 
 @callback(
     Output("saved-gearsets", "data", allow_duplicate=True),
-    Output("new-gearset-name", "value"),
+    Output("default-gear-index", "data", allow_duplicate=True),
+    Output("default-set-selector", "options", allow_duplicate=True),
+    Output("current-default-set-display", "children", allow_duplicate=True),
     Input("save-gearset-button", "n_clicks"),
     State("role-select", "value"),
     State("new-gearset-name", "value"),
@@ -2183,17 +2185,21 @@ def save_new_gearset(
     saved_gearsets.append(new_gearset)
 
     # Return updated gearsets and clear the name input field
-    return saved_gearsets, ""
+    return saved_gearsets, "", ""
 
 
 @callback(
     Output("saved-gearsets", "data", allow_duplicate=True),
+    Output("default-gear-index", "data", allow_duplicate=True),
+    Output("default-set-selector", "options", allow_duplicate=True),
+    Output("current-default-set-display", "children", allow_duplicate=True),
     Input({"type": "gearset-delete", "index": ALL}, "n_clicks"),
     State("saved-gearsets", "data"),
+    State("default-gear-index", "data"),
     prevent_initial_call=True,
 )
-def delete_gearset(n_clicks_list, saved_gearsets):
-    """Delete a gearset when its trash icon is clicked."""
+def delete_gearset(n_clicks_list, saved_gearsets, default_gear_index):
+    """Delete a gearset when its trash icon is clicked and update default gearset if needed."""
     # Get the triggered component
     triggered = ctx.triggered[0] if ctx.triggered else None
     if not triggered:
@@ -2212,9 +2218,52 @@ def delete_gearset(n_clicks_list, saved_gearsets):
 
             # Check if the index is valid
             if idx < len(saved_gearsets):
+                # Check if we're deleting the default gearset
+                is_deleting_default = default_gear_index == idx
+
                 # Remove the gearset at the specified index
                 del saved_gearsets[idx]
-                return saved_gearsets
+
+                # Update the default gear index if needed
+                if is_deleting_default:
+                    # If we deleted the default, reset it
+                    default_gear_index = None
+                    default_display = "None selected"
+                elif default_gear_index is not None and idx < default_gear_index:
+                    # If we deleted a gearset before the default, decrement the default index
+                    default_gear_index -= 1
+                    # Get updated default display text if there is a default
+                    if 0 <= default_gear_index < len(saved_gearsets):
+                        default_gearset = saved_gearsets[default_gear_index]
+                        default_name = default_gearset.get("name", "Unnamed")
+                        default_role = default_gearset.get("role", "Unknown")
+                        default_display = f"{default_name} ({default_role})"
+                    else:
+                        default_display = "None selected"
+                else:
+                    # Default stays the same
+                    if default_gear_index is not None and 0 <= default_gear_index < len(
+                        saved_gearsets
+                    ):
+                        default_gearset = saved_gearsets[default_gear_index]
+                        default_name = default_gearset.get("name", "Unnamed")
+                        default_role = default_gearset.get("role", "Unknown")
+                        default_display = f"{default_name} ({default_role})"
+                    else:
+                        default_display = "None selected"
+
+                # Update selector options
+                selector_options = [
+                    {"label": s["name"], "value": i}
+                    for i, s in enumerate(saved_gearsets)
+                ]
+
+                return (
+                    saved_gearsets,
+                    default_gear_index,
+                    selector_options,
+                    default_display,
+                )
     except Exception:
         # If any error occurs, just return unchanged data
         pass
@@ -2421,7 +2470,7 @@ def load_default_gearset(
                 selector_options,
             )
 
-    # We have a valid default gearset```python
+    # We have a valid default gearset
     default_gearset = saved_gearsets[default_gear_index]
     default_name = default_gearset.get("name", "Unnamed")
     default_role = default_gearset.get("role", "Unknown")
@@ -2461,3 +2510,39 @@ def load_default_gearset(
             default_display,
             selector_options,
         )
+
+
+@callback(
+    Output("default-gear-index", "data"),
+    Output("current-default-set-display", "children", allow_duplicate=True),
+    Input("set-default-button", "n_clicks"),
+    State("default-set-selector", "value"),
+    State("saved-gearsets", "data"),
+    prevent_initial_call=True,
+)
+def set_default_gearset(n_clicks, selected_index, saved_gearsets):
+    """Set the selected gearset as the default gearset."""
+    if n_clicks is None or selected_index is None:
+        raise PreventUpdate
+
+    # Sanitize and validate the selected index
+    try:
+        selected_index = int(selected_index)
+        saved_gearsets = sanitize_gearsets(saved_gearsets)
+
+        if selected_index < 0 or selected_index >= len(saved_gearsets):
+            return None, "None selected"
+
+        # Get the selected gearset info
+        selected_gearset = saved_gearsets[selected_index]
+        default_name = selected_gearset.get("name", "Unnamed")
+        default_role = selected_gearset.get("role", "Unknown")
+
+        # Update display text
+        default_display = f"{default_name} ({default_role})"
+
+        # Return updated info with selected_index going to default-gear-index
+        return selected_index, default_display
+
+    except Exception as e:
+        return None, f"Error: {str(e)}"
