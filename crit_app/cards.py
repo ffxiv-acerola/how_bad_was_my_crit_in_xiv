@@ -279,7 +279,7 @@ def initialize_job_build(
     # Define table headers with widths for specific columns
     table_headers = [
         {"label": "Select", "width": "80px"},
-        {"label": "Role"},
+        {"label": "Role", "width": "200px"},  # Added width of 200px
         {"label": "Gearset name"},
         {"label": "Delete", "width": "80px"},
     ]
@@ -307,14 +307,45 @@ def initialize_job_build(
         id="gearset-table",
     )
 
-    # Add default set selector above the table
+    # Create the update button - moved back to the bottom
+    update_button = html.Div(
+        dbc.Button(
+            [html.I(className="fas fa-sync-alt me-2"), "Update selected set"],
+            id="update-gearset-button",
+            color="primary",
+            size="sm",
+            disabled=True,
+        ),
+        className="mt-3",  # Removed text-end to default to left alignment
+    )
+
+    # Create the default set selector section
     default_set_controls = html.Div(
         [
             dbc.Row(
                 [
                     dbc.Col(
                         [
-                            html.H5("Default Gearset:", className="d-inline me-2"),
+                            html.H5(
+                                [
+                                    html.I(
+                                        className="fas fa-info-circle ms-2",
+                                        id="default-set-tooltip",
+                                        style={
+                                            "fontSize": "0.8em",
+                                            "color": "#5bc0de",
+                                            "cursor": "pointer",
+                                        },
+                                    ),
+                                    dbc.Tooltip(
+                                        "The default gearset is automatically loaded when you create a new analysis, saving you time by pre-filling your preferred stats.",
+                                        target="default-set-tooltip",
+                                        placement="top",
+                                    ),
+                                    " Default Gearset:",
+                                ],
+                                className="d-inline me-2",
+                            ),
                             html.Div(
                                 id="current-default-set-display", className="d-inline"
                             ),
@@ -348,37 +379,24 @@ def initialize_job_build(
                         width=12,
                     )
                 ],
-                className="mb-3",
+                className="mb-3 mt-4",  # Increased margin-top to add more space between table and default section
             )
         ]
     )
 
-    # Add update button below the table
-    update_button = html.Div(
-        dbc.Button(
-            [html.I(className="fas fa-sync-alt me-2"), "Update selected set"],
-            id="update-gearset-button",
-            color="primary",
-            size="sm",
-            disabled=True,
-            className="mt-2",
-        ),
-        className="text-end",
-    )
-
-    # Add saved gearsets accordion
+    # Add saved gearsets accordion with reordered components
     saved_gearsets_accordion = html.Div(
         [
             dbc.Accordion(
                 [
                     dbc.AccordionItem(
-                        # Default set controls and gearset management table and update button
+                        # Reorganized: table, then update button, then default set controls with more spacing
                         [
-                            default_set_controls,
-                            gearset_table,
-                            update_button,
+                            gearset_table,  # Table comes first
+                            update_button,  # Update button now back below the table
+                            default_set_controls,  # Default set controls with increased margin-top
                         ],
-                        title="Manage saved gearsets",
+                        title="Manage saved builds",
                     )
                 ],
                 flush=True,

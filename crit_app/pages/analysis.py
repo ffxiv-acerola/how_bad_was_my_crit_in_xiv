@@ -1920,8 +1920,6 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
                                     className="text-danger",
                                     size="sm",
                                 ),
-                                # Add this onClick attribute that stops event propagation
-                                # **{"data-no-propagate": "true"},
                             )
                         ),
                     ],
@@ -1935,16 +1933,16 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
     tbody_rows.append(
         html.Tr(
             [
+                html.Td(""),
                 html.Td(
                     dbc.Button(
-                        "Save",
+                        [html.I(className="fas fa-plus me-2"), " New set"],
                         id="save-gearset-button",
                         color="primary",
                         size="sm",
                         disabled=True,
                     )
                 ),
-                html.Td(""),
                 html.Td(
                     dbc.Input(
                         id="new-gearset-name",
@@ -1967,18 +1965,30 @@ def populate_gearset_table(gearsets_data, analysis_indicator):
     prevent_initial_call=True,
 )
 def handle_row_click(n_clicks, current_value):
-    """Handle clicks on gearset rows to select the gearset."""
+    """Handle clicks on gearset rows to select the gearset, ignoring clicks on the delete button."""
     if n_clicks is None:
         raise PreventUpdate
 
-    # Check if the click originated from a delete button
-    # We can do this by examining the triggered element's data attributes
-    if ctx.triggered_id and hasattr(dash.callback_context, "triggered_element"):
-        # If the click was on or inside an element with data-no-propagate attribute, don't select
-        if getattr(dash.callback_context.triggered_element, "data-no-propagate", False):
-            raise PreventUpdate
+    # Find the most specific trigger (the actual element clicked if nested)
+    # ctx.triggered is a list, ordered from most specific to least specific trigger for the callback
+    most_specific_trigger = (
+        ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
+    )
 
-    # Always set to True when row is clicked, even if already selected
+    try:
+        # Attempt to parse the most specific trigger ID as JSON (Pattern-Matching IDs are dicts)
+        trigger_info = json.loads(most_specific_trigger)
+        # If the most specific trigger was a delete button, prevent the row selection
+        if (
+            isinstance(trigger_info, dict)
+            and trigger_info.get("type") == "gearset-delete"
+        ):
+            raise PreventUpdate
+    except (json.JSONDecodeError, TypeError):
+        # If it's not JSON or not a dict, it's not a pattern-matching ID we need to worry about here
+        pass
+
+    # If the click was on the row (and not intercepted above), set radio button to True
     # This ensures the form update callbacks will fire
     return True
 
@@ -2195,7 +2205,8 @@ def save_new_gearset(
 
     # Update the selector options
     selector_options = [
-        {"label": s["name"], "value": i} for i, s in enumerate(saved_gearsets)
+        {"label": f'{s["name"]} ({s["role"]})', "value": i}
+        for i, s in enumerate(saved_gearsets)
     ]
 
     # If this is the first gearset, set it as default
@@ -2223,76 +2234,112 @@ def save_new_gearset(
 )
 def delete_gearset(n_clicks_list, saved_gearsets, default_gear_index):
     """Delete a gearset when its trash icon is clicked and update default gearset if needed."""
-    # Get the triggered component
-    triggered = ctx.triggered[0] if ctx.triggered else None
+    triggered = ctx.triggered_id
     if not triggered:
         raise PreventUpdate
 
-    # Try to get index from triggered component
-    try:
-        prop_id = triggered["prop_id"].split(".")[0]
-        triggered_id = json.loads(prop_id)
-        idx = triggered_id.get("index")
+    # Check if the triggered input is one of the delete buttons and has been clicked
+    if isinstance(triggered, dict) and triggered.get("type") == "gearset-delete":
+        try:
+            idx = triggered.get("index")
+            # Find the corresponding n_clicks value from the input list
+            trigger_index_in_list = -1
+            for i, item in enumerate(
+                ctx.inputs_list[0]
+            ):  # inputs_list[0] corresponds to the Input({"type": "gearset-delete", "index": ALL}, "n_clicks")
+                if item["id"] == triggered:
+                    trigger_index_in_list = i
+                    break
 
-        # Only proceed if this was an actual click (n_clicks > 0)
-        if idx is not None and triggered["value"] is not None:
-            # Sanitize saved_gearsets
-            saved_gearsets = sanitize_gearsets(saved_gearsets)
+            # Ensure the button was actually clicked (n_clicks is not None and > 0)
+            if (
+                idx is not None
+                and trigger_index_in_list != -1
+                and n_clicks_list[trigger_index_in_list]
+            ):
+                # Sanitize saved_gearsets
+                saved_gearsets = sanitize_gearsets(saved_gearsets)
 
-            # Check if the index is valid
-            if idx < len(saved_gearsets):
-                # Check if we're deleting the default gearset
-                is_deleting_default = default_gear_index == idx
+                # Check if the index is valid
+                if 0 <= idx < len(saved_gearsets):
+                    # Check if we're deleting the default gearset
+                    # Ensure default_gear_index is an int for comparison, handle None
+                    try:
+                        current_default_idx = (
+                            int(default_gear_index)
+                            if default_gear_index is not None
+                            else None
+                        )
+                    except (ValueError, TypeError):
+                        current_default_idx = None
 
-                # Remove the gearset at the specified index
-                del saved_gearsets[idx]
+                    is_deleting_default = current_default_idx == idx
 
-                # Update the default gear index if needed
-                if is_deleting_default:
-                    # If we deleted the default, reset it
-                    default_gear_index = None
-                    default_display = "None selected"
-                elif default_gear_index is not None and idx < default_gear_index:
-                    # If we deleted a gearset before the default, decrement the default index
-                    default_gear_index -= 1
-                    # Get updated default display text if there is a default
-                    if 0 <= default_gear_index < len(saved_gearsets):
-                        default_gearset = saved_gearsets[default_gear_index]
-                        default_name = default_gearset.get("name", "Unnamed")
-                        default_role = default_gearset.get("role", "Unknown")
-                        default_display = f"{default_name} ({default_role})"
-                    else:
+                    # Remove the gearset at the specified index
+                    del saved_gearsets[idx]
+
+                    # Update the default gear index if needed
+                    new_default_gear_index = current_default_idx
+                    if is_deleting_default:
+                        # If we deleted the default, reset it
+                        new_default_gear_index = None
                         default_display = "None selected"
+                    elif current_default_idx is not None and idx < current_default_idx:
+                        # If we deleted a gearset before the default, decrement the default index
+                        new_default_gear_index = current_default_idx - 1
+                        # Get updated default display text if there is a default
+                        if 0 <= new_default_gear_index < len(saved_gearsets):
+                            default_gearset = saved_gearsets[new_default_gear_index]
+                            default_name = default_gearset.get("name", "Unnamed")
+                            default_role = default_gearset.get("role", "Unknown")
+                            default_display = f"{default_name} ({default_role})"
+                        else:
+                            # This case should ideally not happen if logic is correct
+                            new_default_gear_index = None
+                            default_display = "None selected"
+                    else:
+                        # Default stays the same or was None
+                        if (
+                            new_default_gear_index is not None
+                            and 0 <= new_default_gear_index < len(saved_gearsets)
+                        ):
+                            default_gearset = saved_gearsets[new_default_gear_index]
+                            default_name = default_gearset.get("name", "Unnamed")
+                            default_role = default_gearset.get("role", "Unknown")
+                            default_display = f"{default_name} ({default_role})"
+                        else:
+                            # Ensure index is None if it points outside bounds or was None
+                            new_default_gear_index = None
+                            default_display = "None selected"
+
+                    # Update selector options
+                    selector_options = [
+                        {"label": f'{s["name"]} ({s["role"]})', "value": i}
+                        for i, s in enumerate(saved_gearsets)
+                    ]
+
+                    return (
+                        saved_gearsets,
+                        new_default_gear_index,
+                        selector_options,
+                        default_display,
+                    )
                 else:
-                    # Default stays the same
-                    if default_gear_index is not None and 0 <= default_gear_index < len(
-                        saved_gearsets
-                    ):
-                        default_gearset = saved_gearsets[default_gear_index]
-                        default_name = default_gearset.get("name", "Unnamed")
-                        default_role = default_gearset.get("role", "Unknown")
-                        default_display = f"{default_name} ({default_role})"
-                    else:
-                        default_display = "None selected"
+                    # Index out of bounds, should not happen with proper UI sync
+                    print(
+                        f"Warning: Delete index {idx} out of bounds for saved_gearsets."
+                    )
+                    raise PreventUpdate
+            else:
+                # Triggered but n_clicks is None or 0, likely initial load or state issue
+                raise PreventUpdate
 
-                # Update selector options
-                selector_options = [
-                    {"label": s["name"], "value": i}
-                    for i, s in enumerate(saved_gearsets)
-                ]
-
-                return (
-                    saved_gearsets,
-                    default_gear_index,
-                    selector_options,
-                    default_display,
-                )
-    except Exception:
-        # If any error occurs, just return unchanged data
-        pass
-
-    # If we get here, nothing changed
-    raise PreventUpdate
+        except Exception:
+            # Log the error for debugging
+            raise PreventUpdate
+    else:
+        # Triggered by something else (shouldn't happen with this callback structure)
+        raise PreventUpdate
 
 
 @callback(
@@ -2322,7 +2369,8 @@ def validate_gearset(
     Validate if all required gearset inputs are valid to enable the Save button.
 
     Parameters:
-    role (str): The selected role
+    role (str): The```python
+    selected role
     gearset_name (str): Name for the gearset
     main_stat_valid (bool): Whether main stat is valid
     ten_valid (bool): Whether tenacity is valid
@@ -2449,7 +2497,8 @@ def load_default_gearset(
 
     # Prepare selector options (always needed)
     selector_options = [
-        {"label": s["name"], "value": idx} for idx, s in enumerate(saved_gearsets)
+        {"label": f'{s["name"]} ({s["role"]})', "value": i}
+        for i, s in enumerate(saved_gearsets)
     ]
 
     # Handle type conversion for default_gear_index
