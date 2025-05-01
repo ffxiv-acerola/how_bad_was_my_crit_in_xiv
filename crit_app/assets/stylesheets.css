@@ -207,6 +207,28 @@ select.form-select {
     background-color: #5a80bc !important;
 }
 
+/* Remove previous background styles for the update button */
+/*
+.gearset-update-button {
+    background-color: #5a80bc !important;
+    box-shadow: 0 4px 8px rgba(90, 128, 188, 0.25) !important;
+}
+
+.gearset-update-button:hover {
+    background-color: #79a6ef !important;
+}
+*/
+
+/* Style the icon within the gearset update button */
+.gearset-update-button i.fas.fa-sync-alt {
+    color: #4e80cf !important; /* Use primary button blue */
+    transition: color 0.2s ease !important;
+}
+
+.gearset-update-button:hover i.fas.fa-sync-alt {
+    color: #5a80bc !important; /* Use lighter blue on hover */
+}
+
 /* Disabled button styling - keep blue theme */
 .btn:disabled, .btn.disabled {
     background-color: #466daa !important;
