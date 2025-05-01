@@ -281,6 +281,7 @@ def layout(analysis_id=None):
         player_id = int(analysis_details["player_id"])
         pet_ids = analysis_details["pet_ids"]
 
+        tenacity = secondary_stat_pre_bonus if role == "Tank" else None
         # Get actions and create a rotation again, used if the RotationTable class updates.
         if redo_rotation:
             try:
@@ -304,6 +305,7 @@ def layout(analysis_id=None):
                     encounter_phases,
                     pet_ids,
                     analysis_details["excluded_enemy_ids"],
+                    tenacity=tenacity,
                 )
 
                 action_df = rotation_object.filtered_actions_df
@@ -2051,11 +2053,12 @@ def update_gearset(
     Input("TEN", "valid"),
     Input("DET", "valid"),
     Input("speed-stat", "valid"),
-    Input("CRT", "value"),
-    Input("DH", "value"),
-    Input("WD", "value"),
+    Input("CRT", "valid"),
+    Input("DH", "valid"),
+    Input("WD", "valid"),
+    State("saved-gearsets", "data"),
 )
-def validate_gearset(
+def validate_save_new_gearset(
     role,
     gearset_name,
     main_stat_valid,
@@ -2065,9 +2068,12 @@ def validate_gearset(
     crt_valid,
     dh_valid,
     wd_valid,
+    saved_gearsets,
 ):
     """
-    Validate if all required gearset inputs are valid to enable the Save button.
+    Validate if all required gearset inputs are valid and count is below limit.
+
+    to enable the Save New Set button.
 
     Parameters:
     role (str): The selected role
@@ -2079,10 +2085,15 @@ def validate_gearset(
     crt_valid (bool): Whether critical hit is valid
     dh_valid (bool): Whether direct hit is valid
     wd_valid (bool): Whether weapon damage is valid
+    saved_gearsets (list): The current list of saved gearsets
 
     Returns:
-    bool: False if button should be enabled, True otherwise
+    bool: True if button should be disabled, False otherwise
     """
+    # Check gearset count limit
+    if saved_gearsets and len(saved_gearsets) >= 25:
+        return True  # Disable if 25 or more gearsets exist
+
     # Check if name is provided
     if not gearset_name or len(gearset_name.strip()) == 0:
         return True
@@ -2294,7 +2305,8 @@ def set_default_gearset(selected_value, saved_gearsets):
         return selected_index
 
     except Exception as e:
-        return None, f"Error: {str(e)}"
+        print(f"Error: {str(e)}")
+        return None
 
 
 @callback(
