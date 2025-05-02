@@ -253,7 +253,7 @@ encounter_information = [
         "relevant_patch": "7.0 - 7.1",
     },
     {
-        "encounter_id": 3009,
+        "encounter_id": 3010,
         "encounter_name": "Suzaku",
         "encounter_short_name": "Suzaku",
         "content_type": "Unreal",

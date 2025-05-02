@@ -1,0 +1,238 @@
+/* Tables styling */
+.dash-table-container {
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+}
+
+/* Dark mode table improvements */
+.dash-spreadsheet-container .dash-spreadsheet-inner th,
+.dash-spreadsheet-container .dash-spreadsheet-inner td {
+    border-color: rgba(150, 150, 150, 0.15) !important;
+}
+
+.dash-spreadsheet-container .dash-spreadsheet-inner th {
+    background-color: rgba(60, 60, 60, 0.5) !important;
+}
+
+/* Add this rule to prevent header background color change on hover */
+.dash-spreadsheet-container .dash-spreadsheet-inner th:hover {
+    background-color: rgba(60, 60, 60, 0.5) !important;
+}
+
+.dash-spreadsheet-container .dash-spreadsheet-inner tr:nth-child(even) {
+    background-color: rgba(50, 50, 50, 0.3) !important;
+}
+
+/* Add these more specific rules to prevent all header hover color changes */
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner th:hover,
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner .dash-header:hover,
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner tr:hover th,
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner tr th:hover {
+    background-color: rgba(60, 60, 60, 0.5) !important;
+    color: inherit !important;
+}
+
+/* Target the table custom variable for hover */
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
+    --hover: rgba(60, 60, 60, 0.5) !important;
+}
+
+/* Analysis History Table Styling */
+.dash-spreadsheet {
+    font-family: sans-serif !important;
+    border-radius: 5px !important;
+    overflow: hidden !important;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.16) !important;
+}
+
+.show-hide {
+    display: none !important;
+}
+
+.dash-table-container .dash-spreadsheet td,
+.dash-table-container .dash-spreadsheet th {
+    border-color: #292929 !important;
+}
+
+
+/* Sort icons styling */
+.dash-header-cell .svg-inline--fa.fa-sort,
+.dash-header-cell .svg-inline--fa.fa-sort-up,
+.dash-header-cell .svg-inline--fa.fa-sort-down {
+    color: currentColor !important;
+    transition: color 0.2s ease !important;
+}
+
+.dash-header-cell:hover .svg-inline--fa.fa-sort,
+.dash-header-cell:hover .svg-inline--fa.fa-sort-up,
+.dash-header-cell:hover .svg-inline--fa.fa-sort-down {
+    color: #5a80bc !important;
+}
+
+th.dash-header span svg.svg-inline--fa {
+    color: currentColor !important;
+    transition: color 0.2s ease !important;
+}
+
+th.dash-header:hover span svg.svg-inline--fa {
+    color: #5a80bc !important;
+}
+
+/* Pagination controls */
+.dash-table-container .previous-page,
+.dash-table-container .next-page,
+.dash-table-container .first-page,
+.dash-table-container .last-page {
+    background-color: #333 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 3px !important;
+}
+
+.dash-table-container .current-page {
+    background-color: #333 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 3px !important;
+}
+
+/* Table border styling */
+.dash-spreadsheet tr:last-child td {
+    border-bottom: none !important;
+}
+
+/* Disable cell selection styling */
+.dash-cell-value {
+    caret-color: transparent !important;
+}
+
+/* Ensure consistent row heights and vertical alignment across browsers */
+.dash-spreadsheet td.dash-cell {
+    border-color: #292929 !important;
+    border-width: 0.5px !important;
+    height: 45px !important; /* Set a fixed height */
+    min-height: 45px !important; /* Ensure minimum height */
+    max-height: 45px !important; /* Ensure maximum height */
+    line-height: normal !important; /* Reset line-height */
+    vertical-align: middle !important; /* Vertically center content */
+    padding-top: 4px !important; /* Add some padding */
+    padding-bottom: 4px !important;
+    box-sizing: border-box !important; /* Include padding/border in height */
+    overflow: hidden !important; /* Prevent content overflow issues */
+    text-overflow: ellipsis !important; /* Add ellipsis for overflow */
+    white-space: nowrap !important; /* Prevent text wrapping */
+}
+
+/* Ensure headers match cell height and alignment */
+.dash-spreadsheet th.dash-header {
+    height: 45px !important;
+    min-height: 45px !important;
+    max-height: 45px !important;
+    vertical-align: middle !important;
+    line-height: normal !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    box-sizing: border-box !important;
+}
+
+.dash-spreadsheet tr td.dash-cell.focused,
+.dash-spreadsheet tr td.dash-cell.cell--selected {
+    background-color: inherit !important;
+    border-color: #292929 !important;
+}
+
+/* Font styling for specific cells */
+.dash-table-container [id^="header-job"],
+.dash-table-container [id^="job-filter"],
+.dash-table-container .column-header--job {
+    font-family: sans-serif !important;
+    font-size: 1em !important;
+}
+
+.dash-table-container .dash-cell:not([data-dash-column="job"]) {
+    font-family: sans-serif !important;
+}
+
+.dash-table-container .dash-cell[data-dash-column="job"] {
+    font-family: job-icons !important;
+    font-size: 1.4em !important;
+}
+
+.dash-table-container .dash-filter input[id^="job-filter"] {
+    font-family: sans-serif !important;
+    font-size: 1em !important;
+}
+
+/* Re-apply flexbox for link vertical alignment */
+.dash-table-container .dash-cell[data-dash-column="link"] {
+    display: flex !important;
+    align-items: center !important; /* Vertically center flex items */
+    justify-content: flex-start !important; /* Align link to the start horizontally */
+}
+
+/* Adjust link styles for flex context */
+.dash-table-container .dash-cell[data-dash-column="link"] a {
+    display: inline-block !important;
+    line-height: normal !important;
+    padding: 0 !important;
+    position: static !important;
+    top: auto !important;
+    /* Remove vertical-align: middle !important; - let flexbox handle it */
+}
+
+/* Bootstrap table styling */
+#gearset-table {
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
+}
+
+#gearset-table thead th:first-child {
+    border-top-left-radius: 8px !important;
+}
+
+#gearset-table thead th:last-child {
+    border-top-right-radius: 8px !important;
+}
+
+#gearset-table tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 8px !important;
+}
+
+#gearset-table tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 8px !important;
+}
+
+/* Remove bottom border from last row */
+#gearset-table tbody tr:last-child td {
+    border-bottom: none !important;
+}
+
+/* Add padding to the Select column radio button */
+#gearset-table tbody tr td:first-child {
+    padding-left: 20px !important;
+}
+
+/* Add padding to the Default Set column checkbox */
+#gearset-table tbody tr td:nth-child(4) {
+    padding-left: 5px !important;
+}
+
+/* Add vertical padding and center alignment to the first 4 columns */
+#gearset-table tbody tr td:nth-child(-n+4) {
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    vertical-align: middle !important;
+}
+
+td.dash-cell {
+    vertical-align: middle !important;
+}

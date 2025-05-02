@@ -181,9 +181,9 @@ def create_fflogs_card(
 
     # Job build
     job_build_text = [
-        html.H3("Enter job builds"),
+        html.H3("Enter gearsets"),
         html.P(
-            "Enter job builds for either player either by importing from an "
+            "Enter gearsets for either player either by importing from an "
             "etro / xivgear link or input each job's stats. "
             "Do not include any party composition bonuses to the main stat, "
             "this is automatically calculated."
@@ -203,7 +203,7 @@ def create_fflogs_card(
             },
             {
                 "id": "job_build_url",
-                "name": "Job build link",
+                "name": "Gearset link",
                 "editable": True,
                 "selectable": True,
             },
@@ -219,14 +219,14 @@ def create_fflogs_card(
         [
             html.H4("Quick build input"),
             html.P(
-                'Paste job build links into the "Job build link" below like a spreadsheet to'
-                "auto-fill each item and pull in the job builds by clicking the"
-                '"Fetch job builds" button. You can mix etro and xivgear links. '
+                'Paste gearset links into the "Gearset link" below like a spreadsheet to'
+                "auto-fill each item and pull in the gearsets by clicking the"
+                '"Fetch gearsets" button. You can mix etro and xivgear links. '
                 "Otherwise, enter the build information one-by-one."
             ),
             quick_build_table,
             html.Br(),
-            dbc.Button("Fetch job builds", id="quick-build-fill-button"),
+            dbc.Button("Fetch gearsets", id="quick-build-fill-button"),
         ],
         style={"padding-top": "15px", "padding-bottom": "15px"},
     )
@@ -275,7 +275,7 @@ def create_fflogs_card(
     if wrap_collapse:
         job_build_items = [
             dbc.Button(
-                children="Show party build",
+                children="Show player gearsets",
                 n_clicks=0,
                 id="party-collapse-button",
                 class_name="w-100",
@@ -299,7 +299,7 @@ def create_fflogs_card(
             html.Div(
                 [
                     dbc.Button(
-                        children="Show party build",
+                        children="Show player gearsets",
                         n_clicks=0,
                         id="party-collapse-button",
                         class_name="mb-3",
@@ -636,7 +636,7 @@ def create_job_build_content(
     delay: Optional[float] = None,
 ) -> html.Div:
     """
-    Create form component for entering job build stats.
+    Create form component for entering gearset stats.
 
     Args:
         role: Job role (Tank, Healer, etc)
@@ -870,7 +870,7 @@ def create_accordion_items(
     job_build_url: Optional[str] = None,
 ) -> dbc.AccordionItem:
     """
-    Create accordion item for job build input.
+    Create accordion item for gearset input.
 
     Args:
         role: Job role (Tank, Healer, etc)
@@ -886,10 +886,10 @@ def create_accordion_items(
         direct_hit: Direct hit stat
         weapon_damage: Weapon damage value
         delay: Weapon delay value
-        job_build_url: Link to job build, either etro/xivgear
+        job_build_url: Link to gearset, either etro/xivgear
 
     Returns:
-        AccordionItem containing job build input form
+        AccordionItem containing gearset input form
 
     Example:
         >>> item = create_accordion_items("Tank", "WAR", "Player1", 123, 0)

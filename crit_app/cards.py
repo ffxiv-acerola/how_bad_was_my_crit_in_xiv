@@ -22,7 +22,7 @@ def initialize_job_build(
     build_selector_hidden: bool = True,
 ) -> html.Div:
     """
-    Create job build card with stat inputs and role selection.
+    Create gearset card with stat inputs and role selection.
 
     The card allows:
     - Loading builds from etro/xivgear URLs
@@ -45,12 +45,12 @@ def initialize_job_build(
         medication_amt: Amount of main stat from tincture/food
 
     Returns:
-        html.Div containing the complete job build card
+        html.Div containing the complete gearset card
     """
 
     job_build_input = dbc.Row(
         [
-            dbc.Label("Job build URL", width=12, md=2),
+            dbc.Label("Gearset URL", width=12, md=2),
             dbc.Col(
                 [
                     dbc.Input(
@@ -360,7 +360,7 @@ def initialize_job_build(
                             default_set_controls,
                             gearset_table,
                         ],
-                        title="Manage saved builds",
+                        title="Manage saved gearsets",
                     )
                 ],
                 flush=True,
@@ -385,9 +385,9 @@ def initialize_job_build(
                         className="lead",
                     ),
                     html.Hr(className="my-2"),
-                    html.H3("Select a role and enter job build"),
+                    html.H3("Select a role and enter gearset"),
                     html.P(
-                        "A job build must be fully entered before a log can be analyzed. "
+                        "A gearset must be fully entered before a log can be analyzed. "
                         "You can load a build from an etro.gg / xivgear.app URL, or manually enter the values."
                     ),
                     dbc.Form(

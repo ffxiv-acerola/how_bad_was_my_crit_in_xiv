@@ -68,10 +68,10 @@ header = html.Div(
         ),
         html.P(
             "For a given run, howbadwasmycritinxiv pulls your rotation and how much "
-            "damage each action did from FFLogs. Using your job build, it exactly "
+            "damage each action did from FFLogs. Using your gearset, it exactly "
             "simulates how likely all possible DPS values are due to damage variability "
             "and compares it to your actual DPS. To get started, all you need is your "
-            "job build and link to a fight log."
+            "gearset and link to a fight log."
         ),
         html.Hr(),
         nav,

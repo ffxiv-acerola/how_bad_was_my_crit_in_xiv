@@ -1,0 +1,196 @@
+/* Form elements */
+.form-control, .Select-control, .Select--single > .Select-control .Select-value, .Select-placeholder {
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+    border: 1px solid rgba(150, 150, 150, 0.15) !important;
+}
+
+.form-control:focus, .Select.is-focused:not(.is-open) > .Select-control {
+    box-shadow: 0 0 0 0.25rem rgba(99, 152, 238, 0.25) !important;
+    border-color: #466daa !important;
+}
+
+/* Select and dropdown styling */
+select.form-select,
+.Select-control,
+.Select--single > .Select-control .Select-value,
+.Select-placeholder {
+    background-color: #222 !important;
+    color: white !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(150, 150, 150, 0.3) !important;
+    transition: all 0.2s ease !important;
+}
+
+select.form-select:focus,
+.Select.is-focused > .Select-control {
+    background-color: #333 !important;
+    border-color: #466daa !important;
+    box-shadow: 0 0 0 0.25rem rgba(99, 152, 238, 0.25) !important;
+}
+
+/* Dropdown menu styling */
+.Select-menu-outer {
+    background-color: #222 !important;
+    border: 1px solid rgba(150, 150, 150, 0.3) !important;
+    border-radius: 0 0 8px 8px !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.Select-option {
+    background-color: #222 !important;
+    color: white !important;
+    padding: 8px 10px !important;
+}
+
+.Select-option:hover,
+.Select-option.is-focused {
+    background-color: #333 !important;
+}
+
+.Select-option.is-selected {
+    background-color: rgba(0, 150, 112, 0.25) !important;
+    color: white !important;
+}
+
+.Select-clear-zone {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.Select-arrow {
+    border-color: #5a80bc transparent transparent !important;
+    border-width: 8px 8px 0 !important;
+}
+
+.Select.is-open > .Select-control .Select-arrow {
+    border-color: transparent transparent #5a80bc !important;
+    border-width: 0 8px 8px !important;
+}
+
+/* Add a subtle glow effect to the arrow */
+.Select-arrow-zone {
+    position: relative !important;
+}
+
+.Select-arrow-zone::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 18px !important;
+    height: 18px !important;
+    background-color: rgba(90, 128, 188, 0.15) !important; /* Subtle blue glow */
+    border-radius: 50% !important;
+    z-index: -1 !important;
+}
+
+/* Make arrow zone more clickable */
+.Select-arrow-zone {
+    padding-right: 8px !important;
+    width: 30px !important;
+    cursor: pointer !important;
+}
+
+/* For Bootstrap form-selects */
+select.form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%235a80bc' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+    background-size: 16px 12px !important;
+}
+
+.Select-menu {
+    background-color: #222 !important;
+}
+
+/* Button styling */
+.btn {
+    border-radius: 8px !important;
+    padding: 0.5rem 1.25rem !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease !important;
+    border: none !important;
+}
+
+.btn-primary {
+    background-color: #466daa !important;
+    box-shadow: 0 4px 8px rgba(99, 152, 238, 0.21) !important;
+    color: white !important;
+}
+
+.btn-primary:hover {
+    background-color: #5a80bc !important;
+}
+
+/* Style the icon within the gearset update button */
+.gearset-update-button i.fas.fa-sync-alt {
+    color: #4e80cf !important; /* Use primary button blue */
+    transition: color 0.2s ease !important;
+}
+
+.gearset-update-button:hover i.fas.fa-sync-alt {
+    color: #5a80bc !important; /* Use lighter blue on hover */
+}
+
+/* Disabled button styling - keep blue theme */
+.btn:disabled, .btn.disabled {
+    background-color: #466daa !important;
+    opacity: 0.65 !important;
+    color: white !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+}
+
+.btn-primary:disabled, .btn-primary.disabled {
+    background-color: #466daa !important;
+    opacity: 0.65 !important;
+}
+
+/* Form controls that use btn class should follow the same color scheme */
+.form-control-btn {
+    background-color: #466daa !important;
+    color: white !important;
+}
+
+.form-control-btn:hover {
+    background-color: #5a80bc !important;
+}
+
+/* Filter text styling */
+.dash-filter input::placeholder {
+    color: white !important;
+    opacity: 0.8 !important;
+}
+
+.dash-filter input {
+    color: white !important;
+    background-color: #333 !important;
+    border: 1px solid #444 !important;
+}
+
+/* Radio buttons and checkboxes */
+.form-check-input {
+    border-radius: 6px !important;
+    transition: all 0.2s ease !important;
+    border: 1px solid rgba(150, 150, 150, 0.3) !important;
+}
+
+.form-check-input:checked {
+    background-color: #466daa !important;
+    border-color: #466daa !important;
+    box-shadow: 0 1px 3px rgba(99, 152, 238, 0.2) !important;
+}
+
+.form-check-input:focus {
+    border-color: #5a80bc !important;
+    box-shadow: 0 0 0 0.25rem rgba(99, 152, 238, 0.25) !important;
+}
+
+.form-check-input:hover:not(:checked) {
+    border-color: #5a80bc !important;
+    cursor: pointer !important;
+}
+
+/* Specific styling for radio buttons to ensure proper roundness */
+.form-check-input[type="radio"] {
+    border-radius: 50% !important;
+}

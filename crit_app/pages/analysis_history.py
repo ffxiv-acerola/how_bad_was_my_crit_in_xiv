@@ -37,7 +37,7 @@ def layout():
         {"name": "Job", "id": "job"},
         {"name": "Player", "id": "player"},
         {
-            "name": "Percentile",
+            "name": "Analysis\npercentile",  # Updated name
             "id": "percentile",
             "type": "numeric",
             "format": FormatTemplate.percentage(0),
@@ -56,6 +56,7 @@ def layout():
             "border": "none",
             "borderBottom": "1px solid #333",
             "fontFamily": "sans-serif",
+            "whiteSpace": "pre-line",  # Allow line breaks in header
         },
         "style_cell": {
             "backgroundColor": "#333",
@@ -103,7 +104,13 @@ def layout():
                         "if": {"column_id": "job"},
                         "fontFamily": "sans-serif",
                         "fontSize": "1em",
-                    }
+                    },
+                    {  # Ensure percentile header aligns text properly with line break
+                        "if": {"column_id": "percentile"},
+                        "whiteSpace": "pre-line",
+                        "lineHeight": "1.2",
+                        "verticalAlign": "middle",
+                    },
                 ],
                 style_filter_conditional=[
                     {
@@ -144,86 +151,7 @@ def layout():
                 cell_selectable=False,
                 column_selectable=False,
                 row_selectable=False,
-                # CSS for styling
-                css=[
-                    {
-                        "selector": ".dash-spreadsheet",
-                        "rule": "font-family: sans-serif; border-radius: 5px; overflow: hidden; box-shadow: 0 3px 6px rgba(0,0,0,0.16);",
-                    },
-                    # Hide the toggle columns button with CSS
-                    {"selector": ".show-hide", "rule": "display: none !important;"},
-                    # Soften the table appearance
-                    {
-                        "selector": ".dash-table-container .dash-spreadsheet td, .dash-table-container .dash-spreadsheet th",
-                        "rule": "border-color: #292929 !important; ",
-                    },
-                    # Style the pagination controls
-                    {
-                        "selector": ".dash-table-container .previous-page, .dash-table-container .next-page, .dash-table-container .first-page, .dash-table-container .last-page",
-                        "rule": "background-color: #333; color: white; border: none; border-radius: 3px;",
-                    },
-                    # Current page highlighting
-                    {
-                        "selector": ".dash-table-container .current-page",
-                        "rule": "background-color: #333; color: white; border: none; border-radius: 3px;",
-                    },
-                    # Make filter text match table text color
-                    {
-                        "selector": ".dash-filter input::placeholder",
-                        "rule": "color: white !important; opacity: 0.8;",
-                    },
-                    {
-                        "selector": ".dash-filter input",
-                        "rule": "color: white !important; background-color: #333 !important; border: 1px solid #444 !important;",
-                    },
-                    # Hide border on the last row to show rounded corners
-                    {
-                        "selector": ".dash-spreadsheet tr:last-child td",
-                        "rule": "border-bottom: none !important;",
-                    },
-                    # Disable cell selection styling
-                    {
-                        "selector": ".dash-cell-value",
-                        "rule": "caret-color: transparent !important;",
-                    },
-                    {
-                        "selector": ".dash-spreadsheet td.dash-cell",
-                        "rule": "border-color: #292929 !important; border-width: 0.5px !important;",
-                    },
-                    {
-                        "selector": ".dash-spreadsheet tr td.dash-cell.focused",
-                        "rule": "background-color: inherit !important; border-color: #292929 !important;",
-                    },
-                    {
-                        "selector": ".dash-spreadsheet tr td.dash-cell.cell--selected",
-                        "rule": "background-color: inherit !important; border-color: #292929 !important;",
-                    },
-                    # Ensure job column header and filter use default font at normal size with high specificity
-                    {
-                        "selector": '.dash-table-container [id^="header-job"], .dash-table-container [id^="job-filter"], .dash-table-container .column-header--job',
-                        "rule": "font-family: sans-serif !important; font-size: 1em !important;",
-                    },
-                    # Style all non-job data cells with the default font
-                    {
-                        "selector": '.dash-table-container .dash-cell:not([data-dash-column="job"])',
-                        "rule": "font-family: sans-serif !important;",
-                    },
-                    # Override job data cells with job-icons font and larger size
-                    {
-                        "selector": '.dash-table-container .dash-cell[data-dash-column="job"]',
-                        "rule": "font-family: job-icons !important; font-size: 1.4em !important;",
-                    },
-                    # Ensure filter input for job column uses sans-serif with highest specificity
-                    {
-                        "selector": '.dash-table-container .dash-filter input[id^="job-filter"]',
-                        "rule": "font-family: sans-serif !important; font-size: 1em !important;",
-                    },
-                    # Fix vertical alignment for markdown links
-                    {
-                        "selector": '.dash-table-container .dash-cell[data-dash-column="link"] a',
-                        "rule": "position: relative; top: 50px; display: inline-block;",
-                    },
-                ],
+                # The CSS is now moved to the external stylesheet
             ),
         ],
         className="container mt-4",
