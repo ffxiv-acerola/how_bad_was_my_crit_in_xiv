@@ -686,7 +686,7 @@ def test_save_new_gearset(
         ),
     ],
 )
-@patch("crit_app.pages.analysis.ctx")  # Mock dash.ctx
+@patch("crit_app.callbacks.gearset_callbacks.ctx")  # Mock dash.ctx in the correct module
 def test_load_selected_gearset(
     mock_ctx,
     radio_values,
@@ -900,7 +900,7 @@ UPDATE_STATS_HEALER = {
         ),
     ],
 )
-@patch("crit_app.pages.analysis.ctx")  # Mock dash.ctx
+@patch("crit_app.callbacks.gearset_callbacks.ctx")  # Mock dash.ctx in the correct module
 def test_update_gearset_success(
     mock_ctx,
     n_clicks_list,
@@ -990,7 +990,7 @@ def test_update_gearset_success(
         ),
     ],
 )
-@patch("crit_app.pages.analysis.ctx")  # Mock dash.ctx
+@patch("crit_app.callbacks.gearset_callbacks.ctx")  # Mock dash.ctx in the correct module
 def test_update_gearset_prevent_update(
     mock_ctx,
     n_clicks_list,
@@ -1133,7 +1133,7 @@ SAVED_GEARSETS_ONE_DEFAULT_0 = [
         ),
     ],
 )
-@patch("crit_app.pages.analysis.ctx")  # Mock dash.ctx
+@patch("crit_app.callbacks.gearset_callbacks.ctx")  # Mock dash.ctx in the correct module
 def test_delete_gearset_success(
     mock_ctx,
     n_clicks_list,
@@ -1232,7 +1232,7 @@ def test_delete_gearset_success(
         ),
     ],
 )
-@patch("crit_app.pages.analysis.ctx")  # Mock dash.ctx
+@patch("crit_app.callbacks.gearset_callbacks.ctx")  # Mock dash.ctx in the correct module
 def test_delete_gearset_prevent_update(
     mock_ctx,
     n_clicks_list,
