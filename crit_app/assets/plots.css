@@ -1,0 +1,27 @@
+/* Figures and graphs styling */
+.js-plotly-plot, .plotly, .plot-container {
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+}
+
+/* Make sure all plot SVG elements get rounded corners */
+.main-svg, .svg-container {
+    border-radius: 8px !important;
+}
+
+/* Target the plot container to ensure rounded corners */
+.js-plotly-plot > .plot-container > .svg-container > .main-svg {
+    border-radius: 8px !important;
+    overflow: hidden !important;
+}
+
+/* Additional plot canvas styling */
+canvas {
+    border-radius: 10px !important;
+}
+
+/* Remove rectangular edges from modebar */
+.modebar-container {
+    border-radius: 8px !important;
+}

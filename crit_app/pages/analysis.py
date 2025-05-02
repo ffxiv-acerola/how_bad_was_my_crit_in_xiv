@@ -6,9 +6,29 @@ from uuid import uuid4
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, dcc, html
+from dash import (
+    Input,
+    Output,
+    State,
+    callback,
+    dcc,
+    html,
+)
 from dash.exceptions import PreventUpdate
 
+# Import gearset callbacks - used by Dash's callback registry but not referenced directly
+from crit_app.callbacks.gearset_callbacks import (
+    delete_gearset,  # noqa: F401
+    handle_row_click,  # noqa: F401
+    load_default_gearset,  # noqa: F401
+    load_selected_gearset,  # noqa: F401
+    populate_gearset_table,  # noqa: F401
+    save_new_gearset,  # noqa: F401
+    set_default_gearset,  # noqa: F401
+    update_gearset,  # noqa: F401
+    valid_tenacity,  # noqa: F401
+    validate_save_new_gearset,  # noqa: F401
+)
 from crit_app.cards import (
     initialize_fflogs_card,
     initialize_job_build,
@@ -76,6 +96,10 @@ from crit_app.util.db import (
     update_encounter_table,
     update_player_analysis_creation_table,
     update_report_table,
+)
+from crit_app.util.history import (
+    serialize_analysis_history_record,
+    upsert_local_store_record,
 )
 from crit_app.util.player_dps_distribution import job_analysis_to_data_class
 from fflogs_rotation.job_data.data import (
@@ -158,21 +182,22 @@ dash.register_page(
 
 
 def layout(analysis_id=None):
-    """
-    Display a previously-analyzed rotation by its analysis ID.
+    """Display a previously-analyzed rotation by its analysis ID."""
 
-    If no analysis ID exists, display blank everything.
-    """
     if analysis_id is None:
+        # Set analysis indicator to None for new analysis
+        analysis_indicator = False
         job_build = initialize_job_build()
         fflogs_card = initialize_fflogs_card()
         rotation_card = initialize_rotation_card()
         action_card = initialize_new_action_card()
         result_card = initialize_results(rotation_card, action_card, True)
+
         return dash.html.Div(
             [
                 dcc.Store(id="xiv-gear-sheet-data"),
                 dcc.Store(id="fflogs-encounter"),
+                dcc.Store(id="analysis-indicator", data=analysis_indicator),
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -180,7 +205,11 @@ def layout(analysis_id=None):
                 result_card,
             ]
         )
+
     else:
+        # Analysis view - load values from analysis
+        # Set analysis indicator to True for existing analysis
+        analysis_indicator = True
         analysis_url = f"https://howbadwasmycritinxiv.com/analysis/{analysis_id}"
         # Check if analysis ID exists, 404 if not
 
@@ -256,6 +285,7 @@ def layout(analysis_id=None):
         player_id = int(analysis_details["player_id"])
         pet_ids = analysis_details["pet_ids"]
 
+        tenacity = secondary_stat_pre_bonus if role == "Tank" else None
         # Get actions and create a rotation again, used if the RotationTable class updates.
         if redo_rotation:
             try:
@@ -279,6 +309,7 @@ def layout(analysis_id=None):
                     encounter_phases,
                     pet_ids,
                     analysis_details["excluded_enemy_ids"],
+                    tenacity=tenacity,
                 )
 
                 action_df = rotation_object.filtered_actions_df
@@ -310,6 +341,7 @@ def layout(analysis_id=None):
                     int(speed_stat),
                     int(crit),
                     int(direct_hit),
+                    int(weapon_damage),
                     int(weapon_damage),
                     delay,
                     -1,
@@ -577,6 +609,7 @@ def layout(analysis_id=None):
             [
                 dcc.Store(id="xiv-gear-sheet-data"),
                 dcc.Store(id="fflogs-encounter"),
+                dcc.Store(id="analysis-indicator", data=analysis_indicator),
                 job_build,
                 html.Br(),
                 fflogs_card,
@@ -591,7 +624,7 @@ def layout(analysis_id=None):
     Input("role-select", "value"),
 )
 def display_bottom_build_row(role: str) -> bool:
-    """Display the bottom job build row for Tanks, allowing Tenacity to be inputted.
+    """Display the bottom gearset row for Tanks, allowing Tenacity to be inputted.
 
     Args:
         role (str): Selected Role
@@ -639,14 +672,14 @@ def fill_role_stat_labels(role: str) -> tuple[str, str, str, str]:
     Output("job-build-url", "valid"),
     Output("job-build-url", "invalid"),
     Output("job-build-name-div", "children", allow_duplicate=True),
-    Output("role-select", "value"),
-    Output("main-stat", "value"),
-    Output("DET", "value"),
-    Output("speed-stat", "value"),
-    Output("CRT", "value"),
-    Output("DH", "value"),
-    Output("WD", "value"),
-    Output("TEN", "value"),
+    Output("role-select", "value", allow_duplicate=True),
+    Output("main-stat", "value", allow_duplicate=True),
+    Output("DET", "value", allow_duplicate=True),
+    Output("speed-stat", "value", allow_duplicate=True),
+    Output("CRT", "value", allow_duplicate=True),
+    Output("DH", "value", allow_duplicate=True),
+    Output("WD", "value", allow_duplicate=True),
+    Output("TEN", "value", allow_duplicate=True),
     Output("xiv-gear-sheet-data", "data"),
     Input("job-build-url-button", "n_clicks"),
     State("job-build-url", "value"),
@@ -686,7 +719,7 @@ def process_job_build_url(
         {"gear_index": -1, "data": []},
     ]
 
-    # Check if job build is etro or xivgear
+    # Check if gearset is etro or xivgear
     valid_provider, provider = job_build_provider(url)
 
     if not valid_provider:
@@ -755,8 +788,8 @@ def process_job_build_url(
 
 
 @callback(
-    Output("xiv-gear-select", "options"),
-    Output("xiv-gear-select", "value"),
+    Output("xiv-gear-build-selector", "options"),
+    Output("xiv-gear-build-selector", "value"),
     Input("xiv-gear-sheet-data", "data"),
 )
 def fill_xiv_gear_build_selector(data):
@@ -782,7 +815,7 @@ def fill_xiv_gear_build_selector(data):
     Output("WD", "value", allow_duplicate=True),
     Output("TEN", "value", allow_duplicate=True),
     Input("xiv-gear-sheet-data", "data"),
-    Input("xiv-gear-select", "value"),
+    Input("xiv-gear-build-selector", "value"),
     prevent_initial_call=True,
 )
 def fill_job_build_via_xiv_gear_select(xiv_gear_sheet_data, index):
@@ -817,7 +850,7 @@ def job_build_defined(
     weapon_damage: bool,
 ) -> bool:
     """
-    Check if any job build elements are missing/invalid, hide everything else if they are.
+    Check if any gearset elements are missing/invalid, hide everything else if they are.
 
     Parameters:
     main_stat (bool): Validity of the main stat.
@@ -1119,10 +1152,10 @@ def update_player_job_selector(
 )
 def display_compute_button(
     healers: list[dict[str, Any]],
-    tanks: list[dict[str, Any]],
+    tanks: list[dict, Any],
     melees: list[dict[str, Any]],
     phys_ranged: list[dict[str, Any]],
-    magic_ranged: list[dict[str, Any]],
+    magic_ranged: list[dict, Any],
     healer_value: str | None,
     tank_value: str | None,
     melee_value: str | None,
@@ -1136,10 +1169,10 @@ def display_compute_button(
 
     Parameters:
     healers (list[dict[str, Any]]): List of healer job options.
-    tanks (list[dict[str, Any]]): List of tank job options.
+    tanks (list[dict, Any]): List of tank job options.
     melees (list[dict[str, Any]]): List of melee job options.
     phys_ranged (list[dict[str, Any]]): List of physical ranged job options.
-    magic_ranged (list[dict[str, Any]]): List of magical ranged job options.
+    magic_ranged (list[dict, Any]): List of magical ranged job options.
     healer_value (str | None): Selected healer job.
     tank_value (str | None): Selected tank job.
     melee_value (str | None): Selected melee job.
@@ -1238,6 +1271,7 @@ def copy_analysis_link(n: int, selected: str) -> str:
     Output("compute-dmg-button", "disabled", allow_duplicate=True),
     Output("crit-result-text", "children"),
     Output("results-div", "hidden"),
+    Output("analysis-history", "data", allow_duplicate=True),
     Input("compute-dmg-button", "n_clicks"),
     State("main-stat", "value"),
     State("TEN", "value"),
@@ -1251,6 +1285,7 @@ def copy_analysis_link(n: int, selected: str) -> str:
     State("fflogs-url", "value"),
     State("phase-select", "value"),
     State("job-build-url", "value"),
+    State("analysis-history", "data"),
     Input("healer-jobs", "value"),
     Input("tank-jobs", "value"),
     Input("melee-jobs", "value"),
@@ -1272,6 +1307,7 @@ def analyze_and_register_rotation(
     fflogs_url: str,
     fight_phase: int | None,
     job_build_url: str,
+    analysis_history: list[dict],
     healer_jobs: str | None = None,
     tank_jobs: str | None = None,
     melee_jobs: str | None = None,
@@ -1304,15 +1340,11 @@ def analyze_and_register_rotation(
     """
     updated_url = dash.no_update
 
-    player_id = [healer_jobs, tank_jobs, melee_jobs, phys_ranged_jobs, magical_jobs]
-
+    # Prevent the callback from executing when the button doesn't exist yet
     if n_clicks is None:
         raise PreventUpdate
 
-    if isinstance(fight_phase, list):
-        fight_phase = fight_phase[0]
-    else:
-        fight_phase = int(fight_phase)
+    player_id = [healer_jobs, tank_jobs, melee_jobs, phys_ranged_jobs, magical_jobs]
 
     # Noticed this was causing errors by selecting from empty list
     # Couldn't repro, but it's easy to check.
@@ -1324,6 +1356,7 @@ def analyze_and_register_rotation(
             False,
             [error_alert("No player selected.")],
             False,
+            analysis_history,
         )
 
     player_id = player_id[0]
@@ -1344,6 +1377,7 @@ def analyze_and_register_rotation(
             False,
             [error_alert(error_message)],
             False,
+            analysis_history,
         )
     (
         player_name,
@@ -1364,7 +1398,14 @@ def analyze_and_register_rotation(
             False,
             [error_alert("Please resubmit Log URL, linked log changed.")],
             False,
+            analysis_history,
         )
+
+    if isinstance(fight_phase, list):
+        fight_phase = fight_phase[0]
+    else:
+        fight_phase = int(fight_phase)
+
     # Edge case example: fight analyzing phase 5 is loaded
     # user switches log url to a phase where phase 1 was reached
     # if they don't hit submit, phase 5 can still be selected, which is
@@ -1445,6 +1486,7 @@ def analyze_and_register_rotation(
                 False,
                 [],
                 False,
+                analysis_history,
             )
 
         # if n_prior_reports == 0:
@@ -1502,12 +1544,29 @@ def analyze_and_register_rotation(
         redo_rotation_flag = 0
         redo_dps_pdf_flag = 0
 
+        rotation_dps = float(
+            rotation.actions_df["amount"].sum() / job_analysis_data.active_dps_t
+        )
+
+        log_datetime = datetime.datetime.fromtimestamp(rotation.fight_start_time / 1000)
+        rotation_percentile = float(
+            get_dps_dmg_percentile(
+                rotation_dps
+                * job_analysis_data.active_dps_t
+                / job_analysis_data.analysis_t,
+                job_analysis_data.rotation_dps_distribution,
+                job_analysis_data.rotation_dps_support,
+            )
+            / 100
+        )
+
         if not DRY_RUN:
             with open(BLOB_URI / f"rotation-object-{analysis_id}.pkl", "wb") as f:
                 pickle.dump(rotation, f)
             with open(BLOB_URI / f"job-analysis-data-{analysis_id}.pkl", "wb") as f:
                 pickle.dump(job_analysis_data, f)
 
+            analysis_datetime = datetime.datetime.now()
             # FIXME: remove medication amt
             db_row = (
                 analysis_id,
@@ -1538,9 +1597,27 @@ def analyze_and_register_rotation(
                 redo_rotation_flag,
             )
             update_report_table(db_row)
-            update_player_analysis_creation_table(
-                (analysis_id, datetime.datetime.now())
+            update_player_analysis_creation_table((analysis_id, analysis_datetime))
+
+            new_history_record = serialize_analysis_history_record(
+                analysis_id,
+                "Player Analysis",
+                analysis_datetime,
+                log_datetime,
+                encounter_id,
+                fight_phase,
+                t,
+                job_no_space,
+                player_name,
+                rotation_percentile,
+                None,
+                None,
             )
+
+            analysis_history = upsert_local_store_record(
+                analysis_history, new_history_record
+            )
+
         del job_analysis_object
 
     # Catch any error and display it, then reset the button/prompt
@@ -1581,9 +1658,10 @@ def analyze_and_register_rotation(
             False,
             [error_alert(str(e))],
             False,
+            analysis_history,
         )
     updated_url = f"/analysis/{analysis_id}"
-    return (updated_url, ["Analyze rotation"], False, [], False)
+    return (updated_url, ["Analyze rotation"], False, [], False, analysis_history)
 
 
 @callback(
@@ -1733,34 +1811,4 @@ def valid_weapon_damage(weapon_damage: int) -> tuple:
         return invalid_stat_return
 
 
-@callback(
-    Output("TEN", "valid"),
-    Output("TEN", "invalid"),
-    Input("TEN", "value"),
-    Input("role-select", "value"),
-)
-def valid_tenacity(tenacity: int, role: str) -> tuple:
-    """
-    Validate the direct hit stat input.
-
-    Parameters:
-    direct_hit (int): The value of the direct hit stat to validate.
-
-    Returns:
-    tuple: A tuple containing the validation results for the direct hit stat.
-    """
-    if role != "Tank":
-        return valid_stat_return
-
-    if tenacity is None:
-        return invalid_stat_return
-
-    if validate_meldable_stat(
-        "test",
-        tenacity,
-        stat_ranges["TEN"]["lower"],
-        stat_ranges["TEN"]["upper"],
-    )[0]:
-        return valid_stat_return
-    else:
-        return invalid_stat_return
+# The gearset callbacks have been moved to crit_app/callbacks/gearset_callbacks.py

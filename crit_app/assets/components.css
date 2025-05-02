@@ -1,0 +1,79 @@
+/* Cards styling */
+.card {
+    border-radius: 10px !important;
+    box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
+    overflow: hidden !important;
+    border: none !important;
+}
+
+.card-body {
+    padding: 1.5rem !important;
+}
+
+/* Alerts styling */
+.alert {
+    border-radius: 10px !important;
+    border: none !important;
+    box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
+}
+
+/* Dropdown styling */
+.dropdown-menu {
+    border-radius: 10px !important;
+    box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10) !important;
+    border: none !important;
+    padding: 0.5rem !important;
+    background-color: #222 !important;
+}
+
+.dropdown-item {
+    border-radius: 6px !important;
+    margin: 0.1rem 0 !important;
+    color: white !important;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+    background-color: #333 !important;
+    color: white !important;
+}
+
+/* Accordion styling */
+.accordion-button {
+    background-color: #222 !important;
+    color: white !important;
+    box-shadow: none !important;
+    transition: all 0.2s ease !important;
+    border-radius: 6px !important;
+}
+
+.accordion-item .accordion-button.collapsed {
+    border-radius: 6px !important;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #1f1f1f !important;
+    color: white !important;
+    border-bottom: 1px solid rgba(99, 152, 238, 0.3) !important;
+    box-shadow: 0 1px 3px rgba(99, 152, 238, 0.15) !important;
+    border-bottom-right-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+}
+
+.accordion-button:hover {
+    background-color: #2a2a2a !important;
+}
+
+.accordion-button:focus {
+    box-shadow: 0 0 0 0.25rem rgba(99, 152, 238, 0.25) !important;
+    border-color: #466daa !important;
+}
+
+.accordion-button::after {
+    filter: brightness(3) !important; /* Makes the dropdown arrow white */
+}
+
+/* Accordion body background */
+.accordion-body {
+    background-color: #303030 !important;
+}

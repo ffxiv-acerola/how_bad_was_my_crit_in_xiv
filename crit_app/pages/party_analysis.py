@@ -12,7 +12,6 @@ from dash import ALL, MATCH, Input, Output, State, callback, dcc, html
 from dash.exceptions import PreventUpdate
 from plotly.graph_objs._figure import Figure
 
-# from app import app
 from crit_app.config import BLOB_URI, DRY_RUN
 from crit_app.figures import (
     make_action_box_and_whisker_figure,
@@ -79,6 +78,12 @@ from crit_app.util.db import (
     update_party_report_table,
     update_player_analysis_creation_table,
     update_report_table,
+)
+
+# from app import app
+from crit_app.util.history import (
+    serialize_analysis_history_record,
+    upsert_local_store_record,
 )
 from crit_app.util.party_dps_distribution import (
     PartyRotation,
@@ -935,6 +940,7 @@ def job_progress(job_list, active_job):
 @app.long_callback(
     Output("url", "href", allow_duplicate=True),
     Output("party-analysis-error", "children"),
+    Output("analysis-history", "data", allow_duplicate=True),
     Input("party-compute", "n_clicks"),
     State("party-phase-select", "value"),
     State({"type": "job-name", "index": ALL}, "children"),
@@ -952,6 +958,7 @@ def job_progress(job_list, active_job):
     State("party-encounter-name", "children"),
     State("fflogs-url2", "value"),
     State("fflogs-party-encounter", "data"),
+    State("analysis-history", "data"),
     running=[(Output("party-compute", "disabled"), True, False)],
     progress=[
         Output("party-progress", "value"),
@@ -979,6 +986,7 @@ def analyze_party_rotation(
     encounter_name,
     fflogs_url,
     fflogs_data,
+    analysis_history: list[dict],
 ):
     """
     Analyze and compute the damage distribution of a whole party.
@@ -999,7 +1007,7 @@ def analyze_party_rotation(
     """
     updated_url = dash.no_update
     if n_clicks is None:
-        return updated_url, []
+        return updated_url, [], analysis_history
 
     if isinstance(fight_phase, list):
         fight_phase = fight_phase[0]
@@ -1020,14 +1028,18 @@ def analyze_party_rotation(
             fight_id, error_message = _query_last_fight_id(report_id)
 
     if error_message != "":
-        return updated_url, [error_alert(error_message)]
+        return updated_url, [error_alert(error_message)], analysis_history
 
     encounter_id, lb_player_id, pet_id_map = get_party_analysis_calculation_info(
         report_id, fight_id
     )
 
     if encounter_id is None:
-        return updated_url, [error_alert("Log URL changed, please resubmit.")]
+        return (
+            updated_url,
+            [error_alert("Log URL changed, please resubmit.")],
+            analysis_history,
+        )
 
     level = encounter_level[encounter_id]
 
@@ -1038,7 +1050,7 @@ def analyze_party_rotation(
             report_id, fight_id, lb_player_id, fight_phase
         )
         if error_message != "":
-            return updated_url, [error_alert(error_message)]
+            return updated_url, [error_alert(error_message)], analysis_history
         lb_damage = lb_damage_events_df["amount"].sum()
     else:
         lb_damage_events_df = pd.DataFrame(columns=["timestamp"])
@@ -1102,7 +1114,7 @@ def analyze_party_rotation(
         and (not any_redo_flags)
         and (redo_party_analysis_flag == 0)
     ):
-        return f"/party_analysis/{party_analysis_id}", []
+        return f"/party_analysis/{party_analysis_id}", [], analysis_history
 
     # Compute player-level analyses
     success, results = player_analysis_loop(
@@ -1140,7 +1152,7 @@ def analyze_party_rotation(
     else:
         error_message = results[-2]
         insert_error_player_analysis(*results)
-        return updated_url, [error_alert(error_message)]
+        return updated_url, [error_alert(error_message)], analysis_history
 
     if perform_kill_time_analysis:
         if job_rotation_analyses_list[0].phase_information is not None:
@@ -1191,7 +1203,7 @@ def analyze_party_rotation(
         else:
             error_message = clipping_results[-2]
             insert_error_player_analysis(*clipping_results)
-            return updated_url, [error_alert(error_message)]
+            return updated_url, [error_alert(error_message)], analysis_history
     else:
         job_rotation_clipping_pdf_list = [None] * len(job)
         job_rotation_clipping_analyses = [None] * len(job)
@@ -1239,7 +1251,7 @@ def analyze_party_rotation(
         )
 
         insert_error_party_analysis(*party_error_info)
-        return updated_url, [error_alert(str(e))]
+        return updated_url, [error_alert(str(e))], analysis_history
     ##########################################
     # Export all the data we've generated
     ##########################################
@@ -1301,10 +1313,31 @@ def analyze_party_rotation(
     )
     update_party_report_table(db_row)
 
+    log_datetime = datetime.fromtimestamp(
+        job_rotation_analyses_list[0].fight_start_time / 1000
+    )
+    party_history_record = serialize_analysis_history_record(
+        party_analysis_id,
+        "Party Analysis",
+        creation_ts,
+        log_datetime,
+        encounter_id,
+        fight_phase,
+        party_rotation.fight_duration,
+        "",
+        "",
+        float(party_rotation.percentile),
+        None,
+        None,
+    )
+
+    analysis_history = upsert_local_store_record(
+        analysis_history, party_history_record, preserve_analysis_datetime=True
+    )
     current_job = "Analysis progress: Done!"
     set_progress((a + 1, len(job), current_job, "Analysis progress:"))
     updated_url = f"/party_analysis/{party_analysis_id}"
-    return updated_url, []
+    return updated_url, [], analysis_history
 
 
 def player_analysis_loop(

@@ -33,6 +33,7 @@ nav = dbc.Nav(
         dbc.NavItem(
             dbc.NavLink("Party Analysis", active="partial", href="/party_analysis")
         ),
+        dbc.NavItem(dbc.NavLink("Analysis History", active="partial", href="/history")),
         dbc.DropdownMenu(
             [
                 dbc.DropdownMenuItem(
@@ -67,10 +68,10 @@ header = html.Div(
         ),
         html.P(
             "For a given run, howbadwasmycritinxiv pulls your rotation and how much "
-            "damage each action did from FFLogs. Using your job build, it exactly "
+            "damage each action did from FFLogs. Using your gearset, it exactly "
             "simulates how likely all possible DPS values are due to damage variability "
             "and compares it to your actual DPS. To get started, all you need is your "
-            "job build and link to a fight log."
+            "gearset and link to a fight log."
         ),
         html.Hr(),
         nav,
@@ -79,10 +80,21 @@ header = html.Div(
 )
 
 # Putting it all together
+# Add a hidden div at the top of the layout for clientside callbacks to use
 app.layout = dbc.Container(
     [
         # dcc.Location(id="url", refresh="callback-nav"),
         dcc.Location(id="url", refresh=True),
+        dcc.Store(
+            id="analysis-history", storage_type="local", data=[], clear_data=False
+        ),
+        dcc.Store(id="saved-gearsets", storage_type="local", data=[], clear_data=False),
+        dcc.Store(
+            id="default-gear-index", storage_type="local", data=None, clear_data=False
+        ),
+        dcc.Store(id="analysis-indicator", storage_type="session", data=None),
+        # Add this hidden div for clientside callbacks
+        html.Div(id="_dummy_output", style={"display": "none"}),
         header,
         dash.page_container,
     ],

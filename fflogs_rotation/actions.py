@@ -271,7 +271,10 @@ class ActionTable(BuffQuery):
         self.encounter_id = self._get_encounter_id(fight_info_response)
         self.has_echo = self._get_has_echo(fight_info_response)
         self.kill = self._get_was_kill(fight_info_response)
-        self.medication_amt = self._get_medication_amount(fight_info_response)
+        try:
+            self.medication_amt = self._get_medication_amount(fight_info_response)
+        except Exception:
+            self.medication_amt = 262
         self.phase_information = self._get_phase_transitions(fight_info_response)
         self.ranking_duration = self._get_ranking_duration(fight_info_response)
         (

@@ -22,7 +22,7 @@ def initialize_job_build(
     build_selector_hidden: bool = True,
 ) -> html.Div:
     """
-    Create job build card with stat inputs and role selection.
+    Create gearset card with stat inputs and role selection.
 
     The card allows:
     - Loading builds from etro/xivgear URLs
@@ -45,12 +45,12 @@ def initialize_job_build(
         medication_amt: Amount of main stat from tincture/food
 
     Returns:
-        html.Div containing the complete job build card
+        html.Div containing the complete gearset card
     """
 
     job_build_input = dbc.Row(
         [
-            dbc.Label("Job build URL", width=12, md=2),
+            dbc.Label("Gearset URL", width=12, md=2),
             dbc.Col(
                 [
                     dbc.Input(
@@ -275,6 +275,102 @@ def initialize_job_build(
         id="bottom-build-row",
     )
 
+    # Create the gearset management table with proper dbc structure
+    # Define table headers with widths for specific columns
+    table_headers = [
+        {"label": "Select", "width": "80px"},
+        {"label": "Role", "width": "200px"},
+        {"label": "Gearset name"},
+        {"label": "Update", "width": "80px"},  # Added Update column
+        {"label": "Delete", "width": "80px"},
+    ]
+
+    # Create table header with conditional styling for width
+    table_header_cells = []
+    for h in table_headers:
+        header_content = h["label"]
+        style = {"width": h["width"]} if "width" in h else {}
+        table_header_cells.append(html.Th(header_content, style=style))
+
+    table_header = html.Thead(html.Tr(table_header_cells))
+
+    # Empty table body - will be populated via callback
+    table_body = html.Tbody([], id="gearset-table-body")
+
+    # Create the gearset table
+    gearset_table = dbc.Table(
+        [table_header, table_body],
+        dark=True,
+        striped=True,
+        hover=True,
+        bordered=False,
+        responsive=True,
+        id="gearset-table",
+    )
+
+    # Create the default set selector section
+    default_set_controls = html.Div(
+        [
+            dbc.Row(
+                [
+                    dbc.Label(
+                        [
+                            html.I(
+                                className="fas fa-info-circle ms-2",
+                                id="default-set-tooltip",
+                                style={
+                                    "fontSize": "0.79em",
+                                    "color": "#BDBDBD",
+                                    "cursor": "pointer",
+                                },
+                            ),
+                            dbc.Tooltip(
+                                "The default gearset is automatically loaded when you create a new analysis. Select 'No Default' from the dropdown to clear the default.",  # Updated tooltip
+                                target="default-set-tooltip",
+                                placement="top",
+                            ),
+                            "  Default Gearset:",
+                        ],
+                        className="d-inline me-2",
+                        width=12,
+                        md=3,
+                    ),
+                    dbc.Col(
+                        [
+                            dbc.Select(
+                                id="default-set-selector",
+                                options=[],  # Will be populated by callback
+                            )
+                        ],
+                        width=12,
+                        md=6,
+                    ),
+                ],
+            )
+        ],
+        style={"padding-top": "10px", "padding-bottom": "15px"},
+    )
+
+    saved_gearsets_accordion = html.Div(
+        [
+            dbc.Accordion(
+                [
+                    dbc.AccordionItem(
+                        [
+                            default_set_controls,
+                            gearset_table,
+                        ],
+                        title="Manage saved gearsets",
+                    )
+                ],
+                flush=True,
+                id="saved-gearsets-accordion",
+                start_collapsed=True,
+            ),
+        ],
+        style={"margin-top": "20px"},
+    )
+
     job_build_card = html.Div(
         dbc.Card(
             dbc.CardBody(
@@ -289,9 +385,9 @@ def initialize_job_build(
                         className="lead",
                     ),
                     html.Hr(className="my-2"),
-                    html.H3("Select a role and enter job build"),
+                    html.H3("Select a role and enter gearset"),
                     html.P(
-                        "A job build must be fully entered before a log can be analyzed. "
+                        "A gearset must be fully entered before a log can be analyzed. "
                         "You can load a build from an etro.gg / xivgear.app URL, or manually enter the values."
                     ),
                     dbc.Form(
@@ -308,6 +404,7 @@ def initialize_job_build(
                             top_stat_row,
                             middle_stat_row,
                             bottom_stat_row,
+                            saved_gearsets_accordion,
                         ]
                     ),
                 ]
@@ -418,7 +515,7 @@ def initialize_fflogs_card(
                 [
                     html.Span("Job selection:", id="role-tooltip"),
                     dbc.Tooltip(
-                        "If a supported role is greyed out, select the correct role above, enter the correct stats, and then click the Submit button for the FFLogs URL again.",
+                        "Use the role selector to analyze jobs in another role.",
                         target="role-tooltip",
                     ),
                 ],
