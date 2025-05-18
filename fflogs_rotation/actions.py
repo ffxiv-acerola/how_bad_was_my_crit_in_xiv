@@ -5,13 +5,13 @@ import pandas as pd
 from ffxiv_stats import Rate
 from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
+from crit_app.job_data.encounter_data import patch_times, patch_times_ko_cn
 from fflogs_rotation.bard import BardActions
 from fflogs_rotation.base import BuffQuery
 from fflogs_rotation.black_mage import BlackMageActions
 from fflogs_rotation.dark_knight import DarkKnightActions
 from fflogs_rotation.dragoon import DragoonActions
 from fflogs_rotation.encounter_specifics import EncounterSpecifics
-from fflogs_rotation.job_data.game_data import patch_times
 from fflogs_rotation.machinist import MachinistActions
 from fflogs_rotation.monk import MonkActions
 from fflogs_rotation.ninja import NinjaActions
@@ -104,9 +104,6 @@ class ActionTable(BuffQuery):
         # Fetch damage events from FFLogs
         self.actions = self._query_damage_events(headers)
 
-        # Patch (used for echo)
-        self.patch_number = self.what_patch_is_it()
-
         # Buff tables filtered based on fight start time
         self._filter_buff_tables(
             damage_buff_table,
@@ -148,18 +145,6 @@ class ActionTable(BuffQuery):
         if self.has_echo:
             self.apply_the_echo()
 
-    def what_patch_is_it(self) -> float:
-        """Map log start timestamp to its associated patch.
-
-        Patches are used to to apply the correct potencies and job gauge mechanics.
-        """
-        for k, v in patch_times.items():
-            if (self.fight_start_time >= v["start"]) & (
-                self.fight_start_time <= v["end"]
-            ):
-                return k
-        return 0.0
-
     def _query_fight_information(self, headers: dict[str, str]) -> None:
         """
         Retrieves fight information from the FFLogs GraphQL API for the specified.
@@ -194,6 +179,10 @@ class ActionTable(BuffQuery):
             reportData {
                 report(code: $code) {
                     startTime
+                    region{
+                        name,
+                        compactName
+                    }
                     # masterData { abilities { name gameID } }
                     potionType: table(
                         fightIDs: $id
@@ -271,6 +260,8 @@ class ActionTable(BuffQuery):
         self.encounter_id = self._get_encounter_id(fight_info_response)
         self.has_echo = self._get_has_echo(fight_info_response)
         self.kill = self._get_was_kill(fight_info_response)
+        self.region = self._get_region(fight_info_response)
+        self.patch_number = self._get_patch_number(self.report_start_time, self.region)
         try:
             self.medication_amt = self._get_medication_amount(fight_info_response)
         except Exception:
@@ -298,6 +289,23 @@ class ActionTable(BuffQuery):
     @staticmethod
     def _get_encounter_id(fight_info_response) -> int:
         return fight_info_response["fights"][0]["encounterID"]
+
+    @staticmethod
+    def _get_region(fight_info_response) -> int:
+        return fight_info_response["region"]["compactName"]
+
+    @staticmethod
+    def _get_patch_number(fight_start_time, region) -> float:
+        # Korean and Chinese servers have different patch cadence.
+        if region in ("CN", "KR"):
+            for k, v in patch_times_ko_cn.items():
+                if (fight_start_time >= v["start"]) & (fight_start_time <= v["end"]):
+                    return k
+        else:
+            for k, v in patch_times.items():
+                if (fight_start_time >= v["start"]) & (fight_start_time <= v["end"]):
+                    return k
+        return 0.0
 
     @staticmethod
     def _get_has_echo(fight_info_response) -> bool:
@@ -642,21 +650,21 @@ class ActionTable(BuffQuery):
         """Filter buff tables to the relevant patch."""
         # Here damage_buffs is left as a DataFrame while the others are converted into dicts
         self.damage_buffs = damage_buff_table[
-            (damage_buff_table["valid_start"] <= self.fight_start_time)
-            & (self.fight_start_time <= damage_buff_table["valid_end"])
+            (damage_buff_table["valid_start"] <= self.patch_number)
+            & (self.patch_number < damage_buff_table["valid_end"])
         ]
         self.critical_hit_rate_buffs = (
             crit_rate_table[
-                (crit_rate_table["valid_start"] <= self.fight_start_time)
-                & (self.fight_start_time <= crit_rate_table["valid_end"])
+                (crit_rate_table["valid_start"] <= self.patch_number)
+                & (self.patch_number < crit_rate_table["valid_end"])
             ]
             .set_index("buff_id")["rate_buff"]
             .to_dict()
         )
         self.direct_hit_rate_buffs = (
             dh_rate_table[
-                (dh_rate_table["valid_start"] <= self.fight_start_time)
-                & (self.fight_start_time <= dh_rate_table["valid_end"])
+                (dh_rate_table["valid_start"] <= self.patch_number)
+                & (self.patch_number < dh_rate_table["valid_end"])
             ]
             .set_index("buff_id")["rate_buff"]
             .to_dict()

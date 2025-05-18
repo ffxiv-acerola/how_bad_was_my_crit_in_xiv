@@ -75,9 +75,12 @@ def create_fight_response(kill: bool, phases: int):
         ],
         "rankings": {
             "data": [
-                {"duration": 5000}  # Dummy ranking information
+                {
+                    "duration": 5000,
+                },
             ]
         },
+        "region": {"compactName": "JA"},
     }
 
 
