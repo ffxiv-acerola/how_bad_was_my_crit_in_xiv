@@ -150,8 +150,8 @@ class RotationTable(ActionTable):
         then converts the `potency_falloff` column into a list of numeric values.
 
         The method filters the table to retain only rows that:
-        - Have a `valid_start` less than or equal to `fight_start_time`
-        - Have a `valid_end` greater than or equal to `fight_start_time`
+        - Have a `valid_start` less than or equal to `self.patch_number`
+        - Have a `valid_end` greater than or equal to `self.patch_number`
         - Match the current job and level
 
         Any missing `potency_falloff` entries are filled with `"1."` before splitting
@@ -166,8 +166,8 @@ class RotationTable(ActionTable):
                 - `potency_falloff`: string of semicolon-separated falloff values
         """
         self.potency_table = potency_table[
-            (potency_table["valid_start"] <= self.fight_start_time)
-            & (self.fight_start_time <= potency_table["valid_end"])
+            (self.patch_number >= potency_table["valid_start"])
+            & (self.patch_number < potency_table["valid_end"])
             & (potency_table["job"] == self.job)
             & (potency_table["level"] == self.level)
         ]
@@ -580,15 +580,18 @@ class RotationTable(ActionTable):
         bonus_col_name = bonus_type + "_bonus"
         potency_col_name = bonus_type + "_potency"
 
-        # Update potency where bonus is satisfied.
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df[bonus_col_name], "potency"
-        ] = rotation_df[potency_col_name]
+        # Create a mask for the rows that meet the bonus condition
+        bonus_mask = rotation_df["bonusPercent"] == rotation_df[bonus_col_name]
 
-        # Update the name where the bonus is satisfied.
-        rotation_df.loc[
-            rotation_df["bonusPercent"] == rotation_df[bonus_col_name], "action_name"
-        ] += f"_{bonus_type}"
+        # Update potency where bonus is satisfied using a single loc operation
+        rotation_df.loc[bonus_mask, "potency"] = rotation_df.loc[
+            bonus_mask, potency_col_name
+        ]
+
+        # Update the name where the bonus is satisfied (avoid += which triggers warnings)
+        rotation_df.loc[bonus_mask, "action_name"] = (
+            rotation_df.loc[bonus_mask, "action_name"] + f"_{bonus_type}"
+        )
 
         return rotation_df
 

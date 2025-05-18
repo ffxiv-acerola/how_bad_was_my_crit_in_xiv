@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 # from ..game_data import patch_times
-from fflogs_rotation.job_data.game_data import patch_times
+from fflogs_rotation.job_data.game_data import balance_patches
 
 if __name__ == "__main__":
     job_csv_path = Path("fflogs_rotation/job_data/potencies")
@@ -44,8 +44,10 @@ if __name__ == "__main__":
             },
         )
         # Assign valid start/end times
-        patch_start = patch_times[patch]["start"]
-        patch_end = patch_times[patch]["end"]
+        # patch_start = patch_times[patch]["start"]
+        # patch_end = patch_times[patch]["end"]
+        patch_start = balance_patches[patch]["start"]
+        patch_end = balance_patches[patch]["end"]
         potency_df["valid_start"] = patch_start
         potency_df["valid_end"] = patch_end
 
