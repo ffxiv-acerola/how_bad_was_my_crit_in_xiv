@@ -85,8 +85,10 @@ def parse_fflogs_url(fflogs_url: str) -> tuple[str | None, int | None, str]:
     fflogs_url = fflogs_url.replace("#", "?")
     parts = urlparse(fflogs_url)
 
-    # Check domain
-    if parts.netloc != "www.fflogs.com":
+    # Allow any localized domain
+    valid_domains = ["www", "de", "fr" "ja", "ko", "cn"]
+    valid_netlocs = [d + ".fflogs.com" for d in valid_domains]
+    if parts.netloc not in valid_netlocs:
         return None, None, FFLOGS_ERROR_MAPPING[0]
 
     # Check fight ID
