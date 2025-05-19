@@ -5,7 +5,7 @@ import pandas as pd
 from ffxiv_stats import Rate
 from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
-from crit_app.job_data.encounter_data import patch_times, patch_times_ko_cn
+from crit_app.job_data.encounter_data import patch_times, patch_times_cn, patch_times_ko
 from fflogs_rotation.bard import BardActions
 from fflogs_rotation.base import BuffQuery
 from fflogs_rotation.black_mage import BlackMageActions
@@ -297,8 +297,12 @@ class ActionTable(BuffQuery):
     @staticmethod
     def _get_patch_number(fight_start_time, region) -> float:
         # Korean and Chinese servers have different patch cadence.
-        if region in ("CN", "KR"):
-            for k, v in patch_times_ko_cn.items():
+        if region == "CN":
+            for k, v in patch_times_cn.items():
+                if (fight_start_time >= v["start"]) & (fight_start_time <= v["end"]):
+                    return k
+        elif region == "KR":
+            for k, v in patch_times_ko.items():
                 if (fight_start_time >= v["start"]) & (fight_start_time <= v["end"]):
                     return k
         else:
