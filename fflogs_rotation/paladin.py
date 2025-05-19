@@ -102,10 +102,10 @@ class PaladinActions(BuffQuery):
 
         pld_response = self.gql_query(headers, query, variables, "PaladinBuffs")
         divine_might_times = self._get_buff_times(
-            pld_response, "requiescat", add_report_start=True
+            pld_response, "divineMight", add_report_start=True
         )
         requiescat_times = self._get_buff_times(
-            pld_response, "divineMight", add_report_start=True
+            pld_response, "requiescat", add_report_start=True
         )
 
         return divine_might_times, requiescat_times

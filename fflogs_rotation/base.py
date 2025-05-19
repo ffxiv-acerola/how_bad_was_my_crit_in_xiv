@@ -70,7 +70,7 @@ class BuffQuery(FFLogsClient):
             report_start = buff_response["data"]["reportData"]["report"]["startTime"]
         aura = buff_response["data"]["reportData"]["report"][buff_name]["data"]["auras"]
         if len(aura) > 0:
-            return (pd.DataFrame(aura[0]["bands"]) + report_start).to_numpy()
+            return (pd.DataFrame(aura[0]["bands"])).to_numpy() + report_start
         else:
             return np.array([[-1, -1]])
 
