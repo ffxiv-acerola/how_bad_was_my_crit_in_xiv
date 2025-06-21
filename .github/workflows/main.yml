@@ -26,6 +26,22 @@ jobs:
     - name: Install dependencies
       run: poetry install
 
+
+    - name: Generate config.py
+      run: |
+        cat << EOF > crit_app/config.py
+        from pathlib import Path
+
+        BASE_PATH = Path("${{ secrets.DEPLOY_PATH }}")
+        FFLOGS_TOKEN = "${{ secrets.FFLOGS_TOKEN }}"
+        DB_URI = BASE_PATH / Path("data/reports.db")
+        BLOB_URI = BASE_PATH / Path("data/blobs")
+        DEBUG = False
+        DRY_RUN = False
+        ERROR_LOGIN_DATA = ${{ secrets.ERROR_LOGIN_DATA }}
+        DASH_AUTH_SECRET = "${{ secrets.DASH_AUTH_SECRET }}"
+        EOF
+
     - name: Run tests
       run: poetry run pytest
 
@@ -47,21 +63,6 @@ jobs:
       run: |
         curl -sSL https://install.python-poetry.org | python3 -
         echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-    - name: Generate config.py
-      run: |
-        cat << EOF > crit_app/config.py
-        from pathlib import Path
-
-        FFLOGS_TOKEN = "${{ secrets.FFLOGS_TOKEN }}"
-        DB_URI = Path("data/reports.db")
-        BLOB_URI = Path("data/blobs")
-        DEBUG = False
-        DRY_RUN = False
-        BASE_PATH = Path("")
-        ERROR_LOGIN_DATA = ${{ secrets.ERROR_LOGIN_DATA }}
-        DASH_AUTH_SECRET = "${{ secrets.DASH_AUTH_SECRET }}"
-        EOF
 
     - name: Generate potencies.csv
       run: |
