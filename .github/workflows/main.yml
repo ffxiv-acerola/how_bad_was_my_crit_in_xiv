@@ -1,31 +1,77 @@
-name: Deploy Tracked Files with rsync
+name: CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main, cicd ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+
+    - name: Install dependencies
+      run: poetry install
+
+    - name: Run tests
+      run: poetry run pytest
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/cicd'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Generate config.py
+      run: |
+        cat << EOF > crit_app/config.py
+        from pathlib import Path
+
+        FFLOGS_TOKEN = "${{ secrets.FFLOGS_TOKEN }}"
+        DB_URI = Path("data/reports.db")
+        BLOB_URI = Path("data/blobs")
+        DEBUG = False
+        DRY_RUN = False
+        BASE_PATH = Path("")
+        ERROR_LOGIN_DATA = ${{ secrets.ERROR_LOGIN_DATA }}
+        DASH_AUTH_SECRET = "${{ secrets.DASH_AUTH_SECRET }}"
+        EOF
+
+    - name: Generate potencies.csv
+      run: |
+        poetry install
+        poetry run python fflogs_rotation/job_data/potencies/create_potencies.py
 
     - name: Set up SSH
       run: |
         mkdir -p ~/.ssh
-        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-        echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        chmod 644 ~/.ssh/known_hosts
+        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Deploy tracked Git files with rsync
+    - name: Deploy to production
       run: |
-        git ls-files > tracked_files.txt
-        rsync -avz -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" ./ root@howbadwasmycritinxiv.com:/root/testing/
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
-        DEPLOYMENT_DIRECTORY: ${{ secrets.DEPLOYMENT_DIRECTORY }}
+        rsync -avz --delete \
+          -e "ssh -i ~/.ssh/id_rsa" \
+          --exclude '.git*' \
+          --exclude 'tests' \
+          --exclude '.pytest_cache' \
+          --exclude '__pycache__' \
+          --exclude '.ruff_cache' \
+          ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/
+
+    # - name: Restart services
+    #   run: |
+    #     ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'sudo supervisorctl restart crit_app crit_app_errors'
