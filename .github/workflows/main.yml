@@ -3,7 +3,7 @@ name: Deploy Tracked Files with rsync
 on:
   push:
     branches:
-      - main
+      - actions-patch
 
 jobs:
   deploy:
@@ -20,11 +20,17 @@ jobs:
         echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
         chmod 600 ~/.ssh/id_rsa
         chmod 644 ~/.ssh/known_hosts
+        ls -lha ~/.ssh
+        wc ~/.ssh/id_rsa ~/.ssh/known_hosts
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        DEPLOYMENT_DIRECTORY: ${{ secrets.DEPLOYMENT_DIRECTORY }}
 
     - name: Deploy tracked Git files with rsync
       run: |
         git ls-files > tracked_files.txt
-        rsync -avz -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" ./ root@howbadwasmycritinxiv.com:/root/testing/
+        rsync -avz --files-from=tracked_files.txt -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" ./ root@howbadwasmycritinxiv.com:/root/testing/
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
