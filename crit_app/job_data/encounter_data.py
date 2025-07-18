@@ -114,7 +114,7 @@ patch_times = {
 
 # IMPORTANT: Korean and Chinese servers roll all global minor patch potency changes with the main patch
 # Example: 7.2 (KO / CN) = 7.2 + 7.25 for global
-# In practice, this will just mean theres no X.Y patch and to have a X.Y5 patch start in its place
+# In practice, this will just mean there's no X.Y patch and to have a X.Y5 patch start in its place
 # https://ff14.huijiwiki.com/wiki/%E7%89%88%E6%9C%AC%E6%97%B6%E9%97%B4%E8%A1%A8
 patch_times_cn = {
     6.4: {"start": 1695081600000, "end": 1709596799999},
