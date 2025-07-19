@@ -112,6 +112,9 @@ patch_times = {
     7.25: {"start": 1748322000000, "end": 1848322000000},
 }
 
+# IMPORTANT: Korean and Chinese servers roll all global minor patch potency changes with the main patch
+# Example: 7.2 (KO / CN) = 7.2 + 7.25 for global
+# In practice, this will just mean there's no X.Y patch and to have a X.Y5 patch start in its place
 # https://ff14.huijiwiki.com/wiki/%E7%89%88%E6%9C%AC%E6%97%B6%E9%97%B4%E8%A1%A8
 patch_times_cn = {
     6.4: {"start": 1695081600000, "end": 1709596799999},
@@ -120,20 +123,20 @@ patch_times_cn = {
     7.01: {"start": 1729555200000, "end": 1731369599999},
     7.05: {"start": 1731369600000, "end": 1731369599999},
     7.1: {"start": 1739836800000, "end": 1750748399999},
-    7.2: {"start": 1750748400000, "end": 1754981999999},
-    7.25: {"start": 1754982000000, "end": 2754981999999},
+    7.25: {"start": 1750748400000, "end": 2754981999999},
 }
 
 # https://namu.wiki/w/%ED%8C%8C%EC%9D%B4%EB%84%90%20%ED%8C%90%ED%83%80%EC%A7%80%20XIV:%20%ED%9A%A8%EC%9B%94%EC%9D%98%20%EC%A2%85%EC%96%B8
 # https://namu.wiki/w/%ED%8C%8C%EC%9D%B4%EB%84%90%20%ED%8C%90%ED%83%80%EC%A7%80%20XIV:%20%ED%99%A9%EA%B8%88%EC%9D%98%20%EC%9C%A0%EC%82%B0#s-5
+# Important: see above note about rolled up patch potencies
 patch_times_ko = {
     6.4: {"start": 1698728400000, "end": 1712033999999},
     6.5: {"start": 1712034000000, "end": 1733205599999},
     7.0: {"start": 1733205600000, "end": 1735019999999},
     7.01: {"start": 1735020000000, "end": 1736834399999},
     7.05: {"start": 1736834400000, "end": 1742273999999},
-    7.1: {"start": 1742274000000, "end": 1752566399999},
-    7.2: {"start": 1752566400000, "end": 2742274000000},
+    7.1: {"start": 1742274000000, "end": 1752566399999},  # No 7.15 changes
+    7.25: {"start": 1752566400000, "end": 2742274000000},
 }
 
 stat_ranges = {
