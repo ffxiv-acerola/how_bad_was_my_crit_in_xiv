@@ -19,12 +19,11 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install Poetry
-      run: |
-        curl -sSL https://install.python-poetry.org | python3 -
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v1
 
     - name: Install dependencies
-      run: poetry install
+      run: uv sync --all-extras
 
 
     - name: Generate testing config.py
@@ -43,22 +42,15 @@ jobs:
         EOF
 
     - name: Run tests
-      run: poetry run pytest --junitxml=pytest-results.xml --cov --cov-report=xml --cov-report=html
+      run: uv run pytest --junitxml=pytest-results.xml --cov --cov-report=xml --cov-report=html
 
-    - name: Publish Test Results
-      uses: dorny/test-reporter@v1
-      if: always()
-      with:
-        name: Pytest Results
-        path: pytest-results.xml
-        reporter: java-junit
-
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
-      if: always()
-      with:
-        file: ./coverage.xml
-        fail_ci_if_error: false
+    # - name: Publish Test Results
+    #   uses: dorny/test-reporter@v1
+    #   if: always()
+    #   with:
+    #     name: Pytest Results
+    #     path: pytest-results.xml
+    #     reporter: java-junit
 
   deploy:
     needs: test
@@ -74,10 +66,8 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install Poetry
-      run: |
-        curl -sSL https://install.python-poetry.org | python3 -
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v1
 
     - name: Generate prod config.py
       run: |
@@ -96,8 +86,8 @@ jobs:
 
     - name: Generate potencies.csv
       run: |
-        poetry install
-        poetry run python fflogs_rotation/job_data/potencies/create_potencies.py
+        uv sync --all-extras
+        uv run python fflogs_rotation/job_data/potencies/create_potencies.py
 
     - name: Set up SSH
       run: |
