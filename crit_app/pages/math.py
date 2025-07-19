@@ -3,19 +3,19 @@ import pandas as pd
 import plotly.express as px
 from dash import dcc, html
 
-one_hit_df = pd.read_parquet("crit_app/math_data/1-hit.parquet")
+one_hit_df = pd.read_json("crit_app/math_data/1-hit.json")
 
-two_hit_df = pd.read_parquet("crit_app/math_data/2-hit.parquet")
+two_hit_df = pd.read_json("crit_app/math_data/2-hit.json")
 
-five_hit_df = pd.read_parquet("crit_app/math_data/5-hit.parquet")
+five_hit_df = pd.read_json("crit_app/math_data/5-hit.json")
 
-ten_hit_df = pd.read_parquet("crit_app/math_data/10-hit.parquet")
+ten_hit_df = pd.read_json("crit_app/math_data/10-hit.json")
 
-fifteen_hit_df = pd.read_parquet("crit_app/math_data/15-hit.parquet")
+fifteen_hit_df = pd.read_json("crit_app/math_data/15-hit.json")
 
-one_hit_dmg_df = pd.read_parquet("crit_app/math_data/1-hit-dmg.parquet")
+one_hit_dmg_df = pd.read_json("crit_app/math_data/1-hit-dmg.json")
 
-one_hit_crit_df = pd.read_parquet("crit_app/math_data/1-hit-crit.parquet")
+one_hit_crit_df = pd.read_json("crit_app/math_data/1-hit-crit.json")
 
 green = "#009670"
 

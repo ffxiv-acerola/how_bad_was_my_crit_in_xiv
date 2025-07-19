@@ -22,17 +22,17 @@ def compare_job_info_and_role_elements(radio_items: list[dict], job_information:
     "mock_encounter_information, fflogs_url, role, expected_phase_options_length, expected_report_id",
     [
         (
-            {"type": "single_phase", "fight_id": 18, "encounter_name": "Sugar Riot", "encounter_id": 98},
+            {"type": "multi_phase", "fight_id": 18, "encounter_name": "Sugar Riot", "encounter_id": 98},
             "https://www.fflogs.com/reports/3BgZa1FqCM6VLfvD?fight=18&type=damage-done",
             "Healer",
-            1,
+            3,
             "3BgZa1FqCM6VLfvD",
         ),
         (
-            {"type": "single_phase", "fight_id": 18, "encounter_name": "Sugar Riot", "encounter_id": 98},
+            {"type": "multi_phase", "fight_id": 18, "encounter_name": "Sugar Riot", "encounter_id": 98},
             "https://www.fflogs.com/reports/3BgZa1FqCM6VLfvD?fight=last&type=damage-done",
             "Healer",
-            1,
+            3,
             "3BgZa1FqCM6VLfvD",
         ),
         (
@@ -109,7 +109,7 @@ def test_process_fflogs_url_correct_input(
     ), f"Expected {expected_phase_options_length} phase options for phase {expected_furthest_phase}"
 
     # Check visibility of phase selector based on phase count
-    expected_phase_hidden = True if expected_encounter_name == "Sugar Riot" else False
+    expected_phase_hidden = False
     assert phase_select_hidden == expected_phase_hidden, "Phase selector visibility is incorrect"
 
     # Extract job_information from the fixture

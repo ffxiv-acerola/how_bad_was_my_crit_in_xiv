@@ -1,31 +1,125 @@
-name: Deploy Tracked Files with rsync
+name: CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-
+    env:
+      PYTHONPATH: ${{ github.workspace }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v1
+
+    - name: Install dependencies
+      run: uv sync --all-extras
+
+
+    - name: Generate testing config.py
+      run: |
+        cat << EOF > crit_app/config.py
+        from pathlib import Path
+
+        BASE_PATH = Path("${{ github.workspace }}")
+        FFLOGS_TOKEN = "${{ secrets.FFLOGS_TOKEN }}"
+        DB_URI = BASE_PATH / Path("data/reports.db")
+        BLOB_URI = BASE_PATH / Path("data/blobs")
+        DEBUG = False
+        DRY_RUN = False
+        ERROR_LOGIN_DATA = "${{ secrets.ERROR_LOGIN_DATA }}"
+        DASH_AUTH_SECRET = "${{ secrets.DASH_AUTH_SECRET }}"
+        EOF
+
+    - name: Run tests
+      run: uv run pytest --junitxml=pytest-results.xml --cov --cov-report=xml --cov-report=html
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v1
+
+    - name: Generate prod config.py
+      run: |
+        cat << EOF > crit_app/config.py
+        from pathlib import Path
+
+        BASE_PATH = Path("${{ secrets.DEPLOY_PATH }}")
+        FFLOGS_TOKEN = "${{ secrets.FFLOGS_TOKEN }}"
+        DB_URI = BASE_PATH / Path("data/reports.db")
+        BLOB_URI = BASE_PATH / Path("data/blobs")
+        DEBUG = False
+        DRY_RUN = False
+        ERROR_LOGIN_DATA = ${{ secrets.ERROR_LOGIN_DATA }}
+        DASH_AUTH_SECRET = "${{ secrets.DASH_AUTH_SECRET }}"
+        EOF
+
+    - name: Generate potencies.csv
+      run: |
+        uv sync --all-extras
+        uv run python fflogs_rotation/job_data/potencies/create_potencies.py
 
     - name: Set up SSH
       run: |
         mkdir -p ~/.ssh
-        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-        echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        chmod 644 ~/.ssh/known_hosts
+        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Deploy tracked Git files with rsync
+    - name: Deploy to production
       run: |
-        git ls-files > tracked_files.txt
-        rsync -avz -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" ./ root@howbadwasmycritinxiv.com:/root/testing/
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
-        DEPLOYMENT_DIRECTORY: ${{ secrets.DEPLOYMENT_DIRECTORY }}
+        rsync -avz --delete \
+          -e "ssh -i ~/.ssh/id_rsa" \
+          --exclude '.git*' \
+          --exclude 'tests' \
+          --exclude '.pytest_cache' \
+          --exclude '__pycache__' \
+          --exclude '.ruff_cache' \
+          --exclude 'deploy' \
+          --exclude '.venv' \
+          ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/
+
+    - name: Update server dependencies
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'cd ${{ secrets.DEPLOY_PATH }} && ${HOME}/.local/bin/uv sync --all-extras'
+
+    - name: Create logs directory
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'mkdir -p ${{ secrets.DEPLOY_PATH }}/logs'
+
+    - name: Restart services
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'sudo supervisorctl restart crit_app crit_app_errors'
+
+    - name: Verify service status
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} '
+          echo "Waiting for services to stabilize..."
+          sleep 10
+          echo "Checking service status..."
+          sudo supervisorctl status crit_app crit_app_errors
+          # The following command will fail if either service is not in a RUNNING state.
+          sudo supervisorctl status crit_app | grep -q RUNNING && sudo supervisorctl status crit_app_errors | grep -q RUNNING
+        '

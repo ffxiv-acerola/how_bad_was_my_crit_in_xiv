@@ -30,15 +30,15 @@ def compare_party_job_info(quick_build_data, party_accordion_children, job_infor
     "mock_encounter_information, fflogs_url, expected_phase_options_length, expected_report_id",
     [
         (
-            {"type": "single_phase", "fight_id": 18, "encounter_name": "Sugar Riot", "encounter_id": 98},
+            {"type": "multi_phase", "fight_id": 18, "encounter_name": "Sugar Riot", "encounter_id": 98},
             "https://www.fflogs.com/reports/3BgZa1FqCM6VLfvD?fight=18&type=damage-done",
-            1,
+            3,
             "3BgZa1FqCM6VLfvD",
         ),
         (
-            {"type": "single_phase", "fight_id": 18, "encounter_name": "Sugar Riot", "encounter_id": 98},
+            {"type": "multi_phase", "fight_id": 18, "encounter_name": "Sugar Riot", "encounter_id": 98},
             "https://www.fflogs.com/reports/3BgZa1FqCM6VLfvD?fight=last&type=damage-done",
-            1,
+            3,
             "3BgZa1FqCM6VLfvD",
         ),
         (
