@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, cicd ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -46,7 +46,7 @@ jobs:
 
   deploy:
     needs: test
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/cicd'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}
