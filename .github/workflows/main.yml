@@ -44,14 +44,6 @@ jobs:
     - name: Run tests
       run: uv run pytest --junitxml=pytest-results.xml --cov --cov-report=xml --cov-report=html
 
-    # - name: Publish Test Results
-    #   uses: dorny/test-reporter@v1
-    #   if: always()
-    #   with:
-    #     name: Pytest Results
-    #     path: pytest-results.xml
-    #     reporter: java-junit
-
   deploy:
     needs: test
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/cicd'
@@ -105,7 +97,12 @@ jobs:
           --exclude '.pytest_cache' \
           --exclude '__pycache__' \
           --exclude '.ruff_cache' \
+          --exclude 'deploy' \
           ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/
+
+    - name: Update server dependencies
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'cd ${{ secrets.DEPLOY_PATH }} && ${HOME}/.local/bin/uv sync --all-extras'
 
     # - name: Restart services
     #   run: |
