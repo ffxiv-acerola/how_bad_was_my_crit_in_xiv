@@ -1,7 +1,6 @@
 # Gauge gets set properly for phase analysis
 # multi hit doesn't double count for gauge
 
-# import json
 from pathlib import Path
 
 import numpy as np

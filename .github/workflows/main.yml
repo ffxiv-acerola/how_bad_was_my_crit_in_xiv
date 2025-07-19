@@ -37,7 +37,7 @@ jobs:
         BLOB_URI = BASE_PATH / Path("data/blobs")
         DEBUG = False
         DRY_RUN = False
-        ERROR_LOGIN_DATA = ${{ secrets.ERROR_LOGIN_DATA }}
+        ERROR_LOGIN_DATA = "${{ secrets.ERROR_LOGIN_DATA }}"
         DASH_AUTH_SECRET = "${{ secrets.DASH_AUTH_SECRET }}"
         EOF
 
