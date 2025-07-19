@@ -98,12 +98,28 @@ jobs:
           --exclude '__pycache__' \
           --exclude '.ruff_cache' \
           --exclude 'deploy' \
+          --exclude '.venv' \
           ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/
 
     - name: Update server dependencies
       run: |
         ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'cd ${{ secrets.DEPLOY_PATH }} && ${HOME}/.local/bin/uv sync --all-extras'
 
-    # - name: Restart services
-    #   run: |
-    #     ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'sudo supervisorctl restart crit_app crit_app_errors'
+    - name: Create logs directory
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'mkdir -p ${{ secrets.DEPLOY_PATH }}/logs'
+
+    - name: Restart services
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'sudo supervisorctl restart crit_app crit_app_errors'
+
+    - name: Verify service status
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} '
+          echo "Waiting for services to stabilize..."
+          sleep 10
+          echo "Checking service status..."
+          sudo supervisorctl status crit_app crit_app_errors
+          # The following command will fail if either service is not in a RUNNING state.
+          sudo supervisorctl status crit_app | grep -q RUNNING && sudo supervisorctl status crit_app_errors | grep -q RUNNING
+        '
