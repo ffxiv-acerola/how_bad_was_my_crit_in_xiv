@@ -46,6 +46,11 @@ def mock_action_table_api_via_file(monkeypatch, request):
 
     monkeypatch.setattr(ActionTable, "_get_medication_amount", mock_medication_amount)
 
+    def mock_fight_difficulty(*args, **kwargs):
+        return 101
+
+    monkeypatch.setattr(ActionTable, "_get_difficulty", mock_medication_amount)
+
     def mock_region(*args, **kwargs):
         return "NA"
 

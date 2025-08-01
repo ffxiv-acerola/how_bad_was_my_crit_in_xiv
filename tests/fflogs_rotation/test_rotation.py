@@ -71,6 +71,7 @@ def create_fight_response(kill: bool, phases: int):
                 "name": "Futures Rewritten",
                 "hasEcho": False,
                 "phaseTransitions": phase_transitions,
+                "difficulty": 100,
             }
         ],
         "rankings": {
