@@ -68,8 +68,8 @@ jobs:
 
         BASE_PATH = Path("${{ secrets.DEPLOY_PATH }}")
         FFLOGS_TOKEN = "${{ secrets.FFLOGS_TOKEN }}"
-        DB_URI = PATH("${{ secrets.DB_URI }}")
-        BLOB_URI = PATH("${{ secrets.BLOB_URI }}")
+        DB_URI = Path("${{ secrets.DB_URI }}")
+        BLOB_URI = Path("${{ secrets.BLOB_URI }}")
         DEBUG = False
         DRY_RUN = False
         ERROR_LOGIN_DATA = ${{ secrets.ERROR_LOGIN_DATA }}
