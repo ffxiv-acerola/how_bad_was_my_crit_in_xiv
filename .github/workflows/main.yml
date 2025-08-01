@@ -33,8 +33,8 @@ jobs:
 
         BASE_PATH = Path("${{ github.workspace }}")
         FFLOGS_TOKEN = "${{ secrets.FFLOGS_TOKEN }}"
-        DB_URI = BASE_PATH / Path("data/reports.db")
-        BLOB_URI = BASE_PATH / Path("data/blobs")
+        DB_URI = PATH("${{ secrets.DB_URI }}")
+        BLOB_URI = PATH("${{ secrets.BLOB_URI }}")
         DEBUG = False
         DRY_RUN = False
         ERROR_LOGIN_DATA = ${{ secrets.ERROR_LOGIN_DATA }}
@@ -68,8 +68,8 @@ jobs:
 
         BASE_PATH = Path("${{ secrets.DEPLOY_PATH }}")
         FFLOGS_TOKEN = "${{ secrets.FFLOGS_TOKEN }}"
-        DB_URI = BASE_PATH / Path("data/reports.db")
-        BLOB_URI = BASE_PATH / Path("data/blobs")
+        DB_URI = PATH("${{ secrets.DB_URI }}")
+        BLOB_URI = PATH("${{ secrets.BLOB_URI }}")
         DEBUG = False
         DRY_RUN = False
         ERROR_LOGIN_DATA = ${{ secrets.ERROR_LOGIN_DATA }}
