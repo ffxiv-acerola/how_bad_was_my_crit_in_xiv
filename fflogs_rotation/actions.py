@@ -198,6 +198,7 @@ class ActionTable(BuffQuery):
                         endTime
                         name
                         hasEcho
+                        difficulty
                         phaseTransitions { id startTime }
                     }
                     rankings(fightIDs: $id)
@@ -262,6 +263,7 @@ class ActionTable(BuffQuery):
         self.kill = self._get_was_kill(fight_info_response)
         self.region = self._get_region(fight_info_response)
         self.patch_number = self._get_patch_number(self.report_start_time, self.region)
+        self.difficulty = self._get_difficulty(fight_info_response)
         try:
             self.medication_amt = self._get_medication_amount(fight_info_response)
         except Exception:
@@ -293,6 +295,10 @@ class ActionTable(BuffQuery):
     @staticmethod
     def _get_region(fight_info_response) -> int:
         return fight_info_response["region"]["compactName"]
+
+    @staticmethod
+    def _get_difficulty(fight_info_response) -> int:
+        return fight_info_response["fights"][0]["difficulty"]
 
     @staticmethod
     def _get_patch_number(fight_start_time, region) -> float:
@@ -1381,7 +1387,7 @@ class ActionTable(BuffQuery):
         if self.encounter_id == 97:
             pass
 
-        if self.encounter_id == 99:
+        if (self.encounter_id == 99) & (self.difficulty == 101):
             self.actions_df = EncounterSpecifics().m7s_exclude_final_blooming(
                 self.actions_df, self.excluded_enemy_ids[0]
             )
