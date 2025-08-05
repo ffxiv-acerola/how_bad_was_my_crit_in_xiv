@@ -109,7 +109,8 @@ patch_times = {
     7.05: {"start": 1722322800000, "end": 1731427199999},
     7.1: {"start": 1731427200000, "end": 1742882399999},
     7.2: {"start": 1742882400000, "end": 1748321999999},
-    7.25: {"start": 1748322000000, "end": 1848322000000},
+    7.25: {"start": 1748322000000, "end": 1754348399999},
+    7.3: {"start": 1754348400000, "end": 1848322000000},
 }
 
 # IMPORTANT: Korean and Chinese servers roll all global minor patch potency changes with the main patch
@@ -284,6 +285,13 @@ encounter_information = [
         "relevant_patch": "7.2 - 7.3",
     },
     {
+        "encounter_id": 1081,
+        "encounter_name": "????",
+        "encounter_short_name": "DT EX5",
+        "content_type": "Extreme",
+        "relevant_patch": "7.2 - 7.3",
+    },
+    {
         "encounter_id": 3009,
         "encounter_name": "Byakko",
         "encounter_short_name": "Byakko",
@@ -294,6 +302,13 @@ encounter_information = [
         "encounter_id": 3010,
         "encounter_name": "Suzaku",
         "encounter_short_name": "Suzaku",
+        "content_type": "Unreal",
+        "relevant_patch": "7.2 - 7.3",
+    },
+    {
+        "encounter_id": 3011,
+        "encounter_name": "Seiryu",
+        "encounter_short_name": "Seiryu",
         "content_type": "Unreal",
         "relevant_patch": "7.2 - 7.3",
     },
