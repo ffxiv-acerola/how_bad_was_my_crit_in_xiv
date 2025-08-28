@@ -21,6 +21,7 @@ valid_encounters = [
     1080,
     3009,  # Byakko
     3010,
+    3011,
 ]
 valid_encounter_text = ""
 
@@ -48,6 +49,7 @@ encounter_level = {
     1080: 100,
     3009: 100,  # Byakko
     3010: 100,
+    3011: 100,
 }
 
 encounter_phases = {
