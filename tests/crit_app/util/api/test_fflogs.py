@@ -6,6 +6,7 @@ from pandas.testing import assert_frame_equal
 
 from crit_app.util.api.fflogs import (
     FFLOGS_ERROR_MAPPING,
+    _encounter_jobs_and_lb,
     _encounter_query_error_messages,
     _encounter_query_fight_id_exists,
     _fflogs_fight_id,
@@ -201,3 +202,282 @@ def test_filter_unpaired_and_overkill_events(test_data_path):
     output = _filter_unpaired_and_overkill_events(input_df)
 
     assert_frame_equal(output.reset_index(drop=True), expected_output.reset_index(drop=True))
+
+
+@pytest.mark.parametrize(
+    "response_data, expected_jobs, expected_limit_break",
+    [
+        # Case 1: Normal party with no limit break
+        (
+            {
+                "data": {
+                    "reportData": {
+                        "report": {
+                            "playerDetails": {
+                                "data": {
+                                    "playerDetails": {
+                                        "Tank": [{"name": "John Tank", "server": "Excalibur"}],
+                                        "Healer": [{"name": "Jane Healer", "server": "Excalibur"}],
+                                        "DPS": [{"name": "Bob DPS", "server": "Excalibur"}],
+                                    }
+                                }
+                            },
+                            "table": {
+                                "data": {
+                                    "entries": [
+                                        {
+                                            "name": "John Tank",
+                                            "id": 1,
+                                            "icon": "Paladin",
+                                            "pets": [{"id": 101}],
+                                        },
+                                        {
+                                            "name": "Jane Healer",
+                                            "id": 2,
+                                            "icon": "WhiteMage",
+                                        },
+                                        {
+                                            "name": "Bob DPS",
+                                            "id": 3,
+                                            "icon": "Dragoon",
+                                        },
+                                    ]
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            [
+                {
+                    "job": "Paladin",
+                    "player_name": "John Tank",
+                    "player_server": "Excalibur",
+                    "player_id": 1,
+                    "pet_ids": "[101]",
+                    "role": "Tank",
+                },
+                {
+                    "job": "WhiteMage",
+                    "player_name": "Jane Healer",
+                    "player_server": "Excalibur",
+                    "player_id": 2,
+                    "pet_ids": None,
+                    "role": "Healer",
+                },
+                {
+                    "job": "Dragoon",
+                    "player_name": "Bob DPS",
+                    "player_server": "Excalibur",
+                    "player_id": 3,
+                    "pet_ids": None,
+                    "role": "Melee",
+                },
+            ],
+            [],
+        ),
+        # Case 2: Party with limit break
+        (
+            {
+                "data": {
+                    "reportData": {
+                        "report": {
+                            "playerDetails": {
+                                "data": {
+                                    "playerDetails": {
+                                        "Tank": [{"name": "John Tank", "server": "Excalibur"}],
+                                        "DPS": [{"name": "Bob DPS", "server": "Excalibur"}],
+                                    }
+                                }
+                            },
+                            "table": {
+                                "data": {
+                                    "entries": [
+                                        {
+                                            "name": "John Tank",
+                                            "id": 1,
+                                            "icon": "Paladin",
+                                        },
+                                        {
+                                            "name": "Bob DPS",
+                                            "id": 2,
+                                            "icon": "BlackMage",
+                                        },
+                                        {
+                                            "name": "Limit Break",
+                                            "id": 100,
+                                            "icon": "LimitBreak",
+                                        },
+                                    ]
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            [
+                {
+                    "job": "Paladin",
+                    "player_name": "John Tank",
+                    "player_server": "Excalibur",
+                    "player_id": 1,
+                    "pet_ids": None,
+                    "role": "Tank",
+                },
+                {
+                    "job": "BlackMage",
+                    "player_name": "Bob DPS",
+                    "player_server": "Excalibur",
+                    "player_id": 2,
+                    "pet_ids": None,
+                    "role": "Magical Ranged",
+                },
+            ],
+            [
+                {
+                    "job": "LimitBreak",
+                    "player_name": "Limit Break",
+                    "player_server": None,
+                    "player_id": 100,
+                    "pet_ids": None,
+                    "role": "Limit Break",
+                }
+            ],
+        ),
+        # Case 3: Player with blank name (edge case)
+        (
+            {
+                "data": {
+                    "reportData": {
+                        "report": {
+                            "playerDetails": {
+                                "data": {
+                                    "playerDetails": {
+                                        "DPS": [{"name": "Valid Player", "server": "Excalibur"}],
+                                    }
+                                }
+                            },
+                            "table": {
+                                "data": {
+                                    "entries": [
+                                        {
+                                            "name": "",
+                                            "id": 1969,
+                                            "icon": "Unknown",
+                                        },
+                                        {
+                                            "name": "Valid Player",
+                                            "id": 2,
+                                            "icon": "Summoner",
+                                        },
+                                    ]
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            [
+                {
+                    "job": "Summoner",
+                    "player_name": "Valid Player",
+                    "player_server": "Excalibur",
+                    "player_id": 2,
+                    "pet_ids": None,
+                    "role": "Magical Ranged",
+                }
+            ],
+            [],
+        ),
+        # Case 4: Complex case with pets, blank name, and limit break
+        (
+            {
+                "data": {
+                    "reportData": {
+                        "report": {
+                            "playerDetails": {
+                                "data": {
+                                    "playerDetails": {
+                                        "DPS": [{"name": "Summoner Player", "server": "Sargatanas"}],
+                                        "Tank": [{"name": "Main Tank", "server": "Sargatanas"}],
+                                    }
+                                }
+                            },
+                            "table": {
+                                "data": {
+                                    "entries": [
+                                        {
+                                            "name": "",
+                                            "id": 1969,
+                                            "icon": "Unknown",
+                                        },
+                                        {
+                                            "name": "Summoner Player",
+                                            "id": 10,
+                                            "icon": "Summoner",
+                                            "pets": [{"id": 501}, {"id": 502}],
+                                        },
+                                        {
+                                            "name": "Main Tank",
+                                            "id": 20,
+                                            "icon": "Warrior",
+                                        },
+                                        {
+                                            "name": "Limit Break",
+                                            "id": 999,
+                                            "icon": "LimitBreak",
+                                            "pets": [{"id": 1001}],
+                                        },
+                                    ]
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            [
+                {
+                    "job": "Summoner",
+                    "player_name": "Summoner Player",
+                    "player_server": "Sargatanas",
+                    "player_id": 10,
+                    "pet_ids": "[501, 502]",
+                    "role": "Magical Ranged",
+                },
+                {
+                    "job": "Warrior",
+                    "player_name": "Main Tank",
+                    "player_server": "Sargatanas",
+                    "player_id": 20,
+                    "pet_ids": None,
+                    "role": "Tank",
+                },
+            ],
+            [
+                {
+                    "job": "LimitBreak",
+                    "player_name": "Limit Break",
+                    "player_server": None,
+                    "player_id": 999,
+                    "pet_ids": "[1001]",
+                    "role": "Limit Break",
+                }
+            ],
+        ),
+    ],
+)
+def test_encounter_jobs_and_lb(response_data, expected_jobs, expected_limit_break):
+    """Test _encounter_jobs_and_lb function with various scenarios.
+
+    Tests include:
+    - Normal party with no limit break
+    - Party with limit break
+    - Player with blank name (edge case)
+    - Complex case with pets, blank name, and limit break
+    """
+    jobs, limit_break = _encounter_jobs_and_lb(response_data)
+
+    assert jobs == expected_jobs, f"Jobs mismatch: expected {expected_jobs}, got {jobs}"
+    assert (
+        limit_break == expected_limit_break
+    ), f"Limit break mismatch: expected {expected_limit_break}, got {limit_break}"

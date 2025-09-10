@@ -332,8 +332,11 @@ def _encounter_jobs_and_lb(response: dict) -> tuple[list[dict], list[dict]]:
             pet_ids = json.dumps([y["id"] for y in x["pets"]])
         else:
             pet_ids = None
+
+        if x["name"] == "":
+            pass
         # Only add players (not limit break)
-        if x["name"] != "Limit Break":
+        elif x["name"] != "Limit Break":
             jobs.append(
                 {
                     "job": x["icon"],
