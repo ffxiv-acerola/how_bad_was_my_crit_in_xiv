@@ -1,5 +1,5 @@
 ﻿job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
-Dancer,16005,Saber Dance,100,,520,direct,,,,,,,1;0.4
+Dancer,16005,Saber Dance,100,,540,direct,,,,,,,1;0.4
 Dancer,16192,Double Standard Finish,100,,850,direct,,,,,,,1;0.4
 Dancer,15996,Bloodshower,100,,200,direct,,,,,,,
 Dancer,7,Attack,100,,90,auto,,,,,,,
@@ -7,7 +7,7 @@ Dancer,16009,Fan Dance III,100,,220,direct,,,,,,,1;0.5
 Dancer,16196,Quadruple Technical Finish,100,,1300,direct,,,,,,,1;0.4
 Dancer,25792,Starfall Dance,100,,600,direct,,,,,,,1;0.25
 Dancer,16008,Fan Dance II,100,,100,direct,,,,,,,
-Dancer,25791,Fan Dance IV,100,,420,direct,,,,,,,1;0.5
+Dancer,25791,Fan Dance IV,100,,460,direct,,,,,,,1;0.5
 Dancer,15994,Bladeshower,100,,100,direct,37,160,,,,,
 Dancer,15995,Rising Windmill,100,,160,direct,,,,,,,
 Dancer,15993,Windmill,100,,120,direct,,,,,,,
@@ -17,6 +17,6 @@ Dancer,25790,Tillana,100,,600,direct,,,,,,,1;0.4
 Dancer,15990,Fountain,100,,120,direct,57,280,,,,,
 Dancer,15989,Cascade,100,,220,direct,,,,,,,
 Dancer,16007,Fan Dance,100,,180,direct,,,,,,,1;0.4
-Dancer,36983,Last Dance,100,,520,direct,,,,,,,1;0.4
+Dancer,36983,Last Dance,100,,540,direct,,,,,,,1;0.4
 Dancer,36984,Finishing Move,100,,850,direct,,,,,,,1;0.4
 Dancer,36985,Dance of the Dawn,100,,1000,direct,,,,,,,1;0.4

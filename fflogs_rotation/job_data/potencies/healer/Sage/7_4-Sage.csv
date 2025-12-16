@@ -1,6 +1,6 @@
 job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
 Sage,24312,Dosis III,100,,380,direct,,,,,,,
-Sage,1002616,Eukrasian Dosis III (tick),100,,80,magic-dot,,,,,,,
+Sage,1002616,Eukrasian Dosis III (tick),100,,85,magic-dot,,,,,,,
 Sage,24315,Dyskrasia II,100,,170,direct,,,,,,,
 Sage,24316,Toxikon II,100,,380,direct,,,,,,,1;0.5
 Sage,24318,Pneuma,100,,380,direct,,,,,,,1;0.6

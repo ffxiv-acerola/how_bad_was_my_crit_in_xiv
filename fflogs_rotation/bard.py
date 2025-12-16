@@ -54,11 +54,11 @@ class BardActions(BuffQuery):
                     for idx, x in enumerate(range(100, 525, 25))
                 ]
             )
-        # Peri-DT
+        # DT 7.0 to 7.4
         # 20 Gauge -> 120 potency
         # 100 Gauge -> 600 potency
         # 30 potency / 5 gauge
-        elif patch_number >= 7.0:
+        elif (patch_number >= 7.0) & (patch_number < 7.4):
             return pd.DataFrame(
                 [
                     {
@@ -67,6 +67,21 @@ class BardActions(BuffQuery):
                         "aa_potency": x,
                     }
                     for idx, x in enumerate(range(120, 630, 30))
+                ]
+            )
+        # DT 7.4 onwards
+        # 20 Gauge -> 140 potency
+        # 100 Gauge -> 700 potency
+        # 35 potency / 5 gauge
+        elif patch_number >= 7.4:
+            return pd.DataFrame(
+                [
+                    {
+                        "abilityGameID": 16496,
+                        "gauge": f"gauge_{20 + idx * 5}",
+                        "aa_potency": x,
+                    }
+                    for idx, x in enumerate(range(140, 735, 35))
                 ]
             )
         pass

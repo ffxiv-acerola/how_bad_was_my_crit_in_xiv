@@ -7,9 +7,9 @@ Machinist,7411,Heated Split Shot,100,,220,direct,,,,,,,
 Machinist,7412,Heated Slug Shot,100,,140,direct,56,320,,,,,
 Machinist,7413,Heated Clean Shot,100,,160,direct,61,420,,,,,
 Machinist,16497,Auto Crossbow,100,,200,direct,,,,,,,
-Machinist,16498,Drill,100,,620,direct,,,,,,,
+Machinist,16498,Drill,100,,660,direct,,,,,,,
 Machinist,16499,Bioblaster,100,,50,direct,,,,,,,
-Machinist,16500,Air Anchor,100,,620,direct,,,,,,,
+Machinist,16500,Air Anchor,100,,660,direct,,,,,,,
 Machinist,16503,Pile Bunker (Pet),100,gauge_50,340,pet,,,,,,,
 Machinist,16503,Pile Bunker (Pet),100,gauge_60,408,pet,,,,,,,
 Machinist,16503,Pile Bunker (Pet),100,gauge_70,476,pet,,,,,,,
@@ -35,7 +35,7 @@ Machinist,25787,Crowned Collider (Pet),100,gauge_70,546,pet,,,,,,,
 Machinist,25787,Crowned Collider (Pet),100,gauge_80,624,pet,,,,,,,
 Machinist,25787,Crowned Collider (Pet),100,gauge_90,702,pet,,,,,,,
 Machinist,25787,Crowned Collider (Pet),100,gauge_100,780,pet,,,,,,,
-Machinist,25788,Chain Saw,100,,620,direct,,,,,,,1;0.75
+Machinist,25788,Chain Saw,100,,660,direct,,,,,,,1;0.75
 Machinist,1000861,Wildfire (tick),100,wildfire_1,240,physical-dot,,,,,,,
 Machinist,1000861,Wildfire (tick),100,wildfire_2,480,physical-dot,,,,,,,
 Machinist,1000861,Wildfire (tick),100,wildfire_3,720,physical-dot,,,,,,,
@@ -46,6 +46,6 @@ Machinist,1001205,Flamethrower (tick),100,,120,physical-dot,,,,,,,
 Machinist,1001866,Bioblaster (tick),100,,50,physical-dot,,,,,,,
 Machinist,36979,Double Check,100,,180,direct,,,,,,,1;0.7
 Machinist,36980,Checkmate,100,,180,direct,,,,,,,1;0.7
-Machinist,36981,Excavator,100,,620,direct,,,,,,,1;0.75
+Machinist,36981,Excavator,100,,660,direct,,,,,,,1;0.75
 Machinist,36982,Full Metal Field,100,,900,direct,,,,,,,1;0.75
 Machinist,36978,Blazing Shot,100,,260,direct,,,,,,,
