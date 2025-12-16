@@ -33,4 +33,6 @@ tincture_strengths = {
     "Grade 2 Gemdraught [HQ]": 392,
     "Grade 3 Gemdraught": 368,
     "Grade 3 Gemdraught [HQ]": 461,
+    "Grade 4 Gemdraught": 432,
+    "Grade 4 Gemdraught [HQ]": 541,
 }
