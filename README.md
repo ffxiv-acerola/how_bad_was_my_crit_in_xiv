@@ -5,7 +5,7 @@ Source code for howbadwasmycritinxiv.com
 
 The site uses:
 
-- poetry: Python virtual environment
+- uv: venv/dep management
 - gunicorn: WSGI server
 - supervisor [optional]: Process control
 - Nginx [optional]: HTTP web server
@@ -64,3 +64,43 @@ gunicorn -w $CRIT_APP_WORKERS -b 0.0.0.0:8001 crit_app.errors_app:error_server
 accessible via http://localhost:8001/errors.
 
 If desired, see the wiki for more info on creating a local server.
+
+## New patch checklist
+
+### Update versions
+
+- new branch, `patch-{major}-{minor}`
+- update `pyproject.toml` version to equal patch version. 
+
+### New potencies
+
+- Run `./fflogs_rotation/job_data/potencies/new_patch_copy.py` to create new potencies. Don't forget
+to update the patch number parameters.
+- Update patch-level potencies when they are available.
+- Run `./fflogs_rotation/job_data/potencies/create_potencies.py` to create the master potency.csv.
+
+### New encounters/patch info
+
+Yeah some of this is duplicated but it works.
+
+- `./crit_app/job_data/encounter_data.py`
+    - [All patches] Add new `valid_encounters`.
+    - [All patches] Map `encounter_level`.
+    - [Optional] `encounter_phases`, usually add later.
+    - [All patches] Add new record to `patch_times` entry (UTC, ms).
+    - [All patches] Add new record to `encounter_information`.
+        - [Even patch] New relevant patch entry.
+
+- `./fflogs_rotation/job_data/data.py`  
+    - [All patches] Update `patch_times` and `balance_patches`.
+
+- `./fflogs_rotation/job_data/tinctures.py`
+    - [Even patch] Add any new tinctures.
+
+- `./fflogs_rotation/encounter_specifics.py`
+    - [Optional] Handle any encounter specific considerations, usually excluding enemy damage.
+    Usually have to wait to see what these are, after polling and lots of complaining.
+
+- `./fflogs_rotation/`
+    - [Optional] Any job/battle system changes
+

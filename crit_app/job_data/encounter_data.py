@@ -11,7 +11,11 @@ valid_encounters = [
     97,
     98,
     99,
-    100,
+    100, # Start Heavyweight
+    101,
+    102,
+    103,
+    104,
     1069,
     1070,
     1072,
@@ -19,9 +23,11 @@ valid_encounters = [
     1078,
     1079,
     1080,
+    1082,
     3009,  # Byakko
     3010,
-    3011,
+    3011,  # Seiryu
+    3012,  # Tsukuyomi
 ]
 valid_encounter_text = ""
 
@@ -39,6 +45,10 @@ encounter_level = {
     98: 100,
     99: 100,
     100: 100,
+    101: 100,
+    102: 100,
+    103: 100,
+    104: 100,
     1069: 90,
     1070: 90,
     # 1077: 90,
@@ -47,9 +57,12 @@ encounter_level = {
     1078: 100,
     1079: 100,
     1080: 100,
+    1082: 100,
+    1083: 100,
     3009: 100,  # Byakko
     3010: 100,
     3011: 100,
+    3012: 100,
 }
 
 encounter_phases = {
@@ -112,7 +125,8 @@ patch_times = {
     7.1: {"start": 1731427200000, "end": 1742882399999},
     7.2: {"start": 1742882400000, "end": 1748321999999},
     7.25: {"start": 1748322000000, "end": 1754348399999},
-    7.3: {"start": 1754348400000, "end": 1848322000000},
+    7.3: {"start": 1754348400000, "end": 1765871999999},
+    7.4: {"start": 1765872000000, "end": 1865872000000},
 }
 
 # IMPORTANT: Korean and Chinese servers roll all global minor patch potency changes with the main patch
@@ -140,7 +154,8 @@ patch_times_ko = {
     7.05: {"start": 1736834400000, "end": 1742273999999},
     7.1: {"start": 1742274000000, "end": 1752566399999},  # No 7.15 changes
     7.25: {"start": 1752566400000, "end": 1761638399999},
-    7.3: {"start": 1761638400000, "end": 2742274000000},
+    7.3: {"start": 1761638400000, "end": 1765871999999},
+    7.4: {"start": 1765872000000, "end": 1865872000000},
 }
 
 stat_ranges = {
@@ -246,6 +261,34 @@ encounter_information = [
         "relevant_patch": "7.2 - 7.3",
     },
     {
+        "encounter_id": 101,
+        "encounter_name": "Vamp Fatale",
+        "encounter_short_name": "m9s",
+        "content_type": "Raid",
+        "relevant_patch": "7.4 - 7.5",
+    },
+        {
+        "encounter_id": 102,
+        "encounter_name": "Red Hot + Deep Blue",
+        "encounter_short_name": "m10s",
+        "content_type": "Raid",
+        "relevant_patch": "7.4 - 7.5",
+    },
+        {
+        "encounter_id": 103,
+        "encounter_name": "The Tyrant",
+        "encounter_short_name": "m11s",
+        "content_type": "Raid",
+        "relevant_patch": "7.4 - 7.5",
+    },
+        {
+        "encounter_id": 104,
+        "encounter_name": "Lindwurm",
+        "encounter_short_name": "m12s",
+        "content_type": "Raid",
+        "relevant_patch": "7.4 - 7.5",
+    },    
+    {
         "encounter_id": 1069,
         "encounter_name": "Golbez",
         "encounter_short_name": "DT EX6",
@@ -295,6 +338,13 @@ encounter_information = [
         "relevant_patch": "7.2 - 7.3",
     },
     {
+        "encounter_id": 1083,
+        "encounter_name": "The Doomtrain",
+        "encounter_short_name": "DT EX6",
+        "content_type": "Extreme",
+        "relevant_patch": "7.4 - 7.5",
+    },
+    {
         "encounter_id": 3009,
         "encounter_name": "Byakko",
         "encounter_short_name": "Byakko",
@@ -315,6 +365,13 @@ encounter_information = [
         "content_type": "Unreal",
         "relevant_patch": "7.2 - 7.3",
     },
+    {
+        "encounter_id": 3012,
+        "encounter_name": "Tsukuyomi",
+        "encounter_short_name": "Tsukuyomi",
+        "content_type": "Unreal",
+        "relevant_patch": "7.4 - 7.5",
+    },    
 ]
 
 world_to_region = {
