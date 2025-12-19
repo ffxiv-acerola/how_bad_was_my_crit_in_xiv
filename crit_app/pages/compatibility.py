@@ -46,6 +46,13 @@ data = [
     },
     {
         "Expansion": "Dawntrail",
+        "Category": "Savage",
+        "Content": "Arcadion: Heavyweight",
+        "Supported": "✔",
+        "order": 2,
+    },
+    {
+        "Expansion": "Dawntrail",
         "Category": "Extreme trials",
         "Content": "EX1",
         "Supported": "✔",
@@ -71,6 +78,20 @@ data = [
         "Content": "EX4",
         "Supported": "✔",
         "order": 3,
+    },
+    {
+        "Expansion": "Dawntrail",
+        "Category": "Extreme trials",
+        "Content": "EX5",
+        "Supported": "✔",
+        "order": 4,
+    },
+    {
+        "Expansion": "Dawntrail",
+        "Category": "Extreme trials",
+        "Content": "EX6",
+        "Supported": "✔",
+        "order": 5,
     },
     {
         "Expansion": "Endwalker",

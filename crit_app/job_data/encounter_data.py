@@ -11,7 +11,7 @@ valid_encounters = [
     97,
     98,
     99,
-    100, # Start Heavyweight
+    100,  # Start Heavyweight
     101,
     102,
     103,
@@ -24,6 +24,7 @@ valid_encounters = [
     1079,
     1080,
     1082,
+    1083,
     3009,  # Byakko
     3010,
     3011,  # Seiryu
@@ -267,27 +268,27 @@ encounter_information = [
         "content_type": "Raid",
         "relevant_patch": "7.4 - 7.5",
     },
-        {
+    {
         "encounter_id": 102,
         "encounter_name": "Red Hot + Deep Blue",
         "encounter_short_name": "m10s",
         "content_type": "Raid",
         "relevant_patch": "7.4 - 7.5",
     },
-        {
+    {
         "encounter_id": 103,
         "encounter_name": "The Tyrant",
         "encounter_short_name": "m11s",
         "content_type": "Raid",
         "relevant_patch": "7.4 - 7.5",
     },
-        {
+    {
         "encounter_id": 104,
         "encounter_name": "Lindwurm",
         "encounter_short_name": "m12s",
         "content_type": "Raid",
         "relevant_patch": "7.4 - 7.5",
-    },    
+    },
     {
         "encounter_id": 1069,
         "encounter_name": "Golbez",
@@ -371,7 +372,7 @@ encounter_information = [
         "encounter_short_name": "Tsukuyomi",
         "content_type": "Unreal",
         "relevant_patch": "7.4 - 7.5",
-    },    
+    },
 ]
 
 world_to_region = {
