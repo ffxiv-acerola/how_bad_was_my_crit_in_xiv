@@ -141,8 +141,14 @@ patch_times_cn = {
     7.01: {"start": 1729555200000, "end": 1731369599999},
     7.05: {"start": 1731369600000, "end": 1731369599999},
     7.1: {"start": 1739836800000, "end": 1750748399999},
-    7.25: {"start": 1750748400000, "end": 2754981999999},
+    7.25: {"start": 1750748400000, "end": 1758005999999},
+    7.3: {"start": 1758006000000, "end": 1765871999999},
 }
+
+# As of 7.4, CN has caught up with global
+for patch, val in patch_times.items():
+    if patch >= 7.4:
+        patch_times_cn[patch] = val
 
 # https://namu.wiki/w/%ED%8C%8C%EC%9D%B4%EB%84%90%20%ED%8C%90%ED%83%80%EC%A7%80%20XIV:%20%ED%9A%A8%EC%9B%94%EC%9D%98%20%EC%A2%85%EC%96%B8
 # https://namu.wiki/w/%ED%8C%8C%EC%9D%B4%EB%84%90%20%ED%8C%90%ED%83%80%EC%A7%80%20XIV:%20%ED%99%A9%EA%B8%88%EC%9D%98%20%EC%9C%A0%EC%82%B0#s-5
@@ -156,8 +162,17 @@ patch_times_ko = {
     7.1: {"start": 1742274000000, "end": 1752566399999},  # No 7.15 changes
     7.25: {"start": 1752566400000, "end": 1761638399999},
     7.3: {"start": 1761638400000, "end": 1765871999999},
-    7.4: {"start": 1765872000000, "end": 1865872000000},
+    7.4: {
+        "start": 1770105600000,
+        "end": 1865872000000,
+    },  # TODO: fill in end time when 7.5 is announced
 }
+
+# As of 7.5, KO has caught up with global
+for patch, val in patch_times.items():
+    if patch >= 7.5:
+        patch_times_ko[patch] = val
+
 
 stat_ranges = {
     "main_stat": {"lower": 3200, "upper": 6700},
