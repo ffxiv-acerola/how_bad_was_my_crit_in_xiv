@@ -1,6 +1,6 @@
 job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
 Ninja,2255,Aeolian Edge,100,,220,direct,45,400,21,280,52,460,
-Ninja,2255,Aeolian Edge,100,kazematoi,320,direct,45,500,21,380,52,560,
+Ninja,2255,Aeolian Edge,100,kazematoi,320,direct,36,500,15,380,42,560,
 Ninja,17415,Aeolian Edge (Pet),100,,160,pet,,,,,,,
 Ninja,3563,Armor Crush,100,,240,direct,45,440,20,300,52,500,
 Ninja,17417,Armor Crush (Pet),100,,160,pet,,,,,,,
