@@ -1,0 +1,21 @@
+job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
+BlackMage,141,Fire,100,,180,direct,,,,,,,
+BlackMage,152,Fire III,100,,290,direct,,,,,,,
+BlackMage,3577,Fire IV,100,,300,direct,,,,,,,
+BlackMage,25794,High Fire II,100,,100,direct,,,,,,,
+BlackMage,16507,Xenoglossy,100,,890,direct,,,,,,,
+BlackMage,16505,Despair,100,,350,direct,,,,,,,
+BlackMage,25797,Paradox,100,,540,direct,,,,,,,
+BlackMage,142,Blizzard,100,,180,direct,,,,,,,
+BlackMage,154,Blizzard III,100,,290,direct,,,,,,,
+BlackMage,3576,Blizzard IV,100,,300,direct,,,,,,,
+BlackMage,25795,High Blizzard II,100,,100,direct,,,,,,,
+BlackMage,159,Freeze,100,,120,direct,,,,,,,
+BlackMage,156,Scathe,100,,100,direct,,,,,,,
+BlackMage,162,Flare,100,,240,direct,,,,,,,1;0.7
+BlackMage,7422,Foul,100,,600,direct,,,,,,,1;0.75
+BlackMage,36989,Flare Star,100,,500,direct,,,,,,,1;0.35
+BlackMage,36986,High Thunder,100,,150,direct,,,,,,,
+BlackMage,1003871,High Thunder (tick),100,,60,magic-dot,,,,,,,
+BlackMage,36987,High Thunder II,100,,100,direct,,,,,,,
+BlackMage,1003872,High Thunder (tick),100,,40,magic-dot,,,,,,,

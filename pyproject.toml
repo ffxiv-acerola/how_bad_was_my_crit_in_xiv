@@ -1,6 +1,6 @@
 [project]
 name = "how-bad-was-my-crit-in-xiv"
-version = "7.4.3"
+version = "7.41.0"
 description = ""
 authors = [
     {name = "acerola", email = "ffxivacerola@gmail.com"},
