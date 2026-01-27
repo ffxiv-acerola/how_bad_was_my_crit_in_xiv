@@ -129,7 +129,8 @@ patch_times = {
     7.2: {"start": 1742882400000, "end": 1748321999999},
     7.25: {"start": 1748322000000, "end": 1754348399999},
     7.3: {"start": 1754348400000, "end": 1765871999999},
-    7.4: {"start": 1765872000000, "end": 1865872000000},
+    7.4: {"start": 1765872000000, "end": 1765871999999},
+    7.41: {"start": 1769490000000, "end": 1865872000000},
 }
 
 # IMPORTANT: Korean and Chinese servers roll all global minor patch potency changes with the main patch

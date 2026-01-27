@@ -70,7 +70,7 @@ If desired, see the wiki for more info on creating a local server.
 ### Update versions
 
 - new branch, `patch-{major}-{minor}`
-- update `pyproject.toml` version to equal patch version. 
+- update `pyproject.toml` version to equal patch version.
 
 ### New potencies
 
@@ -91,7 +91,7 @@ Yeah some of this is duplicated but it works.
     - [All patches] Add new record to `encounter_information`.
         - [Even patch] New relevant patch entry.
 
-- `./fflogs_rotation/job_data/data.py`  
+- `./fflogs_rotation/job_data/game_data.py`
     - [All patches] Update `patch_times` and `balance_patches`.
 
 - `./fflogs_rotation/job_data/tinctures.py`
@@ -103,4 +103,3 @@ Yeah some of this is duplicated but it works.
 
 - `./fflogs_rotation/`
     - [Optional] Any job/battle system changes
-
