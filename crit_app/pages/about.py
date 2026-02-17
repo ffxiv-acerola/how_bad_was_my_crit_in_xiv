@@ -25,7 +25,8 @@ about_layout = html.Div(
         ),
         html.P(
             "Most aspects of the battle system are also accounted for, "
-            "including damage buffs, hit type buffs (including how they "
+            "including potency falloff from multi-hit damage, "
+            "damage buffs, hit type buffs (including how they "
             "interact with guaranteed hit types, i.e. Chain Stratagem + "
             "Midare Setsugekka), and pet potency."
         ),
