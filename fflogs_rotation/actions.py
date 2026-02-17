@@ -500,7 +500,9 @@ class ActionTable(BuffQuery):
 
     def _get_downtime(self, response: dict) -> int:
         """Extracts downtime from the response, returning 0 if not present."""
-        return response["table"]["data"].get("downtime", 0)
+        data = response.get("table", {}).get("data", {})
+        # Some FFLogs responses use `damageDowntime` instead of `downtime`.
+        return data.get("downtime", data.get("damageDowntime", 0))
 
     def _query_damage_events(self, headers: dict[str, str]) -> None:
         """
