@@ -24,6 +24,7 @@ valid_encounters = [
     1078,
     1079,
     1080,
+    1081,
     1082,
     1083,
     3009,  # Byakko
@@ -60,6 +61,7 @@ encounter_level = {
     1078: 100,
     1079: 100,
     1080: 100,
+    1081: 100,
     1082: 100,
     1083: 100,
     3009: 100,  # Byakko
@@ -117,7 +119,7 @@ boss_hp = {
 
 # FFlogs periodically excludes damage to certain enemies
 # Find them by their game ID
-excluded_enemy_game_ids = {1079: [17828], 99: [18308]}
+excluded_enemy_game_ids = {1079: [17828], 99: [18308], 1081: [18701]}
 
 patch_times = {
     6.4: {"start": 1684836000000, "end": 1696327199999},
