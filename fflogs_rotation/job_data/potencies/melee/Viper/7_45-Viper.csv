@@ -1,0 +1,58 @@
+﻿job,ability_id,ability_name,level,buff_id,base_potency,damage_type,combo_bonus,combo_potency,positional_bonus,positional_potency,combo_positional_bonus,combo_positional_potency,potency_falloff
+Viper,7,Attack,100,,90,auto,,,,,,,
+Viper,34619,Bloodied Maw,100,,180,direct,,,,,,,
+Viper,34619,Bloodied Maw,100,1003650,220,direct,,,,,,,
+Viper,34634,Death Rattle,100,,280,direct,,,,,,,
+Viper,34607,Reaving Fangs,100,,200,direct,,,,,,,
+Viper,34607,Reaving Fangs,100,1003772,300,direct,,,,,,,
+Viper,34627,First Generation,100,,480,direct,,,,,,,1;0.2
+Viper,34627,First Generation,100,combo,680,direct,,,,,,,1;0.2
+Viper,34640,First Legacy,100,,320,direct,,,,,,,1;0.2
+Viper,34611,Flanksbane Fang,100,,340,direct,40,440,60,400,48,500,
+Viper,34610,Flanksting Strike,100,,340,direct,40,440,60,400,48,500,
+Viper,34630,Fourth Generation,100,,480,direct,,,,,,,1;0.2
+Viper,34630,Fourth Generation,100,combo,680,direct,,,,,,,1;0.2
+Viper,34643,Fourth Legacy,100,,320,direct,,,,,,,1;0.2
+Viper,34613,Hindsbane Fang,100,,340,direct,40,440,60,400,48,500,
+Viper,34612,Hindsting Strike,100,,340,direct,40,440,60,400,48,500,
+Viper,34616,Hunter's Bite,100,,180,direct,,,,,,,
+Viper,34621,Hunter's Coil,100,,570,direct,,,8,620,,,
+Viper,34624,Hunter's Den,100,,300,direct,,,,,,,
+Viper,34608,Hunter's Sting,100,,300,direct,,,,,,,
+Viper,34618,Jagged Maw,100,,180,direct,,,,,,,
+Viper,34618,Jagged Maw,100,1003649,220,direct,,,,,,,
+Viper,34635,Last Lash,100,,120,direct,,,,,,,
+Viper,34631,Ouroboros,100,,1150,direct,,,,,,,1;0.2
+Viper,34626,Reawaken,100,,750,direct,,,,,,,1;0.2
+Viper,34628,Second Generation,100,,480,direct,,,,,,,1;0.2
+Viper,34628,Second Generation,100,combo,680,direct,,,,,,,1;0.2
+Viper,34641,Second Legacy,100,,320,direct,,,,,,,1;0.2
+Viper,34606,Steel Fangs,100,1003672,300,direct,,,,,,,
+Viper,34606,Steel Fangs,100,,200,direct,,,,,,,
+Viper,34614,Steel Maw,100,1003672,140,direct,,,,,,,
+Viper,34614,Steel Maw,100,,120,direct,,,,,,,
+Viper,34617,Swiftskin's Bite,100,,180,direct,,,,,,,
+Viper,34622,Swiftskin's Coil,100,,570,direct,,,8,620,,,
+Viper,34625,Swiftskin's Den,100,,300,direct,,,,,,,
+Viper,34609,Swiftskin's Sting,100,,300,direct,,,,,,,
+Viper,34629,Third Generation,100,,480,direct,,,,,,,1;0.2
+Viper,34629,Third Generation,100,combo,680,direct,,,,,,,1;0.2
+Viper,34642,Third Legacy,100,,320,direct,,,,,,,1;0.2
+Viper,34637,Twinblood Bite,100,,120,direct,,,,,,,
+Viper,34637,Twinblood Bite,100,1003658,170,direct,,,,,,,
+Viper,34639,Twinblood Thresh,100,,50,direct,,,,,,,
+Viper,34639,Twinblood Thresh,100,1003659,80,direct,,,,,,,
+Viper,34636,Twinfang Bite,100,,120,direct,,,,,,,
+Viper,34636,Twinfang Bite,100,1003657,170,direct,,,,,,,
+Viper,34638,Twinfang Thresh,100,,50,direct,,,,,,,
+Viper,34638,Twinfang Thresh,100,1003659,80,direct,,,,,,,
+Viper,34633,Uncoiled Fury,100,,680,direct,,,,,,,1;0.25
+Viper,34645,Uncoiled Twinblood,100,,120,direct,,,,,,,1;0.25
+Viper,34645,Uncoiled Twinblood,100,1003666,170,direct,,,,,,,1;0.25
+Viper,34644,Uncoiled Twinfang,100,,120,direct,,,,,,,1;0.25
+Viper,34644,Uncoiled Twinfang,100,1003665,170,direct,,,,,,,1;0.25
+Viper,34632,Writhing Snap,100,,200,direct,,,,,,,
+Viper,34623,Vicepit,100,,250,direct,,,,,,,
+Viper,34620,Vicewinder,100,,500,direct,,,,,,,
+Viper,34615,Reaving Maw,100,,120,direct,,,,,,,
+Viper,34615,Reaving Maw,100,1003772,140,direct,,,,,,,

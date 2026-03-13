@@ -13,8 +13,8 @@ if __name__ == "__main__":
     job_csv_path = Path("fflogs_rotation/job_data/potencies")
     potency_path = Path("fflogs_rotation/job_data")
 
-    new_patch = "7_41"
-    reference_patch = "7_4"
+    new_patch = "7_45"
+    reference_patch = "7_41"
     overwrite = False
 
     potency_df_list = []
