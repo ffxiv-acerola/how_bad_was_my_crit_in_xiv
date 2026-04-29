@@ -27,10 +27,12 @@ valid_encounters = [
     1081,
     1082,
     1083,
+    1084,
     3009,  # Byakko
     3010,
     3011,  # Seiryu
     3012,  # Tsukuyomi
+    3013,  # Shinryu
 ]
 valid_encounter_text = ""
 
@@ -64,10 +66,12 @@ encounter_level = {
     1081: 100,
     1082: 100,
     1083: 100,
+    1084: 100,
     3009: 100,  # Byakko
     3010: 100,
     3011: 100,
     3012: 100,
+    3013: 100,
 }
 
 encounter_phases = {
@@ -132,8 +136,9 @@ patch_times = {
     7.25: {"start": 1748322000000, "end": 1754348399999},
     7.3: {"start": 1754348400000, "end": 1765871999999},
     7.4: {"start": 1765872000000, "end": 1769489999999},
-    7.41: {"start": 1769490000000, "end": 1772600399999},
-    7.45: {"start": 1772600400000, "end": 1865872000000},
+    7.41: {"start": 1769490000000, "end": 1772521199999},
+    7.45: {"start": 1772521200000, "end": 1777442399999},
+    7.5: {"start": 1777442400000, "end": 2877442400000},
 }
 
 # IMPORTANT: Korean and Chinese servers roll all global minor patch potency changes with the main patch
@@ -170,10 +175,8 @@ patch_times_ko = {
     7.3: {"start": 1761638400000, "end": 1765871999999},
     7.4: {
         "start": 1770105600000,
-        "end": 1773734399999,
+        "end": 1777442399999,
     },
-    7.48: {"start": 1773734400000, "end": 1873734400000},
-    # TODO: fill in end time when 7.5 is announced
 }
 
 # As of 7.5, KO has caught up with global
