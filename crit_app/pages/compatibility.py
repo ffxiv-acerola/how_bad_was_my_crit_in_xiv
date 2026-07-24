@@ -32,6 +32,13 @@ data = [
     },
     {
         "Expansion": "Dawntrail",
+        "Category": "Ultimates",
+        "Content": "DMU",
+        "Supported": "✔",
+        "order": 1,
+    },
+    {
+        "Expansion": "Dawntrail",
         "Category": "Savage",
         "Content": "Arcadion: Light-heavyweight",
         "Supported": "✔",

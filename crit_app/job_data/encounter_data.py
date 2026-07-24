@@ -28,6 +28,7 @@ valid_encounters = [
     1082,
     1083,
     1084,
+    1085,  # DMU
     3009,  # Byakko
     3010,
     3011,  # Seiryu
@@ -67,6 +68,7 @@ encounter_level = {
     1082: 100,
     1083: 100,
     1084: 100,
+    1085: 100,
     3009: 100,  # Byakko
     3010: 100,
     3011: 100,
@@ -376,6 +378,13 @@ encounter_information = [
         "encounter_name": "The Doomtrain",
         "encounter_short_name": "DT EX6",
         "content_type": "Extreme",
+        "relevant_patch": "7.4 - 7.5",
+    },
+    {
+        "encounter_id": 1085,
+        "encounter_name": "Dancing Mad",
+        "encounter_short_name": "DMU",
+        "content_type": "Ultimate",
         "relevant_patch": "7.4 - 7.5",
     },
     {
