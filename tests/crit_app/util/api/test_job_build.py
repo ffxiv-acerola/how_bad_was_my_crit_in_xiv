@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -143,6 +144,54 @@ def test_extract_xiv_gear_set(input_path, expected_build):
 
     extracted_build = _extract_xiv_gear_set(xiv_gear_response)
     assert extracted_build == expected_build
+
+
+def load_xivgear_response(response_index: int) -> dict:
+    response_path = Path(__file__).parents[4] / "test-responses.json"
+    responses = [json.loads(response) for response in response_path.read_text().split("---") if response.strip()]
+    return responses[response_index]
+
+
+def test_xiv_gear_build_derives_stats_from_job():
+    response = load_xivgear_response(0)
+
+    with patch(
+        "crit_app.util.api.job_build._query_xiv_gear_sets",
+        return_value=("", response["sets"]),
+    ):
+        result = xiv_gear_build(xiv_gear_url_1)
+
+    assert result[0:5] == (True, "", False, True, False)
+    assert result[6:14] == (
+        "Physical Ranged",
+        6513,
+        2347,
+        420,
+        3549,
+        2197,
+        158,
+        "None",
+    )
+
+
+def test_xiv_gear_build_filters_separator_sets():
+    response = load_xivgear_response(1)
+
+    with patch(
+        "crit_app.util.api.job_build._query_xiv_gear_sets",
+        return_value=("", response["sets"]),
+    ):
+        result = xiv_gear_build(xiv_gear_url_2)
+
+    gear_sheet_store_data = result[14]
+    assert result[0:5] == (True, "", False, True, False)
+    assert result[6] == "Magical Ranged"
+    assert result[7:14] == (None, None, None, None, None, None, None)
+    assert gear_sheet_store_data["gear_index"] == -1
+    assert len(gear_sheet_store_data["data"]) == 9
+    assert all(build[1] != "2.50 Sets" for build in gear_sheet_store_data["data"])
+    assert all(build[1] != "2.49 Sets" for build in gear_sheet_store_data["data"])
+    assert all(build[1] != "2.48 Sets" for build in gear_sheet_store_data["data"])
 
 
 @pytest.mark.parametrize(

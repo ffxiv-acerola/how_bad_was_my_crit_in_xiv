@@ -6,6 +6,8 @@ import coreapi
 import requests
 from dash import html
 
+from crit_app.job_data.roles import role_mapping, unabbreviated_job_map
+
 ETRO_JOB_STATS = {
     "WHM": ("Healer", "MND", "SPS"),
     "AST": ("Healer", "MND", "SPS"),
@@ -28,6 +30,30 @@ ETRO_JOB_STATS = {
     "BRD": ("Physical Ranged", "DEX", "SKS"),
     "DNC": ("Physical Ranged", "DEX", "SKS"),
     "MCH": ("Physical Ranged", "DEX", "SKS"),
+}
+
+XIVGEAR_JOB_STATS = {
+    "WHM": {"main_stat": "mind", "speed_stat": "spellspeed"},
+    "AST": {"main_stat": "mind", "speed_stat": "spellspeed"},
+    "SGE": {"main_stat": "mind", "speed_stat": "spellspeed"},
+    "SCH": {"main_stat": "mind", "speed_stat": "spellspeed"},
+    "WAR": {"main_stat": "strength", "speed_stat": "skillspeed"},
+    "PLD": {"main_stat": "strength", "speed_stat": "skillspeed"},
+    "DRK": {"main_stat": "strength", "speed_stat": "skillspeed"},
+    "GNB": {"main_stat": "strength", "speed_stat": "skillspeed"},
+    "BLM": {"main_stat": "intelligence", "speed_stat": "spellspeed"},
+    "SMN": {"main_stat": "intelligence", "speed_stat": "spellspeed"},
+    "RDM": {"main_stat": "intelligence", "speed_stat": "spellspeed"},
+    "PCT": {"main_stat": "intelligence", "speed_stat": "spellspeed"},
+    "MNK": {"main_stat": "strength", "speed_stat": "skillspeed"},
+    "DRG": {"main_stat": "strength", "speed_stat": "skillspeed"},
+    "SAM": {"main_stat": "strength", "speed_stat": "skillspeed"},
+    "RPR": {"main_stat": "strength", "speed_stat": "skillspeed"},
+    "NIN": {"main_stat": "dexterity", "speed_stat": "skillspeed"},
+    "VPR": {"main_stat": "dexterity", "speed_stat": "skillspeed"},
+    "BRD": {"main_stat": "dexterity", "speed_stat": "skillspeed"},
+    "DNC": {"main_stat": "dexterity", "speed_stat": "skillspeed"},
+    "MCH": {"main_stat": "dexterity", "speed_stat": "skillspeed"},
 }
 
 ERROR_CODE_MAP = {
@@ -317,10 +343,6 @@ def _extract_xiv_gear_set(
             - Weapon damage
             - Tenacity
     """
-    XIV_GEAR_ROLE_MAP = {
-        "Caster": "Magical Ranged",
-        "Ranged": "Physical Ranged",
-    }
 
     WD_SELECT = {
         "Magical Ranged": "wdMag",
@@ -331,28 +353,22 @@ def _extract_xiv_gear_set(
     }
 
     job_abbreviated = gear_set["computedStats"]["job"]
-    build_role = gear_set["computedStats"]["jobStats"]["role"]
-    build_role = XIV_GEAR_ROLE_MAP.get(build_role, build_role)
-    main_stat_str = gear_set["computedStats"]["jobStats"]["mainStat"]
+    build_role = role_mapping.get(unabbreviated_job_map.get(job_abbreviated.lower()))
 
-    # Determine the relevant speed stat (either "skillspeed" or "spellspeed")
-    irrelevant_substats = set(
-        gear_set["computedStats"]["jobStats"]["irrelevantSubstats"]
-    )
-    speed_stat = ({"skillspeed", "spellspeed"} - irrelevant_substats).pop()
-
-    if "tenacity" in irrelevant_substats:
+    if build_role != "Tank":
         tenacity = "None"
     else:
         tenacity = gear_set["computedStats"]["tenacity"]
 
     # Rest of the stats are simple dictionary calls
     build_name = gear_set["name"]
-    primary_stat = gear_set["computedStats"][main_stat_str]
+    primary_stat = gear_set["computedStats"][
+        XIVGEAR_JOB_STATS[job_abbreviated]["main_stat"]
+    ]
     dh = gear_set["computedStats"]["dhit"]
     ch = gear_set["computedStats"]["crit"]
     determination = gear_set["computedStats"]["determination"]
-    speed = gear_set["computedStats"][speed_stat]
+    speed = gear_set["computedStats"][XIVGEAR_JOB_STATS[job_abbreviated]["speed_stat"]]
     wd = gear_set["computedStats"][WD_SELECT[build_role]]
 
     return (
@@ -524,7 +540,7 @@ def xiv_gear_build(
 
     gear_sheet_store_data = {
         "gear_index": gear_idx,
-        "data": [_extract_xiv_gear_set(g) for g in gear_sets],
+        "data": [_extract_xiv_gear_set(g) for g in gear_sets if not g["isSeparator"]],
     }
 
     selected_role = gear_sheet_store_data["data"][0][2]
