@@ -17,15 +17,7 @@
     "wdPhys": 146,
     "wdMag": 146,
     "weaponDelay": 2.96,
-    "job": "PCT",
-    "jobStats": {
-      "role": "Caster",
-      "mainStat": "intelligence",
-      "autoAttackStat": "strength",
-      "irrelevantSubstats": ["skillspeed", "tenacity", "piety"],
-      "aaPotency": 90,
-      "excludedRelicSubstats": [],
-      "maxLevel": 100
-    }
-  }
+    "job": "PCT"
+  },
+  "isSeparator": false
 }
