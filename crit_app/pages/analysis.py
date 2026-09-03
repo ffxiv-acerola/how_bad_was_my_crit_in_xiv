@@ -789,8 +789,8 @@ def process_job_build_url(
 
 
 @callback(
-    Output("xiv-gear-build-selector", "options"),
-    Output("xiv-gear-build-selector", "value"),
+    Output("xiv-gear-select", "options"),
+    Output("xiv-gear-select", "value"),
     Input("xiv-gear-sheet-data", "data"),
 )
 def fill_xiv_gear_build_selector(data):
@@ -816,7 +816,7 @@ def fill_xiv_gear_build_selector(data):
     Output("WD", "value", allow_duplicate=True),
     Output("TEN", "value", allow_duplicate=True),
     Input("xiv-gear-sheet-data", "data"),
-    Input("xiv-gear-build-selector", "value"),
+    Input("xiv-gear-select", "value"),
     prevent_initial_call=True,
 )
 def fill_job_build_via_xiv_gear_select(xiv_gear_sheet_data, index):
