@@ -17,15 +17,7 @@
     "wdPhys": 146,
     "wdMag": 73,
     "weaponDelay": 2.96,
-    "job": "DRK",
-    "jobStats": {
-      "role": "Tank",
-      "mainStat": "strength",
-      "autoAttackStat": "strength",
-      "irrelevantSubstats": ["spellspeed", "piety"],
-      "aaPotency": 90,
-      "excludedRelicSubstats": ["dhit"],
-      "maxLevel": 100
-    }
-  }
+    "job": "DRK"
+  },
+  "isSeparator": false
 }
