@@ -24,6 +24,9 @@ xiv_gear_url_4 = "https://xivgear.app/?page=bis|sch|endwalker|anabaseios"
 xiv_gear_url_5 = "https://invalidapp.com/?page=sl%7Cf9b260a9-650c-445a-b3eb-c56d8d968501&onlySetIndex=1"
 xiv_gear_url_6 = "https://xivgear.app/?page=sl%7Cinvalid-uuid&onlySetIndex=1"
 xiv_gear_url_7 = "https://xivgear.app/?page=sl|ff8e55a8-a598-4bf3-abdd-bb40b66fa908&selectedIndex=3"
+xiv_gear_url_8 = "https://xivgear.app/sl/694df2d1-ee92-4180-b4bb-3bb553ec5111"
+xiv_gear_url_9 = "https://xivgear.app/#/sl/694df2d1-ee92-4180-b4bb-3bb553ec5111"
+xiv_gear_url_10 = "https://share.xivgear.app/share/694df2d1-ee92-4180-b4bb-3bb553ec5111"
 
 
 @pytest.mark.parametrize(
@@ -36,6 +39,9 @@ xiv_gear_url_7 = "https://xivgear.app/?page=sl|ff8e55a8-a598-4bf3-abdd-bb40b66fa
         (xiv_gear_url_5, (ERROR_CODE_MAP[1], None, 0)),
         (xiv_gear_url_6, (ERROR_CODE_MAP[2], None, 1)),
         (xiv_gear_url_7, ("", "ff8e55a8-a598-4bf3-abdd-bb40b66fa908", 3)),
+        (xiv_gear_url_8, ("", "694df2d1-ee92-4180-b4bb-3bb553ec5111", -1)),
+        (xiv_gear_url_9, ("", "694df2d1-ee92-4180-b4bb-3bb553ec5111", -1)),
+        (xiv_gear_url_10, ("", "694df2d1-ee92-4180-b4bb-3bb553ec5111", -1)),
     ],
 )
 def test_parse_and_validate_xiv_gear_url(input_url, expected):
@@ -183,6 +189,9 @@ def test_xiv_gear_build_filters_separator_sets():
         (xiv_gear_url_4, None, ("bis/sch/endwalker/anabaseios", "xivgear.app")),
         (xiv_gear_url_5, None, (None, None)),
         (xiv_gear_url_6, None, (None, None)),
+        (xiv_gear_url_8, None, ("694df2d1-ee92-4180-b4bb-3bb553ec5111", "xivgear.app")),
+        (xiv_gear_url_9, None, ("694df2d1-ee92-4180-b4bb-3bb553ec5111", "xivgear.app")),
+        (xiv_gear_url_10, None, ("694df2d1-ee92-4180-b4bb-3bb553ec5111", "xivgear.app")),
         (
             xiv_gear_url_7,
             None,
@@ -268,6 +277,9 @@ def test_reconstruct_job_build_url(build_id, provider, expected_url):
         ("https://xivgear.app/?page=sl%7Ca8881f6f-9ab3-40cc-9931-7035021a3f1b", (True, "xivgear.app")),
         ("http://xivgear.app/?page=bis%7Csch%7Cendwalker%7Canabaseios", (True, "xivgear.app")),
         ("https://www.xivgear.app/?page=sl|ff8e55a8-a598-4bf3-abdd-bb40b66fa908", (True, "xivgear.app")),
+        (xiv_gear_url_8, (True, "xivgear.app")),
+        (xiv_gear_url_9, (True, "xivgear.app")),
+        (xiv_gear_url_10, (True, "xivgear.app")),
         # Invalid URLs (wrong domain)
         ("https://example.com/gearset/db9c3700-7722-423a-a170-68c221d014b7", (False, INVALID_BUILD_PROVIDER)),
         ("https://etro-fake.gg/gearset/db9c3700", (False, INVALID_BUILD_PROVIDER)),

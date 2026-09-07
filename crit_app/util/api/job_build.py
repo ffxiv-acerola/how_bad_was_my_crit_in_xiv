@@ -272,12 +272,14 @@ def _parse_and_validate_xiv_gear_url(
         parsed_url = urlparse(xiv_gear_url)
         query_params = parse_qs(parsed_url.query)
 
+        # Confirm the URL belongs to xivgear.app or its supported share host.
         if not is_valid_domain(parsed_url.netloc, ["xivgear", "app"]):
             return ERROR_CODE_MAP[1], None, 0
 
-        # Extract the UUID from the 'page' parameter
+        # Extract the build ID from the legacy query parameter or modern routes.
         page_param = query_params.get("page", [None])[0]
         if page_param:
+            # Legacy links use page=sl|<uuid> or page=bis|<job>|<tier>.
             id_candidate = page_param.split("|")
             # There are bis type sets that follow /bis/job/expansion/tier
             if "bis" in id_candidate:
@@ -289,10 +291,38 @@ def _parse_and_validate_xiv_gear_url(
                 uuid_value = None
                 error_message = ERROR_CODE_MAP[2]
         else:
-            uuid_value = None
-            error_message = ERROR_CODE_MAP[3]
+            # Hash links store the route in the URL fragment after '#/'.
+            route = (
+                parsed_url.fragment.lstrip("/").split("/")
+                if parsed_url.fragment
+                else []
+            )
+            path = (
+                parsed_url.path.strip("/").split("/")
+                if parsed_url.path.strip("/")
+                else []
+            )
+            if not route and not path:
+                uuid_value = None
+                error_message = ERROR_CODE_MAP[3]
+            elif route and route == ["sl", route[-1]] and _is_valid_uuid(route[-1]):
+                uuid_value = route[-1]
+            else:
+                # Path links use /sl/<uuid>; share links use /share/<uuid>.
+                if path and path == ["sl", path[-1]] and _is_valid_uuid(path[-1]):
+                    uuid_value = path[-1]
+                elif (
+                    parsed_url.netloc == "share.xivgear.app"
+                    and path
+                    and path == ["share", path[-1]]
+                    and _is_valid_uuid(path[-1])
+                ):
+                    uuid_value = path[-1]
+                else:
+                    uuid_value = None
+                    error_message = ERROR_CODE_MAP[2]
 
-        # Extract the onlySetIndex value
+        # Prefer onlySetIndex, then selectedIndex, or use -1 for no selection.
         set_index = int(
             query_params.get("onlySetIndex", query_params.get("selectedIndex", [-1]))[0]
         )
