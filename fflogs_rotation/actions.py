@@ -439,6 +439,9 @@ class ActionTable(BuffQuery):
 
         fight_dps_time = (fight_end_time - fight_start_time - downtime) / 1000
 
+        if self.ranking_duration and (self.phase == 0):
+            fight_dps_time = (self.ranking_duration - downtime) / 1000
+
         return (
             fight_start_time,
             fight_end_time,
@@ -949,6 +952,7 @@ class ActionTable(BuffQuery):
         longer current content. The strength increases with newer patches:
         - 6.57: 10% damage increase (1.10x)
         - 6.58+: 15% damage increase (1.15x)
+        - 7.56+: 12% damage increase (1.12x)
 
         This method:
         1. Determines Echo strength based on fight timestamp
@@ -968,12 +972,15 @@ class ActionTable(BuffQuery):
         # Patch timestamp constants (Unix ms)
         PATCH_657_START = 1707818400000  # Feb 13, 2024
         PATCH_658_START = 1710849600000  # Mar 19, 2024
+        PATCH_756_START = 1788850800000  # Sep 08, 2026
 
         # Echo buff constants
         ECHO_10_MULT = 1.10
+        ECHO_12_MULT = 1.12
         ECHO_15_MULT = 1.15
         ECHO_10_NAME = "echo10"
         ECHO_15_NAME = "echo15"
+        ECHO_12_NAME = "echo12"
 
         if not hasattr(self, "fight_start_time"):
             raise ValueError("Fight start time must be set before applying Echo")
@@ -987,6 +994,10 @@ class ActionTable(BuffQuery):
         elif self.fight_start_time >= PATCH_658_START:
             echo_strength = ECHO_15_MULT
             echo_buff = ECHO_15_NAME
+
+        elif self.fight_start_time >= PATCH_756_START:
+            echo_strength = ECHO_12_MULT
+            echo_buff = ECHO_12_NAME
 
         self.actions_df["multiplier"] = round(
             self.actions_df["multiplier"] * echo_strength, 6

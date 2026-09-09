@@ -137,7 +137,7 @@ def make_rotation_pdf_figure(
 
 
 def make_rotation_percentile_table(
-    rotation_obj: Any, rotation_percentile: float
+    rotation_obj: Any, rotation_data: dict[str, float]
 ) -> List[dash_table.DataTable]:
     """Make a table showing percentiles and corresponding DPS values for the.
 
@@ -147,11 +147,12 @@ def make_rotation_percentile_table(
 
     Parameters:
         rotation_obj (Any): Rotation object from ffxiv_stats with damage distributions computed.
-        rotation_percentile (float): Percentile of the actual DPS dealt.
+        rotation_data (dict[str, float]): Percentile and exact DPS of the actual rotation.
 
     Returns:
         List[dash_table.DataTable]: A list containing a Dash table.
     """
+    rotation_percentile = rotation_data["Percentile"]
     percentiles = sorted(
         [0.1, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.999] + [rotation_percentile]
     )
@@ -176,6 +177,9 @@ def make_rotation_percentile_table(
             "DPS": support[percentile_idx],
         }
     )
+    rotation_percentile_df.loc[
+        rotation_percentile_df["Percentile"] == rotation_percentile, "DPS"
+    ] = rotation_data["DPS"]
 
     # Modern styling for the table matching analysis_history.py
     style_rotation_percentile = [
