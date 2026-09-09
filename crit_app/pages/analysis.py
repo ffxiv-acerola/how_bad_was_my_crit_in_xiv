@@ -484,7 +484,8 @@ def layout(analysis_id=None):
         )
 
         rotation_percentile_table = make_rotation_percentile_table(
-            job_analysis_data, rotation_percentile
+            job_analysis_data,
+            {"Percentile": rotation_percentile, "DPS": rotation_dps},
         )
 
         ### make action card results

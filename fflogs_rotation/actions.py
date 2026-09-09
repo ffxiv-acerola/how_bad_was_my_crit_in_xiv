@@ -439,6 +439,9 @@ class ActionTable(BuffQuery):
 
         fight_dps_time = (fight_end_time - fight_start_time - downtime) / 1000
 
+        if self.ranking_duration and (self.phase == 0):
+            fight_dps_time = (self.ranking_duration - downtime) / 1000
+
         return (
             fight_start_time,
             fight_end_time,
