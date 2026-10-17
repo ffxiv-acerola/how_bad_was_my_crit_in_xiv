@@ -3,12 +3,10 @@ import dash_bootstrap_components as dbc
 import diskcache
 from dash import Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
-from dash.long_callback import DiskcacheLongCallbackManager
 
 from crit_app.config import DEBUG
 
 cache = diskcache.Cache("./cache")
-long_callback_manager = DiskcacheLongCallbackManager(cache)
 
 app = dash.Dash(
     __name__,
@@ -18,7 +16,6 @@ app = dash.Dash(
         dbc.icons.BOOTSTRAP,
         dbc.icons.FONT_AWESOME,
     ],
-    long_callback_manager=long_callback_manager,
     suppress_callback_exceptions=not DEBUG,  # needed because some callbacks use dynamically generated id's
 )
 

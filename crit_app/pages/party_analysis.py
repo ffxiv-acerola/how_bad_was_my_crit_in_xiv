@@ -937,7 +937,7 @@ def job_progress(job_list, active_job):
     return ["Analysis progress: "] + current_job
 
 
-@app.long_callback(
+@app.callback(
     Output("url", "href", allow_duplicate=True),
     Output("party-analysis-error", "children"),
     Output("analysis-history", "data", allow_duplicate=True),
@@ -959,6 +959,7 @@ def job_progress(job_list, active_job):
     State("fflogs-url2", "value"),
     State("fflogs-party-encounter", "data"),
     State("analysis-history", "data"),
+    background=True,
     running=[(Output("party-compute", "disabled"), True, False)],
     progress=[
         Output("party-progress", "value"),
