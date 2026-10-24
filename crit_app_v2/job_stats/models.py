@@ -4,17 +4,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from crit_app_v2.job_stats.ranges import STAT_RANGES
-
-
-class Role(StrEnum):
-    """The supported FFXIV combat roles for entered job statistics."""
-
-    TANK = "Tank"
-    HEALER = "Healer"
-    MELEE = "Melee"
-    PHYSICAL_RANGED = "Physical Ranged"
-    MAGICAL_RANGED = "Magical Ranged"
+from crit_app_v2.job_stats.roles import Role
+from crit_app_v2.job_stats.stats import STAT_INPUTS, Stats
 
 
 class BuildProvider(StrEnum):
@@ -51,42 +42,27 @@ class JobStatsModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     role: Role
-    main_stat: int = Field(
-        ge=STAT_RANGES["main_stat"].lower,
-        le=STAT_RANGES["main_stat"].upper,
-    )
-    determination: int = Field(
-        ge=STAT_RANGES["determination"].lower,
-        le=STAT_RANGES["determination"].upper,
-    )
-    speed_stat: int = Field(
-        ge=STAT_RANGES["speed_stat"].lower,
-        le=STAT_RANGES["speed_stat"].upper,
-    )
-    critical_hit: int = Field(
-        ge=STAT_RANGES["critical_hit"].lower,
-        le=STAT_RANGES["critical_hit"].upper,
-    )
-    direct_hit: int = Field(
-        ge=STAT_RANGES["direct_hit"].lower,
-        le=STAT_RANGES["direct_hit"].upper,
-    )
-    weapon_damage: int = Field(
-        ge=STAT_RANGES["weapon_damage"].lower,
-        le=STAT_RANGES["weapon_damage"].upper,
-    )
-    tenacity: int | None = Field(
-        default=None,
-        ge=STAT_RANGES["tenacity"].lower,
-        le=STAT_RANGES["tenacity"].upper,
-    )
+    stats: dict[Stats, int]
     build: BuildModel | None = None
 
     @model_validator(mode="after")
-    def validate_tenacity(self) -> "JobStatsModel":
-        """Require Tenacity for Tanks and reject it for every other role."""
-        if self.role is Role.TANK and self.tenacity is None:
-            raise ValueError("Tenacity is required for Tank builds")
-        if self.role is not Role.TANK and self.tenacity is not None:
-            raise ValueError("Tenacity is only valid for Tank builds")
+    def check_ranges(self):
+        for stat, value in self.stats.items():
+            r = STAT_INPUTS[stat]
+            if not r.lower <= value <= r.upper:
+                raise ValueError(f"{stat} must be in {r.placeholder_text()}")
+        return self
+
+    @model_validator(mode="after")
+    def check_required_stats(self) -> "JobStatsModel":
+        expected = set(Stats)
+        if self.role is not Role.TANK:
+            expected.discard(Stats.TENACITY)
+
+        missing = expected - self.stats.keys()
+        extra = self.stats.keys() - expected
+        if missing:
+            raise ValueError(f"Missing stats: {sorted(missing)}")
+        if extra:
+            raise ValueError(f"Stats not valid for {self.role}: {sorted(extra)}")
         return self
