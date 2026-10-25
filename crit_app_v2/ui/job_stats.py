@@ -15,17 +15,25 @@ def _stat_input(
     description: int | None = None,
 ):
     """Create input form based on the role and stat."""
-    return dmc.NumberInput(
+    number_input = dmc.NumberInput(
         value=value,
-        label=stat_input.stat_label(role),
         placeholder=stat_input.placeholder_text(),
-        description=description,
         min=stat_input.lower,
         max=stat_input.upper,
         id=input_id,
         clampBehavior="none",
         allowDecimal=False,
         thousandSeparator=",",
+    )
+
+    return dmc.InputWrapper(
+        id=f"{input_id}-wrapper",
+        label=stat_input.stat_label(role),
+        description=description,
+        error=None,
+        inputWrapperOrder=["label", "description", "error", "input"],
+        withAsterisk=False,
+        children=number_input,
     )
 
 
@@ -77,7 +85,7 @@ def _create_stat_grid(
                             value=speed,
                             stat_input=STAT_INPUTS[Stats.SPEED_STAT],
                             role=selected_role,
-                            input_id="speed-stat-inputStat value, not GCD.",
+                            input_id="speed-stat-input",
                         ),
                         span=stat_input_span,
                     ),
@@ -115,7 +123,7 @@ def _create_stat_grid(
                             role=selected_role,
                             input_id="tenacity-stat-input",
                         ),
-                        id="dmc-bottom-build-row",
+                        id="bottom-build-row",
                         span=stat_input_span,
                         style={
                             "display": "block"
@@ -135,7 +143,7 @@ def _create_stat_grid(
 
 def player_analysis_job_build(
     job_build_url: str | None = None,
-    role: Role | str = Role.HEALER,
+    role: Role = Role.HEALER,
     main_stat: int | None = None,
     tenacity: int | None = None,
     determination: int | None = None,
@@ -167,7 +175,7 @@ def player_analysis_job_build(
                         [
                             dmc.GridCol(
                                 dmc.TextInput(
-                                    id="dmc-job-build-url",
+                                    id="job-build-url",
                                     label="Gearset URL",
                                     value=job_build_url,
                                     placeholder="Enter etro.gg / xivgear.app build URL",
@@ -177,7 +185,7 @@ def player_analysis_job_build(
                             dmc.GridCol(
                                 dmc.Button(
                                     "Submit",
-                                    id="dmc-job-build-url-button",
+                                    id="job-build-url-button",
                                     fullWidth=True,
                                 ),
                                 span={"base": 12, "md": 3},
@@ -187,7 +195,7 @@ def player_analysis_job_build(
                         gutter="md",
                     ),
                     dmc.Select(
-                        id="dmc-role-select",
+                        id="role-select",
                         label="Role",
                         data=ROLE_OPTIONS,
                         value=selected_role.value,
@@ -195,7 +203,7 @@ def player_analysis_job_build(
                         w={"base": "100%", "md": "50%"},
                     ),
                     dmc.Select(
-                        id="dmc-xiv-gear-select",
+                        id="xiv-gear-select",
                         label="Select build",
                         data=[],
                         placeholder="Choose a gearset from this sheet",
@@ -224,7 +232,7 @@ def player_analysis_job_build(
                             ],
                             value="saved-gearsets",
                         ),
-                        id="dmc-saved-gearsets-accordion",
+                        id="saved-gearsets-accordion",
                         variant="separated",
                     ),
                 ],

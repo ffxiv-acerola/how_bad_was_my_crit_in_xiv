@@ -25,11 +25,28 @@ class StatInput:
     upper: int
 
     def placeholder_text(self) -> str:
-        """Formatted placeholder text in dmc.NumberInput."""
+        """Format the inclusive stat range for an input placeholder.
+
+        Returns
+        -------
+        str
+            The range formatted as ``lower - upper``.
+        """
         return f"{self.lower} - {self.upper}"
 
     def stat_label(self, role: Role) -> str:
-        """Resolve stat/role-specific label."""
+        """Return the label for this stat and role.
+
+        Parameters
+        ----------
+        role
+            Role used to resolve role-specific stat labels.
+
+        Returns
+        -------
+        str
+            The display label for the statistic.
+        """
         if self.stat_name == Stats.MAIN_STAT:
             return ROLE_SPECS[role].main_stat_label
         elif self.stat_name == Stats.SPEED_STAT:
@@ -38,14 +55,13 @@ class StatInput:
             return self.stat_name.replace("_", " ").capitalize()
 
 
-STAT_INPUTS = {
-    Stats.MAIN_STAT: StatInput(stat_name=Stats.MAIN_STAT, lower=3200, upper=6700),
-    Stats.DETERMINATION: StatInput(
-        stat_name=Stats.DETERMINATION, lower=380, upper=5000
-    ),
-    Stats.SPEED_STAT: StatInput(stat_name=Stats.SPEED_STAT, lower=380, upper=5000),
-    Stats.CRITICAL_HIT: StatInput(stat_name=Stats.CRITICAL_HIT, lower=380, upper=5000),
-    Stats.DIRECT_HIT: StatInput(stat_name=Stats.DIRECT_HIT, lower=380, upper=5000),
-    Stats.WEAPON_DAMAGE: StatInput(stat_name=Stats.WEAPON_DAMAGE, lower=50, upper=250),
-    Stats.TENACITY: StatInput(stat_name=Stats.TENACITY, lower=380, upper=5000),
-}
+_INPUTS = [
+    StatInput(Stats.MAIN_STAT, 3200, 6700),
+    StatInput(Stats.DETERMINATION, 380, 5000),
+    StatInput(Stats.SPEED_STAT, 380, 5000),
+    StatInput(Stats.CRITICAL_HIT, 380, 5000),
+    StatInput(Stats.DIRECT_HIT, 380, 5000),
+    StatInput(Stats.WEAPON_DAMAGE, 50, 250),
+    StatInput(Stats.TENACITY, 380, 5000),
+]
+STAT_INPUTS = {s.stat_name: s for s in _INPUTS}
