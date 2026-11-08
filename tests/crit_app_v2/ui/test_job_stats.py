@@ -45,6 +45,22 @@ def test_stat_input_uses_its_builtin_wrapper_props():
     assert component.error is None
 
 
+def test_job_stats_guidance_is_in_accessible_info_tooltip():
+    """Show stat-entry guidance in a labeled info tooltip, not inline text."""
+    component = player_analysis_job_build()
+    info_button = next(item for item in component._traverse() if getattr(item, "id", None) == "job-stats-info")
+    tooltip = next(
+        item for item in component._traverse() if isinstance(item, dmc.Tooltip) and item.children is info_button
+    )
+
+    assert info_button.to_plotly_json()["props"]["buttonProps"]["aria-label"] == "Job stat input guidance"
+    assert isinstance(tooltip.label, dmc.List)
+    assert [item.children for item in tooltip.label.children] == [
+        "Do not include 5% bonus to main stat.",
+        "Include any food stat bonuses.",
+    ]
+
+
 def test_job_build_form_uses_unique_gearset_control_ids():
     """Keep the provider URL controls distinct from the FFLogs controls."""
     component = player_analysis_job_build()

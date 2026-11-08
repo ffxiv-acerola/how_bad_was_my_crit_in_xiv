@@ -40,6 +40,7 @@ dev = [
     "pytest-html>=3.1.0, <4.0.0",
     "nbformat>=5.10.4, <6.0.0",
     "hatchling",
+    "basedpyright>=1.40.2, <2.0.0",
 ]
 
 [tool.ruff]

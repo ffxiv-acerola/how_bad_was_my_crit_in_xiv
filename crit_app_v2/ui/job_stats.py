@@ -69,11 +69,33 @@ def _create_stat_grid(
 
     stat_grid = dmc.Stack(
         [
-            dmc.Title("Job stats", order=3),
-            dmc.Text(
-                "Do not include any percent bonus to main stat; "
-                "it is calculated automatically.",
-                c="dimmed",
+            dmc.Group(
+                [
+                    dmc.Title("Job stats", order=3),
+                    dmc.Tooltip(
+                        dmc.ActionIcon(
+                            children="ⓘ",
+                            id="job-stats-info",
+                            buttonProps={"aria-label": "Job stat input guidance"},
+                            variant="subtle",
+                            color="gray",
+                            size="sm",
+                        ),
+                        label=dmc.List(
+                            [
+                                dmc.ListItem("Do not include 5% bonus to main stat."),
+                                dmc.ListItem("Include any food stat bonuses."),
+                            ],
+                            size="sm",
+                            spacing="xs",
+                        ),
+                        withArrow=True,
+                        multiline=True,
+                        w=280,
+                    ),
+                ],
+                align="center",
+                gap="xs",
             ),
             dmc.Grid(
                 [
