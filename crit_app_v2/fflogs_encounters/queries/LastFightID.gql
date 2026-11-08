@@ -1,0 +1,12 @@
+query LastFightID($code: String!) {
+    reportData {
+        report(code: $code) {
+            segments
+            startTime
+            exportedSegments
+            fights {
+                endTime
+            }
+        }
+    }
+}

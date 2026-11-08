@@ -1,0 +1,20 @@
+query LimitBreakDamage(
+    $code: String!
+    $id: [Int]!
+    $limitBreakID: Int!
+    $filterSlug: String!
+) {
+    reportData {
+        report(code: $code) {
+            startTime
+            events(
+                fightIDs: $id
+                sourceClass: "LimitBreak"
+                sourceID: $limitBreakID
+                filterExpression: $filterSlug
+            ) {
+                data
+            }
+        }
+    }
+}
