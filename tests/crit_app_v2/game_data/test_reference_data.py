@@ -1,7 +1,6 @@
-"""Unit tests for job-stat roles and range reference data."""
+"""Tests for job-stat roles and range reference data."""
 
-from crit_app_v2.job_stats.roles import ROLE_SPECS, Role
-from crit_app_v2.job_stats.stats import STAT_INPUTS, Stats
+from crit_app_v2.game_data import ROLE_SPECS, SPEED_STAT_SPEC, STAT_INPUTS, Role, Stats
 
 
 def test_role_specs_cover_every_role():
@@ -22,7 +21,8 @@ def test_only_tanks_require_tenacity():
 
 
 def test_each_role_has_labels_for_every_stat():
-    """Ensure role-dependent stat labels resolve to non-empty strings."""
-    for role in Role:
-        for stat_input in STAT_INPUTS.values():
-            assert stat_input.stat_label(role).strip()
+    """Ensure each role's explicit speed-stat reference resolves."""
+    for role, role_spec in ROLE_SPECS.items():
+        assert role_spec.main_stat_label.strip()
+        assert role_spec.speed_stat in SPEED_STAT_SPEC
+        assert SPEED_STAT_SPEC[role_spec.speed_stat].display_name.strip()

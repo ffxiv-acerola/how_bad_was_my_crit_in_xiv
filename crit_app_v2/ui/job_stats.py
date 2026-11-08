@@ -1,8 +1,16 @@
-import dash_mantine_components as dmc
+"""Dash Mantine components for player and party job-stat forms."""
 
-from crit_app_v2.job_stats.models import Role
-from crit_app_v2.job_stats.roles import ROLE_SPECS
-from crit_app_v2.job_stats.stats import STAT_INPUTS, StatInput, Stats
+import dash_mantine_components as dmc
+from dash import dcc
+
+from crit_app_v2.game_data import (
+    ROLE_SPECS,
+    SPEED_STAT_SPEC,
+    STAT_INPUTS,
+    Role,
+    StatInput,
+    Stats,
+)
 
 ROLE_OPTIONS = [{"label": role.value, "value": role.value} for role in Role]
 
@@ -14,7 +22,18 @@ def _stat_input(
     input_id: str,
     description: int | None = None,
 ):
-    """Create input form based on the role and stat."""
+    """Create a labeled numeric input using the stat's allowed range.
+
+    The role determines the main- and speed-stat labels; other fields use the
+    stat name. ``description`` is rendered by the input wrapper when supplied.
+    """
+    if stat_input.stat_name is Stats.MAIN_STAT:
+        label = ROLE_SPECS[role].main_stat_label
+    elif stat_input.stat_name is Stats.SPEED_STAT:
+        label = SPEED_STAT_SPEC[ROLE_SPECS[role].speed_stat].display_name
+    else:
+        label = stat_input.stat_name.replace("_", " ").capitalize()
+
     number_input = dmc.NumberInput(
         value=value,
         placeholder=stat_input.placeholder_text(),
@@ -28,7 +47,7 @@ def _stat_input(
 
     return dmc.InputWrapper(
         id=f"{input_id}-wrapper",
-        label=stat_input.stat_label(role),
+        label=label,
         description=description,
         error=None,
         inputWrapperOrder=["label", "description", "error", "input"],
@@ -47,7 +66,7 @@ def _create_stat_grid(
     weapon_damage: int | None = None,
     tenacity: int | None = None,
 ) -> dmc.Stack:
-    """Creates stacks of stat inputs."""
+    """Create a responsive grid of stat inputs for the selected role."""
     selected_role = Role(role)
     role_spec = ROLE_SPECS[selected_role]
     stat_input_span = {"base": 12, "sm": 6, "md": 4}
@@ -175,17 +194,18 @@ def player_analysis_job_build(
                         [
                             dmc.GridCol(
                                 dmc.TextInput(
-                                    id="job-build-url",
+                                    id="gearset-url",
                                     label="Gearset URL",
                                     value=job_build_url,
                                     placeholder="Enter etro.gg / xivgear.app build URL",
+                                    error=None,
                                 ),
                                 span={"base": 12, "md": 9},
                             ),
                             dmc.GridCol(
                                 dmc.Button(
                                     "Submit",
-                                    id="job-build-url-button",
+                                    id="gearset-url-button",
                                     fullWidth=True,
                                 ),
                                 span={"base": 12, "md": 3},
@@ -195,6 +215,15 @@ def player_analysis_job_build(
                         gutter="md",
                     ),
                     dmc.Select(
+                        id="xiv-gear-select",
+                        label="Select build",
+                        data=[],
+                        placeholder="Choose a gearset from this sheet",
+                        style=build_selector_style,
+                        value=None,
+                        allowDeselect=False,
+                    ),
+                    dmc.Select(
                         id="role-select",
                         label="Role",
                         data=ROLE_OPTIONS,
@@ -202,13 +231,7 @@ def player_analysis_job_build(
                         allowDeselect=False,
                         w={"base": "100%", "md": "50%"},
                     ),
-                    dmc.Select(
-                        id="xiv-gear-select",
-                        label="Select build",
-                        data=[],
-                        placeholder="Choose a gearset from this sheet",
-                        style=build_selector_style,
-                    ),
+                    dcc.Store(id="loaded-job-build"),
                     _create_stat_grid(
                         selected_role,
                         main_stat,
@@ -247,4 +270,5 @@ def player_analysis_job_build(
 
 
 def party_analysis_job_build():
+    """Placeholder for the party-analysis job-stat form; not implemented."""
     pass

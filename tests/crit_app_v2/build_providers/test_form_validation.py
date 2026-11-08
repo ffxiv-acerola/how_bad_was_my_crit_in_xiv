@@ -1,10 +1,9 @@
-"""Unit tests for job-stat draft validation."""
+"""Tests for job-stat draft form validation."""
 
 import pytest
 
-from crit_app_v2.job_stats.form_validation import FormStatValue, validate_job_stats_form
-from crit_app_v2.job_stats.roles import Role
-from crit_app_v2.job_stats.stats import STAT_INPUTS, Stats
+from crit_app_v2.build_providers.form_validation import FormStatValue, validate_job_stats_form
+from crit_app_v2.game_data import STAT_INPUTS, Role, Stats
 
 
 @pytest.fixture
@@ -61,7 +60,7 @@ def test_cleared_required_value_shows_feedback(valid_form_stats):
     assert result.errors[Stats.MAIN_STAT] == "Please enter a value."
 
 
-@pytest.mark.parametrize("tenacity", [None, "", 0])
+@pytest.mark.parametrize("tenacity", [None, "", 0], ids=["untouched", "cleared", "zero"])
 def test_non_tank_ignores_tenacity_value(tenacity, valid_form_stats):
     """Ignore hidden Tenacity values for non-Tank roles."""
     stats = valid_form_stats
@@ -73,8 +72,8 @@ def test_non_tank_ignores_tenacity_value(tenacity, valid_form_stats):
     assert result.errors[Stats.TENACITY] is None
 
 
-@pytest.mark.parametrize("stat, stat_input", STAT_INPUTS.items())
-@pytest.mark.parametrize("boundary", ["lower", "upper"])
+@pytest.mark.parametrize("stat, stat_input", STAT_INPUTS.items(), ids=[stat.value for stat in STAT_INPUTS])
+@pytest.mark.parametrize("boundary", ["lower", "upper"], ids=["lower", "upper"])
 def test_form_validation_accepts_inclusive_stat_range_boundaries(stat, stat_input, boundary, valid_form_stats):
     """Accept each stat's inclusive lower and upper bounds."""
     stats = valid_form_stats
@@ -86,8 +85,8 @@ def test_form_validation_accepts_inclusive_stat_range_boundaries(stat, stat_inpu
     assert result.errors[stat] is None
 
 
-@pytest.mark.parametrize("stat, stat_input", STAT_INPUTS.items())
-@pytest.mark.parametrize("offset", [-1, 1])
+@pytest.mark.parametrize("stat, stat_input", STAT_INPUTS.items(), ids=[stat.value for stat in STAT_INPUTS])
+@pytest.mark.parametrize("offset", [-1, 1], ids=["below-lower", "above-upper"])
 def test_out_of_range_value_has_error_for_its_stat(stat, stat_input, offset, valid_form_stats):
     """Report an error only for a stat outside its allowed range."""
     stats = valid_form_stats

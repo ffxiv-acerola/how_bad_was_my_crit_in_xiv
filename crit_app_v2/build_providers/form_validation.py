@@ -1,8 +1,9 @@
+"""Validate incomplete job-stat form drafts without weakening domain models."""
+
 from dataclasses import dataclass
 from typing import Literal, Mapping
 
-from .roles import Role
-from .stats import STAT_INPUTS, Stats
+from crit_app_v2.game_data import STAT_INPUTS, Role, Stats
 
 FormStatValue = int | Literal[""] | None
 
@@ -16,7 +17,8 @@ class StatValidation:
     is_valid
         Whether the stat is valid for a complete build.
     error
-        User-facing range error, or ``None`` when no range error is shown.
+        User-facing range or required-value error, or ``None`` when no error is
+        shown.
     """
 
     is_valid: bool

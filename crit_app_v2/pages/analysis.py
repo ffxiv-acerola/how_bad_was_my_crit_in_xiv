@@ -2,15 +2,25 @@
 
 import dash
 import dash_mantine_components as dmc
-from dash import Input, Output, callback
+from dash import Input, Output, State, callback, no_update
 
-from crit_app_v2.job_stats import (
-    ROLE_SPECS,
-    STAT_INPUTS,
-    Role,
-    Stats,
+from crit_app_v2.build_providers import (
+    BuildProvider,
+    BuildProviderError,
+    LoadedXivGearBuild,
     validate_job_stats_form,
 )
+from crit_app_v2.build_providers.build_dispatch import (
+    load_job_build,
+    validate_job_build_url,
+)
+from crit_app_v2.game_data import (
+    ROLE_SPECS,
+    SPEED_STAT_SPEC,
+    Role,
+    Stats,
+)
+from crit_app_v2.ui.build_errors import build_error_message
 from crit_app_v2.ui.job_stats import player_analysis_job_build
 
 dash.register_page(__name__, path="/analysis")
@@ -24,7 +34,7 @@ encounter = dmc.Paper(
                     [
                         dmc.GridCol(
                             dmc.TextInput(
-                                id="job-build-url",
+                                id="fflogs-url",
                                 label="Log URL",
                                 value="",
                                 placeholder="https://www.fflogs.com/reports/...",
@@ -34,7 +44,7 @@ encounter = dmc.Paper(
                         dmc.GridCol(
                             dmc.Button(
                                 "Submit",
-                                id="job-build-url-button",
+                                id="fflogs-url-button",
                                 fullWidth=True,
                                 disabled=True,
                             ),
@@ -97,18 +107,134 @@ def layout():
     Input("role-select", "value"),
 )
 def role_stat_labels(selected_role: Role):
-    style = {
-        "display": "block" if ROLE_SPECS[selected_role].requires_tenacity else "none"
-    }
+    """Return role-specific main/speed labels and Tenacity visibility."""
+    role = Role(selected_role)
+    role_spec = ROLE_SPECS[role]
+    style = {"display": "block" if role_spec.requires_tenacity else "none"}
     return (
-        STAT_INPUTS[Stats.MAIN_STAT].stat_label(Role(selected_role)),
-        STAT_INPUTS[Stats.SPEED_STAT].stat_label(Role(selected_role)),
+        role_spec.main_stat_label,
+        SPEED_STAT_SPEC[role_spec.speed_stat].display_name,
         style,
     )
 
 
+def _xiv_gear_selector_state(build: LoadedXivGearBuild):
+    """Return selector options, visibility, and selected response index."""
+    options = [
+        {"label": set_.build_name, "value": str(set_.response_index)}
+        for set_ in build.sets
+    ]
+    selected_index = build.build_index
+    if selected_index is None and len(build.sets) == 1:
+        selected_index = build.sets[0].response_index
+
+    selected_value = str(selected_index) if selected_index is not None else None
+    style = {} if len(options) > 1 else {"display": "none"}
+    return options, style, selected_value
+
+
 @callback(
-    Output("job-build-url-button", "disabled"),
+    Output("loaded-job-build", "data"),
+    Output("gearset-url", "error"),
+    Output("xiv-gear-select", "data"),
+    Output("xiv-gear-select", "style"),
+    Output("xiv-gear-select", "value"),
+    Input("gearset-url-button", "n_clicks"),
+    State("gearset-url", "value"),
+    prevent_initial_call=True,
+)
+def load_job_build_from_url(n_clicks: int | None, raw_url: str | None):
+    """Load a provider build and prepare any XIVGear sheet choices."""
+    if not n_clicks:
+        return no_update, no_update, no_update, no_update, no_update
+    if not raw_url or not raw_url.strip():
+        return None, "Enter a gearset URL.", [], {"display": "none"}, None
+
+    try:
+        build_url = validate_job_build_url(raw_url)
+        loaded_build = load_job_build(build_url)
+    except BuildProviderError as error:
+        return (
+            None,
+            build_error_message(error),
+            [],
+            {"display": "none"},
+            None,
+        )
+
+    if isinstance(loaded_build, LoadedXivGearBuild):
+        selector_data, selector_style, selector_value = _xiv_gear_selector_state(
+            loaded_build
+        )
+    else:
+        selector_data, selector_style, selector_value = [], {"display": "none"}, None
+
+    return (
+        loaded_build.model_dump(mode="json"),
+        None,
+        selector_data,
+        selector_style,
+        selector_value,
+    )
+
+
+@callback(
+    Output("role-select", "value"),
+    Output("main-stat-input", "value"),
+    Output("determination-stat-input", "value"),
+    Output("speed-stat-input", "value"),
+    Output("critical-hit-stat-input", "value"),
+    Output("direct-hit-stat-input", "value"),
+    Output("weapon-damage-stat-input", "value"),
+    Output("tenacity-stat-input", "value"),
+    Input("loaded-job-build", "data"),
+    Input("xiv-gear-select", "value"),
+)
+def apply_loaded_job_build(build_data: dict | None, selected_index: str | None):
+    """Populate the role and stat inputs from the loaded provider data."""
+    unchanged = (no_update,) * 8
+    if not build_data:
+        return unchanged
+
+    provider = build_data.get("build_provider")
+    if provider == BuildProvider.XIV_GEAR:
+        if selected_index is None:
+            return unchanged
+        try:
+            response_index = int(selected_index)
+        except (TypeError, ValueError):
+            return unchanged
+
+        selected_set = next(
+            (
+                set_data
+                for set_data in build_data.get("sets", [])
+                if set_data.get("response_index") == response_index
+            ),
+            None,
+        )
+        if selected_set is None:
+            return unchanged
+        stats = selected_set["build_stats"]
+        role = build_data["build_role"]
+    else:
+        stats = build_data["build_stats"]
+        role = build_data["build_role"]
+
+    return (
+        role,
+        stats["main_stat"],
+        stats["determination"],
+        stats["speed_stat"],
+        stats["critical_hit"],
+        stats["direct_hit"],
+        stats["weapon_damage"],
+        stats["tenacity"],
+    )
+
+
+@callback(
+    Output("fflogs-url-button", "disabled"),
     Output("main-stat-input-wrapper", "error"),
     Output("determination-stat-input-wrapper", "error"),
     Output("speed-stat-input-wrapper", "error"),
@@ -135,11 +261,10 @@ def job_build_validator(
     weapon_damage: int | None,
     tenacity: int | None,
 ):
-    """
-    Checks if all job stats are entered and are valid.
+    """Validate draft stats and map field errors to Dash callback outputs.
 
-    If they are, the FFLogs URL submit button can be pressed.
-    If not, it is disabled.
+    The first returned value disables FFLogs submission while the form is
+    incomplete or invalid; remaining values align with the stat error outputs.
     """
     stats = {
         Stats.MAIN_STAT: main_stat,
@@ -150,7 +275,7 @@ def job_build_validator(
         Stats.WEAPON_DAMAGE: weapon_damage,
         Stats.TENACITY: tenacity,
     }
-    result = validate_job_stats_form(selected_role, stats)
+    result = validate_job_stats_form(Role(selected_role), stats)
     return (
         not result.is_valid,
         result.errors[Stats.MAIN_STAT],
