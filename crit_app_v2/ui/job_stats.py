@@ -20,12 +20,13 @@ def _stat_input(
     stat_input: StatInput,
     role: Role,
     input_id: str,
-    description: int | None = None,
+    description: str | None = None,
 ):
     """Create a labeled numeric input using the stat's allowed range.
 
     The role determines the main- and speed-stat labels; other fields use the
-    stat name. ``description`` is rendered by the input wrapper when supplied.
+    stat name. The input renders its own label, description, and validation
+    error.
     """
     if stat_input.stat_name is Stats.MAIN_STAT:
         label = ROLE_SPECS[role].main_stat_label
@@ -34,25 +35,20 @@ def _stat_input(
     else:
         label = stat_input.stat_name.replace("_", " ").capitalize()
 
-    number_input = dmc.NumberInput(
+    return dmc.NumberInput(
+        label=label,
+        description=description,
         value=value,
         placeholder=stat_input.placeholder_text(),
         min=stat_input.lower,
         max=stat_input.upper,
         id=input_id,
-        clampBehavior="none",
-        allowDecimal=False,
-        thousandSeparator=",",
-    )
-
-    return dmc.InputWrapper(
-        id=f"{input_id}-wrapper",
-        label=label,
-        description=description,
         error=None,
         inputWrapperOrder=["label", "description", "error", "input"],
         withAsterisk=False,
-        children=number_input,
+        clampBehavior="none",
+        allowDecimal=False,
+        thousandSeparator=",",
     )
 
 
@@ -151,7 +147,7 @@ def _create_stat_grid(
                         },
                     ),
                 ],
-                gutter="md",
+                gap="md",
             ),
         ],
         gap="sm",
@@ -212,7 +208,7 @@ def player_analysis_job_build(
                                 style={"display": "flex", "alignItems": "flex-end"},
                             ),
                         ],
-                        gutter="md",
+                        gap="md",
                     ),
                     dmc.Select(
                         id="xiv-gear-select",

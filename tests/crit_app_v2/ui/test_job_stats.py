@@ -1,5 +1,7 @@
 """Tests for role-aware job-stat form labels."""
 
+import dash_mantine_components as dmc
+
 from crit_app_v2.game_data import STAT_INPUTS, Role, Stats
 from crit_app_v2.ui.job_stats import _stat_input, player_analysis_job_build
 
@@ -26,6 +28,21 @@ def test_role_aware_main_and_speed_stat_labels():
     assert healer_main.label == "Mind"
     assert healer_speed.label == "Spell speed"
     assert melee_main.label == "Strength/Dexterity"
+
+
+def test_stat_input_uses_its_builtin_wrapper_props():
+    """Render validation props on NumberInput without an extra wrapper."""
+    component = _stat_input(
+        None,
+        STAT_INPUTS[Stats.MAIN_STAT],
+        Role.HEALER,
+        "main-stat-input",
+    )
+
+    assert isinstance(component, dmc.NumberInput)
+    assert component.id == "main-stat-input"
+    assert component.label == "Mind"
+    assert component.error is None
 
 
 def test_job_build_form_uses_unique_gearset_control_ids():

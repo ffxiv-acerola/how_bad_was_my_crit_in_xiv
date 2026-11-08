@@ -9,6 +9,8 @@ from dash.exceptions import PreventUpdate
 
 from crit_app_v2.config import DEBUG
 
+dash._dash_renderer._set_react_version("19.2.4")
+
 PAGES_FOLDER = Path(__file__).parent / "pages"
 
 app = dash.Dash(

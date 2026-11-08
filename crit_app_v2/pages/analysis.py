@@ -52,7 +52,7 @@ encounter = dmc.Paper(
                             style={"display": "flex", "alignItems": "flex-end"},
                         ),
                     ],
-                    gutter="md",
+                    gap="md",
                 ),
                 dmc.Title("Encounter name (mm:ss)", id="encounter-name-time", order=3),
                 dmc.Select(
@@ -101,8 +101,8 @@ def layout():
 
 
 @callback(
-    Output("main-stat-input-wrapper", "label"),
-    Output("speed-stat-input-wrapper", "label"),
+    Output("main-stat-input", "label"),
+    Output("speed-stat-input", "label"),
     Output("bottom-build-row", "style"),
     Input("role-select", "value"),
 )
@@ -235,13 +235,13 @@ def apply_loaded_job_build(build_data: dict | None, selected_index: str | None):
 
 @callback(
     Output("fflogs-url-button", "disabled"),
-    Output("main-stat-input-wrapper", "error"),
-    Output("determination-stat-input-wrapper", "error"),
-    Output("speed-stat-input-wrapper", "error"),
-    Output("critical-hit-stat-input-wrapper", "error"),
-    Output("direct-hit-stat-input-wrapper", "error"),
-    Output("weapon-damage-stat-input-wrapper", "error"),
-    Output("tenacity-stat-input-wrapper", "error"),
+    Output("main-stat-input", "error"),
+    Output("determination-stat-input", "error"),
+    Output("speed-stat-input", "error"),
+    Output("critical-hit-stat-input", "error"),
+    Output("direct-hit-stat-input", "error"),
+    Output("weapon-damage-stat-input", "error"),
+    Output("tenacity-stat-input", "error"),
     Input("role-select", "value"),
     Input("main-stat-input", "value"),
     Input("determination-stat-input", "value"),
