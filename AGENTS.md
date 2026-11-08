@@ -180,3 +180,24 @@ migration and persistence mapping for it; do not silently discard it.
   For example, tests for `crit_app_v2/build_providers/models/etro_models.py`
   belong under `tests/crit_app_v2/build_providers/models/`. Do not add test
   modules inside application packages.
+
+### Code Quality Checks
+
+Install the development tools with `uv sync --group dev`. For changed v2 code,
+run the relevant checks before considering the work complete:
+
+```bash
+uv run ruff check <changed paths>
+uv run ruff check --select I <changed paths>
+uv run ruff format --check <changed paths>
+uv run basedpyright <changed Python modules>
+uv run pytest -q <relevant test paths>
+```
+
+`pre-commit` also runs linting, import sorting, formatting,
+docstring formatting, and basic file checks; run it on changed files with
+`uv run pre-commit run --files <changed paths>`.
+
+The current package-wide BasedPyright check reports existing errors. Check
+changed modules and do not introduce new type errors; do not silence
+diagnostics or weaken checks just to make a run pass. DMC currently has no type stubs, so its missing-stub warning may remain.

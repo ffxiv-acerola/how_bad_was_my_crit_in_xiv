@@ -1,10 +1,10 @@
 """Shared provider identifiers, URLs, and role-level build models."""
 
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, Self
 from urllib.parse import urlparse
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict
 from pydantic.functional_validators import model_validator
 
 from crit_app_v2.game_data.roles import Role
@@ -28,34 +28,38 @@ class BuildUrl(BaseModel):
     )
 
     build_url: AnyHttpUrl
-    build_provider: BuildProvider = Field(init=False)
 
-    @model_validator(mode="before")
-    @classmethod
-    def classify_provider(cls, value: object) -> object:
-        """Classify a URL by its supported host before field validation.
-
-        Parameters
-        ----------
-        value
-            Raw model input. Non-dictionary input is passed to Pydantic for
-            normal field validation.
+    @model_validator(mode="after")
+    def validate_provider(self) -> Self:
+        """Ensure the URL belongs to a supported build provider.
 
         Returns
         -------
-        object
-            Input mapping with its provider added, or the original input when
-            it is not a mapping.
+        Self
+            The validated build URL model.
 
         Raises
         ------
         ValueError
-            If the mapping's URL host is not a supported provider.
+            If the URL host is not a supported provider.
         """
-        if not isinstance(value, dict):
-            return value
-        raw_url = value.get("build_url")
-        parsed_url = urlparse(str(raw_url))
+        _ = self._provider_from_url()
+        return self
+
+    def _provider_from_url(self) -> BuildProvider:
+        """Classify the URL using its hostname.
+
+        Returns
+        -------
+        BuildProvider
+            Provider associated with the URL host.
+
+        Raises
+        ------
+        ValueError
+            If the URL host is not a supported provider.
+        """
+        parsed_url = urlparse(str(self.build_url))
         hostname = parsed_url.hostname.lower() if parsed_url.hostname else ""
 
         provider_by_host = {
@@ -67,13 +71,16 @@ class BuildUrl(BaseModel):
         }
 
         try:
-            provider = provider_by_host[hostname]
+            return provider_by_host[hostname]
         except KeyError as error:
             raise ValueError(
                 "Only etro.gg or xivgear.app build URLs are supported."
             ) from error
 
-        return {**value, "build_provider": provider}
+    @property
+    def build_provider(self) -> BuildProvider:
+        """Return the provider derived from the validated URL host."""
+        return self._provider_from_url()
 
 
 class RoleBuildStatsModel(BaseModel):
