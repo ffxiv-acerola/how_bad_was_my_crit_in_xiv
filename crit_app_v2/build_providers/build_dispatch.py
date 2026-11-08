@@ -2,7 +2,6 @@
 
 import logging
 
-import coreapi.exceptions
 import requests
 from pydantic import AnyHttpUrl, ValidationError
 
@@ -82,8 +81,8 @@ def load_job_build(
     """Load and normalize an Etro or XIVGear build.
 
     Provider-specific failures are converted to :class:`BuildProviderError`
-    categories so callers do not need to depend on HTTP, CoreAPI, or Pydantic
-    exception details.
+    categories so callers do not need to depend on HTTP or Pydantic exception
+    details.
 
     Parameters
     ----------
@@ -123,19 +122,10 @@ def load_job_build(
         raise BuildProviderError(
             category, provider=provider, status_code=status_code
         ) from error
-    except (requests.RequestException, coreapi.exceptions.NetworkError) as error:
+    except requests.RequestException as error:
         # The request could not complete because of a connection-level problem.
         raise BuildProviderError(
             BuildErrorCategory.PROVIDER_UNAVAILABLE, provider=provider
-        ) from error
-    except (
-        coreapi.exceptions.ErrorMessage,
-        coreapi.exceptions.LinkLookupError,
-        coreapi.exceptions.ParameterError,
-    ) as error:
-        # The provider could not find or accept the requested build operation.
-        raise BuildProviderError(
-            BuildErrorCategory.REJECTED, provider=provider
         ) from error
     except ValidationError as error:
         # A bad Etro UUID means a rejected link; other invalid data is a bad response.

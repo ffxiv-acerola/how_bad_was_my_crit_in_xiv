@@ -1,6 +1,5 @@
 """Tests for provider dispatch and exception normalization."""
 
-import coreapi.exceptions
 import pytest
 import requests
 from pydantic import AnyHttpUrl
@@ -87,17 +86,10 @@ def test_http_status_is_normalized(monkeypatch, status_code, category):
     ("exception", "category"),
     [
         (requests.Timeout("timeout"), BuildErrorCategory.PROVIDER_UNAVAILABLE),
-        (
-            coreapi.exceptions.NetworkError("network"),
-            BuildErrorCategory.PROVIDER_UNAVAILABLE,
-        ),
-        (
-            coreapi.exceptions.ErrorMessage("rejected"),
-            BuildErrorCategory.REJECTED,
-        ),
+        (requests.ConnectionError("network"), BuildErrorCategory.PROVIDER_UNAVAILABLE),
         (KeyError("response field"), BuildErrorCategory.UNEXPECTED_RESPONSE),
     ],
-    ids=["timeout", "network-error", "provider-rejected", "unexpected-response"],
+    ids=["timeout", "network-error", "unexpected-response"],
 )
 def test_provider_exceptions_are_normalized(monkeypatch, exception, category):
     """Map provider exceptions to stable error categories."""

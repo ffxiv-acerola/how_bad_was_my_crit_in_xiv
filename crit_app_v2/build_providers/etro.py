@@ -4,7 +4,7 @@ import re
 from urllib.parse import urlsplit
 from uuid import UUID
 
-import coreapi
+import requests
 from pydantic import UUID4, TypeAdapter
 from pydantic.networks import AnyHttpUrl
 
@@ -38,20 +38,19 @@ def _list_gearset(gearset_id: UUID4) -> EtroBuildResponse:
 
     Raises
     ------
-    coreapi.exceptions.CoreAPIException
-        If the CoreAPI client cannot retrieve or perform the gearset request.
+    requests.RequestException
+        If the Etro API request fails or returns an unsuccessful status.
+    requests.exceptions.JSONDecodeError
+        If the response body is not valid JSON.
     pydantic.ValidationError
         If the response lacks valid fields required by the loader.
     """
-    # Initialize a client & load the schema document
-    gearset_action = ["gearsets", "read"]
-    gearset_params = {
-        "id": str(gearset_id),
-    }
-    client = coreapi.Client()
-    schema = client.get("https://etro.gg/api/docs/")
-    build_result = client.action(schema, gearset_action, params=gearset_params)
-    return EtroBuildResponse.model_validate(build_result)
+    response = requests.get(
+        f"https://etro.gg/api/gearsets/{gearset_id}/",
+        timeout=30,
+    )
+    response.raise_for_status()
+    return EtroBuildResponse.model_validate(response.json())
 
 
 def _process_etro_id(build_url: BuildUrl) -> UUID:
