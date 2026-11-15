@@ -104,3 +104,10 @@ def test_job_selection_locks_to_role_and_clears_mismatch():
         "5": True,
     }
     assert job_selection(_encounter(), Role.TANK, "2").value == "2"
+
+
+def test_unsupported_encounter_message_names_encounter():
+    """The unsupported message includes the encounter name."""
+    from crit_app_v2.ui.fflogs_encounter import unsupported_encounter_message
+
+    assert "Boss" in unsupported_encounter_message(_encounter())

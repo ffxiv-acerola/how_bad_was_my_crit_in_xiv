@@ -34,6 +34,11 @@ def encounter_title(encounter: Encounter) -> str:
     return f"{encounter.encounter_name} ({format_kill_time(encounter.kill_time)})"
 
 
+def unsupported_encounter_message(encounter: Encounter) -> str:
+    """Return feedback for an encounter that cannot be analyzed."""
+    return f"Sorry, {encounter.encounter_name} is not a supported encounter."
+
+
 def encounter_to_store(encounter: Encounter) -> dict[str, Any]:
     """Serialize an encounter for a ``dcc.Store``, omitting computed URL fields."""
     return encounter.model_dump(
@@ -156,9 +161,28 @@ def fflogs_encounter_card() -> dmc.Paper:
                         w={"base": "100%", "md": "50%"},
                         style=_HIDDEN,
                     ),
-                    dmc.Tooltip(
-                        dmc.Title("Select a job", order=4),
-                        label="Use the role selector to analyze jobs in another role.",
+                    dmc.Group(
+                        [
+                            dmc.Title("Select a job", order=4),
+                            dmc.Tooltip(
+                                dmc.ActionIcon(
+                                    children="ⓘ",
+                                    id="job-select-info",
+                                    buttonProps={
+                                        "aria-label": "Job selection guidance"
+                                    },
+                                    variant="subtle",
+                                    color="gray",
+                                    size="sm",
+                                ),
+                                label="Use the role selector to analyze jobs in another role.",
+                                withArrow=True,
+                                multiline=True,
+                                w=280,
+                            ),
+                        ],
+                        align="center",
+                        gap="xs",
                     ),
                     dmc.Box(
                         job_selection(None, Role.HEALER),

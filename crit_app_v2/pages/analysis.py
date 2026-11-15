@@ -23,6 +23,7 @@ from crit_app_v2.game_data import (
     Role,
     Stats,
 )
+from crit_app_v2.game_data.encounters import is_player_analyzeable
 from crit_app_v2.ui.build_errors import build_error_message
 from crit_app_v2.ui.fflogs_encounter import (
     encounter_title,
@@ -30,6 +31,7 @@ from crit_app_v2.ui.fflogs_encounter import (
     fflogs_encounter_card,
     job_selection,
     phase_select_state,
+    unsupported_encounter_message,
 )
 from crit_app_v2.ui.fflogs_errors import fflogs_error_message
 from crit_app_v2.ui.job_stats import player_analysis_job_build
@@ -288,6 +290,16 @@ def load_encounter_from_url(
         return (
             None,
             fflogs_error_message(error),
+            no_update,
+            "",
+            *reset_phase,
+            job_selection(None, role),
+        )
+
+    if not is_player_analyzeable(encounter.encounter_id):
+        return (
+            None,
+            unsupported_encounter_message(encounter),
             no_update,
             "",
             *reset_phase,
