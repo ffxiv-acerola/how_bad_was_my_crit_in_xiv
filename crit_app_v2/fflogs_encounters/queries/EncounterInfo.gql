@@ -2,21 +2,24 @@ query EncounterInfo($code: String!, $id: [Int!]) {
     reportData {
         report(code: $code) {
             startTime
-            rankings(fightIDs: $id)
             fights(fightIDs: $id, translate: true) {
+                name
                 encounterID
                 kill
                 startTime
                 endTime
-                name
+                combatTime
                 lastPhase
+                friendlyPets {
+                    id
+                    petOwner
+                }
                 enemyNPCs {
                     gameID
                     id
                 }
             }
-            playerDetails(fightIDs: $id)
-            table(fightIDs: $id, dataType: DamageDone)
+            playerDetails(fightIDs: $id, includeCombatantInfo: false)
         }
     }
 }

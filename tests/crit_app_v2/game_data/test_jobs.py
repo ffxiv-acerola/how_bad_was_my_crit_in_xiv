@@ -25,3 +25,12 @@ def test_job_does_not_resolve_unknown_abbreviation():
     """Reject abbreviations that do not identify a job."""
     with pytest.raises(ValueError):
         Job("UNKNOWN")
+
+
+def test_icon_glyph_matches_legacy_abbreviations():
+    """Icon glyphs match the legacy job-icon font abbreviations."""
+    from crit_app.job_data.roles import abbreviated_job_map
+    from crit_app_v2.game_data import JOB_SPECS
+
+    for spec in JOB_SPECS.values():
+        assert spec.icon_glyph == abbreviated_job_map[spec.fflogs_name]

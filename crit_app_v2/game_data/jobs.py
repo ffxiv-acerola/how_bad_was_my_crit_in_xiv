@@ -92,6 +92,11 @@ class JobSpec:
     main_stat: MainStats
     weapon_delay: float
 
+    @property
+    def icon_glyph(self) -> str:
+        """Return the lowercase abbreviation used by the job-icon font."""
+        return self.etro_name.lower()
+
 
 JOB_SPECS = {
     Job.WHITE_MAGE: JobSpec(

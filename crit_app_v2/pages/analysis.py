@@ -14,6 +14,9 @@ from crit_app_v2.build_providers.build_dispatch import (
     load_job_build,
     validate_job_build_url,
 )
+from crit_app_v2.fflogs_encounters.encounters import fetch_encounter
+from crit_app_v2.fflogs_encounters.errors import FFLogsError
+from crit_app_v2.fflogs_encounters.models import Encounter
 from crit_app_v2.game_data import (
     ROLE_SPECS,
     SPEED_STAT_SPEC,
@@ -21,60 +24,17 @@ from crit_app_v2.game_data import (
     Stats,
 )
 from crit_app_v2.ui.build_errors import build_error_message
+from crit_app_v2.ui.fflogs_encounter import (
+    encounter_title,
+    encounter_to_store,
+    fflogs_encounter_card,
+    job_selection,
+    phase_select_state,
+)
+from crit_app_v2.ui.fflogs_errors import fflogs_error_message
 from crit_app_v2.ui.job_stats import player_analysis_job_build
 
 dash.register_page(__name__, path="/analysis")
-
-encounter = dmc.Paper(
-    [
-        dmc.Stack(
-            [
-                dmc.Title("Enter log to analyze"),
-                dmc.Grid(
-                    [
-                        dmc.GridCol(
-                            dmc.TextInput(
-                                id="fflogs-url",
-                                label="Log URL",
-                                value="",
-                                placeholder="https://www.fflogs.com/reports/...",
-                            ),
-                            span={"base": 12, "md": 9},
-                        ),
-                        dmc.GridCol(
-                            dmc.Button(
-                                "Submit",
-                                id="fflogs-url-button",
-                                fullWidth=True,
-                                disabled=True,
-                            ),
-                            span={"base": 12, "md": 3},
-                            style={"display": "flex", "alignItems": "flex-end"},
-                        ),
-                    ],
-                    gap="md",
-                ),
-                dmc.Title("Encounter name (mm:ss)", id="encounter-name-time", order=3),
-                dmc.Select(
-                    label="Phase",
-                    data=["Entire Fight", "Phase 1", "Phase 2"],
-                    allowDeselect=False,
-                    value="Entire Fight",
-                    w={"base": "100%", "md": "50%"},
-                ),
-                # TODO: make info button with the tooltip
-                dmc.Tooltip(
-                    dmc.Title("Select a job", order=4),
-                    label="Use the role selector to analyze jobs in another role.",
-                ),
-            ]
-        )
-    ],
-    withBorder=True,
-    shadow="sm",
-    radius="md",
-    p="xl",
-)
 
 
 def layout():
@@ -93,7 +53,7 @@ def layout():
                 # 190,
             ),
             dmc.Space(),
-            encounter,
+            fflogs_encounter_card(),
         ],
         size="xl",
         py="xl",
@@ -286,3 +246,76 @@ def job_build_validator(
         result.errors[Stats.WEAPON_DAMAGE],
         result.errors[Stats.TENACITY],
     )
+
+
+@callback(
+    Output("loaded-encounter", "data"),
+    Output("fflogs-url", "error"),
+    Output("fflogs-url", "value"),
+    Output("encounter-name-time", "children"),
+    Output("phase-select", "data"),
+    Output("phase-select", "value"),
+    Output("phase-select", "style"),
+    Output("job-selection", "children"),
+    Input("fflogs-url-button", "n_clicks"),
+    State("fflogs-url", "value"),
+    State("role-select", "value"),
+    prevent_initial_call=True,
+)
+def load_encounter_from_url(
+    n_clicks: int | None, raw_url: str | None, selected_role: str
+):
+    """Fetch an FFLogs fight and populate the phase and job selectors."""
+    if not n_clicks:
+        return (no_update,) * 8
+
+    reset_phase = ([{"value": "0", "label": "Entire Fight"}], "0", {"display": "none"})
+    role = Role(selected_role)
+
+    if not raw_url or not raw_url.strip():
+        return (
+            None,
+            "Enter an FFLogs report URL.",
+            no_update,
+            "",
+            *reset_phase,
+            job_selection(None, role),
+        )
+
+    try:
+        encounter = fetch_encounter(raw_url)
+    except FFLogsError as error:
+        return (
+            None,
+            fflogs_error_message(error),
+            no_update,
+            "",
+            *reset_phase,
+            job_selection(None, role),
+        )
+
+    return (
+        encounter_to_store(encounter),
+        None,
+        str(encounter.encounter_url.build_url),
+        encounter_title(encounter),
+        *phase_select_state(encounter),
+        job_selection(encounter, role),
+    )
+
+
+@callback(
+    Output("job-selection", "children", allow_duplicate=True),
+    Input("role-select", "value"),
+    State("loaded-encounter", "data"),
+    State("player-select", "value"),
+    prevent_initial_call=True,
+)
+def restrict_players_to_role(
+    selected_role: str, encounter_data: dict | None, selected_player: str | None
+):
+    """Enable only players in the selected role, clearing a mismatched choice."""
+    if not encounter_data:
+        return no_update
+    encounter = Encounter.model_validate(encounter_data)
+    return job_selection(encounter, Role(selected_role), selected_player)
