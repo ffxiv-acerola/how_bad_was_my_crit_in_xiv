@@ -2,6 +2,7 @@
 
 import dash_mantine_components as dmc
 from dash import dcc
+from dash_iconify import DashIconify
 
 from crit_app_v2.game_data import (
     ROLE_SPECS,
@@ -11,6 +12,7 @@ from crit_app_v2.game_data import (
     StatInput,
     Stats,
 )
+from crit_app_v2.ui.gearset_manager import gearset_manager
 
 ROLE_OPTIONS = [{"label": role.value, "value": role.value} for role in Role]
 
@@ -74,7 +76,7 @@ def _create_stat_grid(
                     dmc.Title("Job stats", order=3),
                     dmc.Tooltip(
                         dmc.ActionIcon(
-                            children="ⓘ",
+                            children=DashIconify(icon="tabler:info-circle", width=16),
                             id="job-stats-info",
                             buttonProps={"aria-label": "Job stat input guidance"},
                             variant="subtle",
@@ -93,6 +95,7 @@ def _create_stat_grid(
                         multiline=True,
                         w=280,
                     ),
+                    dmc.Box(id="loaded-gearset-badge"),
                 ],
                 align="center",
                 gap="xs",
@@ -189,8 +192,14 @@ def player_analysis_job_build(
     direct_hit: int | None = None,
     weapon_damage: int | None = None,
     build_selector_hidden: bool = True,
+    apply_default_gearset: bool = True,
 ) -> dmc.Paper:
-    """Create the player-analysis job-stats form."""
+    """Create the player-analysis job-stats form.
+
+    ``apply_default_gearset`` controls whether the user's default saved gearset
+    fills the form on load; pass ``False`` when the stats come from a saved
+    analysis.
+    """
     build_selector_style = {"display": "none"} if build_selector_hidden else {}
     selected_role = Role(role)
 
@@ -260,22 +269,7 @@ def player_analysis_job_build(
                         weapon_damage,
                         tenacity,
                     ),
-                    dmc.Accordion(
-                        dmc.AccordionItem(
-                            [
-                                dmc.AccordionControl("Manage saved gearsets"),
-                                dmc.AccordionPanel(
-                                    dmc.Text(
-                                        "Saved gearset management is not available yet.",
-                                        c="dimmed",
-                                    )
-                                ),
-                            ],
-                            value="saved-gearsets",
-                        ),
-                        id="saved-gearsets-accordion",
-                        variant="separated",
-                    ),
+                    gearset_manager(apply_default_gearset),
                 ],
                 gap="md",
             )

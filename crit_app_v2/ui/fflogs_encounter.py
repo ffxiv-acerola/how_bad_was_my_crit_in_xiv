@@ -4,6 +4,7 @@ from typing import Any
 
 import dash_mantine_components as dmc
 from dash import dcc
+from dash_iconify import DashIconify
 
 from crit_app_v2.fflogs_encounters.models import Encounter, EncounterPersonnel
 from crit_app_v2.game_data import JOB_SPECS, Role
@@ -166,7 +167,9 @@ def fflogs_encounter_card() -> dmc.Paper:
                             dmc.Title("Select a job", order=4),
                             dmc.Tooltip(
                                 dmc.ActionIcon(
-                                    children="ⓘ",
+                                    children=DashIconify(
+                                        icon="tabler:info-circle", width=16
+                                    ),
                                     id="job-select-info",
                                     buttonProps={
                                         "aria-label": "Job selection guidance"

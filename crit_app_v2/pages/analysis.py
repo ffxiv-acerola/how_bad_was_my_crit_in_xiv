@@ -2,7 +2,7 @@
 
 import dash
 import dash_mantine_components as dmc
-from dash import Input, Output, State, callback, no_update
+from dash import Input, Output, State, callback, ctx, no_update
 
 from crit_app_v2.build_providers import (
     BuildProvider,
@@ -14,6 +14,9 @@ from crit_app_v2.build_providers.build_dispatch import (
     load_job_build,
     validate_job_build_url,
 )
+
+# Imported for its callback registrations.
+from crit_app_v2.callbacks import gearsets as _gearset_callbacks  # noqa: F401
 from crit_app_v2.fflogs_encounters.encounters import fetch_encounter
 from crit_app_v2.fflogs_encounters.errors import FFLogsError
 from crit_app_v2.fflogs_encounters.models import Encounter
@@ -159,7 +162,13 @@ def apply_loaded_job_build(build_data: dict | None, selected_index: str | None):
         return unchanged
 
     provider = build_data.get("build_provider")
-    if provider == BuildProvider.XIV_GEAR:
+    if provider == BuildProvider.INTERNAL:
+        # A hidden XIVGear selector must not re-apply a saved gearset.
+        if "loaded-job-build.data" not in ctx.triggered_prop_ids:
+            return unchanged
+        stats = build_data["build_stats"]
+        role = build_data["build_role"]
+    elif provider == BuildProvider.XIV_GEAR:
         if selected_index is None:
             return unchanged
         try:

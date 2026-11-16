@@ -20,6 +20,7 @@ dependencies = [
     "pydantic>=2.14.1",
     "dash-mantine-components>=3.0.0, <4.0.0",
     "requests>=2.32.4",
+    "dash-iconify>=0.1.2",
 ]
 
 [project.optional-dependencies]

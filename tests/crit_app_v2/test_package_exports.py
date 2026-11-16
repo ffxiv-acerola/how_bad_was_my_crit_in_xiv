@@ -79,6 +79,31 @@ from crit_app_v2.build_providers.models.xivgear_models import LoadedXivGearSet
                 "validate_job_stats_form",
             ),
         ),
+        (
+            "crit_app_v2.gearsets",
+            "crit_app_v2.gearsets.models",
+            (
+                "MAX_GEARSET_NAME_LENGTH",
+                "MAX_SAVED_GEARSETS",
+                "GearsetLibrary",
+                "SavedGearset",
+            ),
+        ),
+        (
+            "crit_app_v2.gearsets",
+            "crit_app_v2.gearsets.errors",
+            ("GearsetLibraryError", "GearsetLimitError", "GearsetNotFoundError"),
+        ),
+        (
+            "crit_app_v2.gearsets",
+            "crit_app_v2.gearsets.legacy",
+            ("LegacyMigrationResult", "migrate_legacy_gearsets"),
+        ),
+        (
+            "crit_app_v2.gearsets",
+            "crit_app_v2.gearsets.storage",
+            ("library_from_storage", "library_to_storage"),
+        ),
     ],
     ids=[
         "game-data-jobs",
@@ -90,6 +115,10 @@ from crit_app_v2.build_providers.models.xivgear_models import LoadedXivGearSet
         "provider-package",
         "provider-errors",
         "form-validation",
+        "gearset-models",
+        "gearset-errors",
+        "gearset-legacy",
+        "gearset-storage",
     ],
 )
 def test_public_package_exports_reference_original_objects(package_name, source_name, names):

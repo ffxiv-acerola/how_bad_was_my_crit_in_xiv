@@ -50,7 +50,13 @@ crit_app_v2/
         etro.py              # Etro API access and response transformation
         xivgear.py           # XIVGear API access and response transformation
         form_validation.py # Incomplete job-stat form validation
+    gearsets/
+        models.py         # SavedGearset and GearsetLibrary (ID-keyed, strict)
+        legacy.py         # Migration from the legacy browser-store format
+        storage.py        # Library <-> dcc.Store serialization
+        errors.py         # Typed library operation errors
     ui/                   # DMC components and presentation adapters
+    callbacks/            # Callback modules imported by pages (e.g. gearsets.py)
     pages/                # Dash pages and callbacks
 ```
 
@@ -139,6 +145,24 @@ Tenacity rules are domain invariants:
 Role and stat metadata must be framework-independent and must not contain
 `html.*`, `dbc.*`, or `dmc.*` components. UI adapters resolve metadata and turn
 it into framework-specific labels, tooltips, and controls.
+
+## Saved Gearsets
+
+Saved gearsets are identified by a stable UUID, never by list position or name
+(names may repeat). `GearsetLibrary` is immutable, holds at most 25 sets, and
+keeps `default_id` as an ID reference, so deleting a set cannot shift the
+default. Selection (`selected-gearset-id`) is UI state and is never persisted.
+
+- The library persists in the `gearset-library` local store. The legacy app's
+  `saved-gearsets` and `default-gear-index` stores are read once for migration
+  and never modified.
+- Selecting a gearset loads it through `loaded-job-build` as an `InternalBuild`,
+  the same path used by Etro and XIVGear builds.
+- The default gearset is applied on page load only when the layout passes
+  `apply_default_gearset=True`; a saved analysis must pass `False` so its stats
+  are never overwritten.
+- Do not pass an explicit `None` for Mantine style props such as `bg` on
+  `dmc.TableTr`: the row silently fails to render. Omit the prop instead.
 
 ## Build Providers and Persistence
 
