@@ -42,6 +42,7 @@ dev = [
     "nbformat>=5.10.4, <6.0.0",
     "hatchling",
     "basedpyright>=1.40.2, <2.0.0",
+    "rust-just>=1.59.0",
 ]
 
 [tool.ruff]
