@@ -1,6 +1,6 @@
 """Persistence mapping and queries for FFLogs encounter records."""
 
-from ast import literal_eval
+import json
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -15,15 +15,20 @@ from crit_app_v2.fflogs_encounters.models import (
 
 
 def _id_list_to_db(value: list[int] | None) -> str | None:
-    """Serialize an optional ID list in the format used by the legacy schema."""
-    return repr(value) if value is not None else None
+    """Serialize an optional ID list as JSON for the encounter table."""
+    return json.dumps(value) if value is not None else None
 
 
 def _id_list_from_db(value: str | None) -> list[int] | None:
-    """Parse an optional ID list stored as a Python literal."""
+    """Parse an optional JSON ID list from the encounter table."""
     if value is None:
         return None
-    parsed = literal_eval(value)
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as error:
+        raise ValueError("Stored encounter IDs must be valid JSON.") from error
+    if parsed is None:
+        return None
     if not isinstance(parsed, list) or any(type(item) is not int for item in parsed):
         raise ValueError("Stored encounter IDs must be a list of integers.")
     return parsed

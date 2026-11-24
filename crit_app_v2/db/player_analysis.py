@@ -1,7 +1,7 @@
 """Database queries and updates for player analyses."""
 
 import datetime
-from ast import literal_eval
+import json
 from collections.abc import Sequence
 from typing import Any
 
@@ -258,10 +258,10 @@ def retrieve_player_analysis_information(analysis_id: str) -> dict[str, Any] | N
         return None
 
     if result["pet_ids"] is not None:
-        result["pet_ids"] = literal_eval(result["pet_ids"])
+        result["pet_ids"] = json.loads(result["pet_ids"])
 
     if result["excluded_enemy_ids"] is not None:
-        result["excluded_enemy_ids"] = literal_eval(result["excluded_enemy_ids"])
+        result["excluded_enemy_ids"] = json.loads(result["excluded_enemy_ids"])
 
     return result
 
