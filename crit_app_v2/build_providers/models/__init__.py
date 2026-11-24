@@ -1,7 +1,13 @@
 """Public domain and provider response models for build imports."""
 
 from .etro_models import EtroBuildResponse, LoadedEtroBuild
-from .models import BuildProvider, BuildUrl, InternalBuild, RoleBuildStatsModel
+from .models import (
+    BuildProvider,
+    BuildUrl,
+    InternalBuild,
+    RoleBuildStatsModel,
+    ValidatedRoleBuild,
+)
 from .xivgear_models import LoadedXivGearBuild
 
 __all__ = [
@@ -12,4 +18,5 @@ __all__ = [
     "LoadedEtroBuild",
     "LoadedXivGearBuild",
     "RoleBuildStatsModel",
+    "ValidatedRoleBuild",
 ]

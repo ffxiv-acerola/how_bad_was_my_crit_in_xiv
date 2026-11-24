@@ -15,6 +15,7 @@ from .models import (
     LoadedEtroBuild,
     LoadedXivGearBuild,
     RoleBuildStatsModel,
+    ValidatedRoleBuild,
 )
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "LoadedEtroBuild",
     "LoadedXivGearBuild",
     "RoleBuildStatsModel",
+    "ValidatedRoleBuild",
     "StatValidation",
     "validate_job_stats_form",
 ]

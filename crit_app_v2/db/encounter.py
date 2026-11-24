@@ -1,260 +1,279 @@
-"""Database queries and updates for encounter records."""
+"""Persistence mapping and queries for FFLogs encounter records."""
 
 from ast import literal_eval
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from pydantic import AnyHttpUrl
+
 from crit_app_v2.db.connection import get_connection
+from crit_app_v2.fflogs_encounters.models import (
+    Encounter,
+    EncounterPersonnel,
+    EncounterUrl,
+)
+
+
+def _id_list_to_db(value: list[int] | None) -> str | None:
+    """Serialize an optional ID list in the format used by the legacy schema."""
+    return repr(value) if value is not None else None
+
+
+def _id_list_from_db(value: str | None) -> list[int] | None:
+    """Parse an optional ID list stored as a Python literal."""
+    if value is None:
+        return None
+    parsed = literal_eval(value)
+    if not isinstance(parsed, list) or any(type(item) is not int for item in parsed):
+        raise ValueError("Stored encounter IDs must be a list of integers.")
+    return parsed
+
+
+def encounter_to_db_rows(encounter: Encounter) -> list[tuple[Any, ...]]:
+    """Map an encounter and its players to rows matching the encounter table.
+
+    Parameters
+    ----------
+    encounter
+        Validated FFLogs encounter to persist.
+
+    Returns
+    -------
+    list[tuple[Any, ...]]
+        One 13-column database row for each playable player. Limit Break is
+        intentionally omitted until party analysis persistence is implemented.
+    """
+    report_id = encounter.encounter_url.report_id
+    fight_id = encounter.fight_id_resolved
+    return [
+        (
+            report_id,
+            fight_id,
+            encounter.encounter_id,
+            encounter.last_phase_index,
+            encounter.encounter_name,
+            encounter.kill_time,
+            player.player_name,
+            player.player_server,
+            player.player_id,
+            _id_list_to_db(player.pet_ids),
+            _id_list_to_db(encounter.excluded_enemy_ids),
+            player.job.value,
+            player.role.value,
+        )
+        for player in encounter.players
+    ]
 
 
 def update_encounter_table(db_rows: Iterable[Sequence[Any]]) -> None:
+    """Upsert encounter rows supplied by an existing persistence workflow.
+
+    New player-analysis code should prefer :func:`save_encounter`, which maps
+    the validated model and replaces the complete fight roster atomically.
+
+    Parameters
+    ----------
+    db_rows
+        Rows in encounter-table column order.
     """
-    Insert or replace multiple records in the encounter table.
-
-    This function takes an iterable of tuples, each representing a row of data corresponding
-    to the columns in the 'encounter' table. It inserts new records or replaces existing ones
-    based on the primary key constraints.
-
-    Args:
-        db_rows (Iterable[Sequence[Any]]): Rows containing values for the
-            columns in the ``encounter`` table.
-
-    Returns:
-        None
-    """
-    with get_connection() as con:
-        cur = con.cursor()
-        cur.executemany(
+    with get_connection() as connection:
+        _ = connection.executemany(
             """
-            insert
-            or replace into encounter
-            values
-                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO encounter
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             db_rows,
         )
 
 
-def read_player_analysis_info(
-    report_id: str, fight_id: int, player_id: int
-) -> tuple[
-    str | None,
-    list[int] | None,
-    list[int] | None,
-    str | None,
-    str | None,
-    int | None,
-    str | None,
-    int | None,
-]:
+def save_encounter(encounter: Encounter) -> None:
+    """Replace all stored rows for an encounter in one database transaction.
+
+    Deleting the existing roster before inserting the new one prevents stale
+    participants when the FFLogs roster changes between fetches.
+
+    Parameters
+    ----------
+    encounter
+        Validated encounter fetched from FFLogs on the server.
     """
-    Retrieve player analysis information from the database.
+    rows = encounter_to_db_rows(encounter)
+    report_id = encounter.encounter_url.report_id
+    fight_id = encounter.fight_id_resolved
 
-    Args:
-        report_id (str): FFLogs report identifier.
-        fight_id (int): Fight ID within the report.
-        player_id (int): Player ID within the fight.
+    with get_connection() as connection:
+        _ = connection.execute(
+            "DELETE FROM encounter WHERE report_id = ? AND fight_id = ?",
+            (report_id, fight_id),
+        )
+        if rows:
+            _ = connection.executemany(
+                """
+                INSERT INTO encounter VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
 
-    Returns:
-        tuple[str | None, list[int] | None, list[int] | None, str | None, str | None, int | None, str | None, int | None]
-            Player and encounter details, or an all-None tuple if not found.
-            - player_name (str): Name of the player.
-            - pet_ids (list[int] | None): List of pet IDs associated with the player,
-              or None if not applicable.
-            - excluded_enemy_ids (list[int] | None): List of excluded enemy IDs,
-              or None if not applicable.
-            - job (str): Player's job/class.
-            - role (str): Player's role (e.g., Tank, Healer).
-            - encounter_id (int): Identifier for the encounter.
-            - encounter_name (str): Name of the encounter.
-            - last_phase_index (int | None): Last phase reached in the encounter.
+
+def load_encounter(report_id: str, fight_id: int) -> Encounter | None:
+    """Load a previously fetched encounter from the database.
+
+    Parameters
+    ----------
+    report_id
+        FFLogs report identifier.
+    fight_id
+        Resolved numeric fight identifier.
+
+    Returns
+    -------
+    Encounter or None
+        The stored encounter and roster, or ``None`` if no player rows exist.
+
+    Raises
+    ------
+    ValueError
+        If rows disagree about fight metadata or contain malformed ID lists.
+    pydantic.ValidationError
+        If persisted values cannot form a valid encounter model.
     """
-    with get_connection() as con:
-        cur = con.cursor()
-
-        cur.execute(
+    with get_connection() as connection:
+        cursor = connection.execute(
             """
-            select
+            SELECT
+                encounter_id,
+                last_phase_index,
+                encounter_name,
+                kill_time,
                 player_name,
+                player_server,
+                player_id,
                 pet_ids,
                 excluded_enemy_ids,
                 job,
-                `role`,
-                encounter_id,
-                encounter_name,
-                last_phase_index
-            from
-                encounter
-            where
-                (report_id = ?)
-                and (fight_id = ?)
-                and (player_id = ?)
-        """,
-            (report_id, fight_id, player_id),
+                role
+            FROM encounter
+            WHERE report_id = ? AND fight_id = ?
+            ORDER BY player_id
+            """,
+            (report_id, fight_id),
         )
+        columns = [column[0] for column in cursor.description or ()]
+        rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
 
-        # Ensure that results actually exist.
-        results = cur.fetchone()
-        if results is None:
-            return (
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-            )
-        (
-            player_name,
-            pet_ids,
-            excluded_enemy_ids,
-            job,
-            role,
-            encounter_id,
-            encounter_name,
-            last_phase_index,
-        ) = results
-    if pet_ids is not None:
-        pet_ids = literal_eval(pet_ids)
-    if excluded_enemy_ids is not None:
-        excluded_enemy_ids = literal_eval(excluded_enemy_ids)
-    return (
-        player_name,
-        pet_ids,
-        excluded_enemy_ids,
-        job,
-        role,
-        encounter_id,
-        encounter_name,
-        last_phase_index,
+    if not rows:
+        return None
+
+    shared_columns = (
+        "encounter_id",
+        "last_phase_index",
+        "encounter_name",
+        "kill_time",
+        "excluded_enemy_ids",
     )
+    first_row = rows[0]
+    if any(
+        any(row[column] != first_row[column] for column in shared_columns)
+        for row in rows[1:]
+    ):
+        raise ValueError("Stored encounter rows disagree about fight metadata.")
 
-
-def compute_party_bonus(report_id: str, fight_id: int) -> float:
-    """Calculate party composition bonus based on unique roles.
-
-    Calculates the bonus multiplier from having different roles in the party.
-    Each unique role (Tank, Healer, Melee DPS, etc.) adds 1% to the base multiplier of 1.0.
-    Limit Break is excluded from this calculation.
-
-    Args:
-        report_id (str): FFLogs report identifier
-        fight_id (int): Fight ID within the report
-
-    Returns:
-        float: Party bonus multiplier (e.g., 1.05 for 5 unique roles)
-
-    Example:
-        >>> compute_party_bonus("abc123", 1)
-        1.05  # Party with Tank, Healer, Melee, Physical Ranged, Magical Ranged
-    """
-    sql_query = """
-        SELECT
-            1. + count(distinct role) / 100.
-        from
-            encounter
-        where
-            report_id = ?
-            and fight_id = ?
-            and `role` != "Limit Break"
-    """
-    params = (report_id, fight_id)
-
-    with get_connection() as con:
-        cur = con.cursor()
-        cur.execute(sql_query, params)
-        percent_bonus = cur.fetchall()[0][0]
-    return percent_bonus
+    personnel = [
+        EncounterPersonnel(
+            player_name=row["player_name"],
+            player_server=row["player_server"],
+            player_id=row["player_id"],
+            pet_ids=_id_list_from_db(row["pet_ids"]),
+            job=row["job"],
+            role=row["role"],
+        )
+        for row in rows
+    ]
+    encounter_url = EncounterUrl(
+        build_url=AnyHttpUrl(
+            f"https://www.fflogs.com/reports/{report_id}?fight={fight_id}"
+        )
+    )
+    return Encounter(
+        encounter_url=encounter_url,
+        fight_id_resolved=fight_id,
+        encounter_id=first_row["encounter_id"],
+        encounter_name=first_row["encounter_name"],
+        last_phase_index=first_row["last_phase_index"],
+        kill_time=first_row["kill_time"],
+        excluded_enemy_ids=_id_list_from_db(first_row["excluded_enemy_ids"]),
+        players=personnel,
+        limit_break=None,
+    )
 
 
 def get_player_analysis_job_records(
     report_id: str, fight_id: int
 ) -> list[dict[str, Any]]:
-    """Retrieve player analysis information from database (excluding LB).
+    """Retrieve stored player records for a fight.
 
-    Args:
-        report_id (str): FFLogs report identifier.
-        fight_id (int): Fight ID within the report.
+    Limit Break rows are not stored by the player-analysis workflow.
 
-    Returns:
-        list[dict[str, Any]]
-            Player records with column names as keys.
+    Parameters
+    ----------
+    report_id
+        FFLogs report identifier.
+    fight_id
+        Fight identifier within the report.
+
+    Returns
+    -------
+    list[dict[str, Any]]
+        Player records keyed by column name.
     """
-    sql_query = """
-    select
-        player_name,
-        player_id,
-        job,
-        role
-    from
-        encounter
-    where
-        report_id = ?
-        and fight_id = ?
-        and role != "Limit Break"
-    """
-    params = (report_id, fight_id)
-
-    with get_connection() as con:
-        cur = con.cursor()
-        cur.execute(sql_query, params)
-
-        columns = [col[0] for col in cur.description]
-        row = cur.fetchall()
-        job_records = [dict(zip(columns, r)) for r in row]
-
-    return job_records
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """
+            SELECT player_name, player_id, job, role
+            FROM encounter
+            WHERE report_id = ? AND fight_id = ?
+                AND role != 'Limit Break'
+            ORDER BY player_id
+            """,
+            (report_id, fight_id),
+        )
+        columns = [column[0] for column in cursor.description or ()]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
 def get_party_analysis_calculation_info(
     report_id: str, fight_id: int
 ) -> tuple[int | None, int | None, dict[int, list[int] | None] | None]:
-    """Retrieve player information for a given party analysis.
+    """Retrieve encounter and pet identifiers for a party analysis.
 
-    Args:
-        report_id (str): FFLogs report identifier
-        fight_id (int): Fight ID within the report
+    Parameters
+    ----------
+    report_id
+        FFLogs report identifier.
+    fight_id
+        Fight identifier within the report.
 
-    Returns:
-        tuple[int | None, int | None, dict[int, list[int] | None] | None]
-            Encounter ID, Limit Break player ID, and the player-to-pet-ID mapping.
-            - encounter_id (int): Encounter ID
-            - lb_player_id (int | None): Player ID for Limit Break, None if not present.
-            - pet_id_map (dict[int, list[int] | None]): Mapping of player IDs to pet IDs.
+    Returns
+    -------
+    tuple[int | None, int | None, dict[int, list[int] | None] | None]
+        Encounter ID, Limit Break player ID, and player-to-pet-ID mapping.
     """
-    sql_query = """
-    select
-        encounter_id,
-        job,
-        player_id,
-        pet_ids
-    from
-        encounter
-    where
-        report_id = ?
-        and fight_id = ?
-    """
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """
+            SELECT encounter_id, job, player_id, pet_ids
+            FROM encounter
+            WHERE report_id = ? AND fight_id = ?
+            """,
+            (report_id, fight_id),
+        )
+        rows = cursor.fetchall()
 
-    params = (report_id, fight_id)
-
-    with get_connection() as con:
-        cur = con.cursor()
-        cur.execute(sql_query, params)
-
-        # Query
-        rows = cur.fetchall()
-
-    if rows == []:
+    if not rows:
         return None, None, None
+
     encounter_id = rows[0][0]
-    lb_player_id = [r[2] for r in rows if r[1] == "LimitBreak"]
-    if len(lb_player_id) == 0:
-        lb_player_id = None
-    else:
-        lb_player_id = lb_player_id[0]
-
-    pet_id_map = {r[2]: literal_eval(r[3]) if r[3] is not None else r[3] for r in rows}
-
-    return encounter_id, lb_player_id, pet_id_map
+    limit_break_ids = [row[2] for row in rows if row[1] == "LimitBreak"]
+    limit_break_id = limit_break_ids[0] if limit_break_ids else None
+    pet_ids = {row[2]: _id_list_from_db(row[3]) for row in rows}
+    return encounter_id, limit_break_id, pet_ids

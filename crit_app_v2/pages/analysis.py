@@ -1,9 +1,18 @@
 """Player-analysis job-stats workbench."""
 
+from typing import Any
+
 import dash
 import dash_mantine_components as dmc
 from dash import Input, Output, State, callback, ctx, no_update
+from dash.exceptions import PreventUpdate
+from pydantic import AnyHttpUrl, ValidationError
 
+from crit_app_v2.analysis.models import PlayerAnalysisStats, PreparedPlayerAnalysis
+from crit_app_v2.analysis.player_analysis import (
+    compute_party_bonus,
+    correct_final_phase,
+)
 from crit_app_v2.build_providers import (
     BuildProvider,
     BuildProviderError,
@@ -17,16 +26,23 @@ from crit_app_v2.build_providers.build_dispatch import (
 
 # Imported for its callback registrations.
 from crit_app_v2.callbacks import gearsets as _gearset_callbacks  # noqa: F401
+from crit_app_v2.db.encounter import load_encounter, save_encounter
+from crit_app_v2.db.player_analysis import search_prior_player_analyses
 from crit_app_v2.fflogs_encounters.encounters import fetch_encounter
 from crit_app_v2.fflogs_encounters.errors import FFLogsError
-from crit_app_v2.fflogs_encounters.models import Encounter
+from crit_app_v2.fflogs_encounters.models import Encounter, EncounterUrl
 from crit_app_v2.game_data import (
+    JOB_SPECS,
     ROLE_SPECS,
     SPEED_STAT_SPEC,
     Role,
     Stats,
 )
-from crit_app_v2.game_data.encounters import is_player_analyzeable
+from crit_app_v2.game_data.encounters import (
+    get_encounter_spec,
+    get_phase_options,
+    is_player_analyzeable,
+)
 from crit_app_v2.ui.build_errors import build_error_message
 from crit_app_v2.ui.fflogs_encounter import (
     encounter_title,
@@ -155,7 +171,9 @@ def load_job_build_from_url(n_clicks: int | None, raw_url: str | None):
     Input("loaded-job-build", "data"),
     Input("xiv-gear-select", "value"),
 )
-def apply_loaded_job_build(build_data: dict | None, selected_index: str | None):
+def apply_loaded_job_build(
+    build_data: dict[str, Any] | None, selected_index: str | None
+):
     """Populate the role and stat inputs from the loaded provider data."""
     unchanged = (no_update,) * 8
     if not build_data:
@@ -315,6 +333,8 @@ def load_encounter_from_url(
             job_selection(None, role),
         )
 
+    save_encounter(encounter)
+
     return (
         encounter_to_store(encounter),
         None,
@@ -333,10 +353,201 @@ def load_encounter_from_url(
     prevent_initial_call=True,
 )
 def restrict_players_to_role(
-    selected_role: str, encounter_data: dict | None, selected_player: str | None
+    selected_role: str,
+    encounter_data: dict[str, Any] | None,
+    selected_player: str | None,
 ):
     """Enable only players in the selected role, clearing a mismatched choice."""
     if not encounter_data:
         return no_update
     encounter = Encounter.model_validate(encounter_data)
     return job_selection(encounter, Role(selected_role), selected_player)
+
+
+@callback(
+    Output("url", "pathname", allow_duplicate=True),
+    Output("player-analysis-feedback", "children"),
+    Input("player-analyze-button", "n_clicks"),
+    State("role-select", "value"),
+    State("main-stat-input", "value"),
+    State("determination-stat-input", "value"),
+    State("speed-stat-input", "value"),
+    State("critical-hit-stat-input", "value"),
+    State("direct-hit-stat-input", "value"),
+    State("weapon-damage-stat-input", "value"),
+    State("tenacity-stat-input", "value"),
+    State("loaded-encounter", "data"),
+    State("fflogs-url", "value"),
+    State("phase-select", "value"),
+    State("player-select", "value"),
+    prevent_initial_call=True,
+)
+def analyze_and_register_rotation(
+    n_clicks: int | None,
+    selected_role: str,
+    main_stat_pre_bonus: int | None,
+    determination: int | None,
+    speed_stat: int | None,
+    critical_hit: int | None,
+    direct_hit: int | None,
+    weapon_damage: int | None,
+    tenacity: int | None,
+    encounter_data: dict[str, Any] | None,
+    raw_fflogs_url: str | None,
+    selected_phase: str | list[str] | None,
+    selected_player_id: str | None,
+) -> tuple[Any, str]:
+    """Validate player-analysis inputs and resolve prior analyses.
+
+    This callback intentionally stops immediately before rotation analysis;
+    rotation construction and its error handling remain a separate step.
+    """
+
+    # Very long pre-flight check server-side
+
+    # Things are selected
+    if n_clicks is None:
+        raise PreventUpdate
+    if not selected_player_id:
+        return no_update, "No player selected."
+    if not encounter_data or not raw_fflogs_url or not raw_fflogs_url.strip():
+        return no_update, "Please submit an FFLogs URL and select a player."
+
+    # Check that the encounter data stored client side still validates
+    try:
+        stored_encounter = Encounter.model_validate(encounter_data)
+        input_url = EncounterUrl(build_url=AnyHttpUrl(raw_fflogs_url.strip()))
+    except (ValidationError, ValueError, TypeError):
+        return no_update, "Please resubmit the FFLogs URL; the encounter changed."
+
+    # A successful load replaces fight=last with the resolved numeric ID.
+    # Any later URL edit may leave the selectors stale, so require a resubmit.
+    stored_url_fight = stored_encounter.encounter_url.fight_id
+    if (
+        not isinstance(stored_url_fight, int)
+        or stored_url_fight != stored_encounter.fight_id_resolved
+        or input_url.report_id != stored_encounter.encounter_url.report_id
+        or input_url.fight_id != stored_encounter.fight_id_resolved
+    ):
+        return no_update, "Please resubmit the FFLogs URL; the encounter changed."
+
+    # At this point all of the client-side data is likely unchanged
+    # and is valid encounter information which should have been saved to the DB.
+    # Try to load the encounter information from DB once everything checks out
+    try:
+        encounter = load_encounter(
+            stored_encounter.encounter_url.report_id,
+            stored_encounter.fight_id_resolved,
+        )
+    except (ValidationError, ValueError):
+        return (
+            no_update,
+            "Please resubmit the FFLogs URL; the encounter is unavailable.",
+        )
+
+    if encounter is None or not is_player_analyzeable(encounter.encounter_id):
+        return (
+            no_update,
+            "Please resubmit the FFLogs URL; the encounter is unavailable.",
+        )
+
+    # Validate player selection
+    try:
+        player_id = int(selected_player_id)
+        role = Role(selected_role)
+    except (ValueError, TypeError):
+        return no_update, "Please select a player in the selected role."
+
+    player = next(
+        (person for person in encounter.players if person.player_id == player_id), None
+    )
+    if player is None or player.role is not role:
+        return no_update, "Please select a player in the selected role."
+
+    if isinstance(selected_phase, list):
+        selected_phase = selected_phase[0] if selected_phase else None
+    try:
+        phase_id = int(selected_phase) if selected_phase is not None else 0
+    except (TypeError, ValueError):
+        return no_update, "Select a valid fight phase."
+
+    # Ensure phase information is correct
+    if phase_id < 0:
+        return no_update, "Select a valid fight phase."
+    phase_id = correct_final_phase(phase_id, encounter.last_phase_index)
+    allowed_phases = {
+        option.value
+        for option in get_phase_options(
+            encounter.encounter_id, encounter.last_phase_index
+        )
+    }
+    if phase_id not in allowed_phases:
+        return no_update, "Select a valid fight phase."
+
+    # Server-side validation on the job build stats
+    try:
+        stats = PlayerAnalysisStats.model_validate(
+            {
+                "job": player.job,
+                "build": {
+                    "role": role,
+                    "stats": {
+                        "main_stat": main_stat_pre_bonus,
+                        "determination": determination,
+                        "speed_stat": speed_stat,
+                        "critical_hit": critical_hit,
+                        "direct_hit": direct_hit,
+                        "weapon_damage": weapon_damage,
+                        "tenacity": tenacity if role is Role.TANK else None,
+                    },
+                },
+                "party_bonus": compute_party_bonus(encounter),
+            }
+        )
+    except ValidationError:
+        return (
+            no_update,
+            "The selected role and job stats are invalid. Review the build.",
+        )
+
+    # Encounter validation
+    encounter_spec = get_encounter_spec(encounter.encounter_id)
+    if encounter_spec is None:
+        return no_update, "This encounter is not supported for player analysis."
+    try:
+        prepared_analysis = PreparedPlayerAnalysis(
+            encounter=encounter,
+            player=player,
+            phase_id=phase_id,
+            encounter_level=encounter_spec.level,
+            stats=stats,
+        )
+    except ValidationError:
+        return no_update, "The selected player and encounter data are inconsistent."
+
+    # See if the analysis has been done before
+    # Redirect if it has been and isn't flagged for a recalc
+    prior_analysis_id, needs_recalculation = search_prior_player_analyses(
+        prepared_analysis.encounter.encounter_url.report_id,
+        prepared_analysis.encounter.fight_id_resolved,
+        prepared_analysis.phase_id,
+        JOB_SPECS[prepared_analysis.player.job].fflogs_name,
+        prepared_analysis.player.player_name,
+        prepared_analysis.stats.main_stat_pre_bonus,
+        prepared_analysis.stats.secondary_stat_pre_bonus,
+        prepared_analysis.stats.determination,
+        prepared_analysis.stats.speed_stat,
+        prepared_analysis.stats.critical_hit,
+        prepared_analysis.stats.direct_hit,
+        prepared_analysis.stats.weapon_damage,
+        prepared_analysis.stats.delay,
+    )
+    if prior_analysis_id is not None and not needs_recalculation:
+        return f"/analysis/{prior_analysis_id}", ""
+
+    # Rotation analysis starts after this boundary. All data needed by that
+    # work is resolved and validated from server-side encounter records.
+    return (
+        no_update,
+        "Pre-analysis checks complete; rotation analysis is not implemented yet.",
+    )

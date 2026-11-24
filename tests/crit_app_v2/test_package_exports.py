@@ -39,7 +39,13 @@ from crit_app_v2.build_providers.models.xivgear_models import LoadedXivGearSet
         (
             "crit_app_v2.build_providers.models",
             "crit_app_v2.build_providers.models.models",
-            ("BuildProvider", "BuildUrl", "InternalBuild", "RoleBuildStatsModel"),
+            (
+                "BuildProvider",
+                "BuildUrl",
+                "InternalBuild",
+                "RoleBuildStatsModel",
+                "ValidatedRoleBuild",
+            ),
         ),
         (
             "crit_app_v2.build_providers.models",
@@ -62,6 +68,7 @@ from crit_app_v2.build_providers.models.xivgear_models import LoadedXivGearSet
                 "LoadedEtroBuild",
                 "LoadedXivGearBuild",
                 "RoleBuildStatsModel",
+                "ValidatedRoleBuild",
             ),
         ),
         (
@@ -77,6 +84,20 @@ from crit_app_v2.build_providers.models.xivgear_models import LoadedXivGearSet
                 "JobStatsFormValidation",
                 "StatValidation",
                 "validate_job_stats_form",
+            ),
+        ),
+        (
+            "crit_app_v2.analysis",
+            "crit_app_v2.analysis.models",
+            ("PlayerAnalysisStats", "PreparedPlayerAnalysis"),
+        ),
+        (
+            "crit_app_v2.analysis",
+            "crit_app_v2.analysis.player_analysis",
+            (
+                "DISCRETIZATION_LEVEL_MAP",
+                "compute_party_bonus",
+                "correct_final_phase",
             ),
         ),
         (
@@ -115,6 +136,8 @@ from crit_app_v2.build_providers.models.xivgear_models import LoadedXivGearSet
         "provider-package",
         "provider-errors",
         "form-validation",
+        "analysis-models",
+        "analysis-functions",
         "gearset-models",
         "gearset-errors",
         "gearset-legacy",

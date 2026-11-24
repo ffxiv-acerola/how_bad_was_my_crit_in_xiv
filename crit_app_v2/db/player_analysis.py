@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from crit_app_v2.db.connection import get_connection
+from crit_app_v2.game_data import JOB_SPECS, Role
 
 
 def player_analysis_meta_info(analysis_id: str) -> tuple[str, str, str, float] | None:
@@ -99,9 +100,15 @@ def search_prior_player_analyses(
             Matching analysis ID and whether its redo flags are set. When no
             matching analysis exists, returns ``(None, False)``.
     """
-    sql_query = """
+    tank_jobs = tuple(
+        spec.fflogs_name for spec in JOB_SPECS.values() if spec.role is Role.TANK
+    )
+    tank_placeholders = ", ".join("?" for _ in tank_jobs)
+    sql_query = f"""
     SELECT
-        *
+        analysis_id,
+        redo_rotation_flag,
+        redo_dps_pdf_flag
     FROM
         report
     WHERE
@@ -113,7 +120,7 @@ def search_prior_player_analyses(
         AND main_stat_pre_bonus = ?
         AND (
             secondary_stat_pre_bonus = ?
-            or job not in ("Gunbreaker", "Warrior", "DarkKnight", "Paladin")
+            OR job NOT IN ({tank_placeholders})
         )
         AND determination = ?
         AND speed = ?
@@ -131,6 +138,7 @@ def search_prior_player_analyses(
         player_name,
         main_stat_pre_bonus,
         secondary_stat_pre_bonus,
+        *tank_jobs,
         determination,
         speed,
         critical_hit,
@@ -150,7 +158,7 @@ def search_prior_player_analyses(
 
     elif len(prior_analyses) == 1:
         existing_analysis_id = prior_analyses[0][0]
-        redo_flags = (prior_analyses[0][-1] == 1) or (prior_analyses[0][-2] == 1)
+        redo_flags = (prior_analyses[0][1] == 1) or (prior_analyses[0][2] == 1)
 
     else:
         raise RuntimeError("Internal error, duplicate analyses detected.")

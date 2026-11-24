@@ -191,6 +191,13 @@ def fflogs_encounter_card() -> dmc.Paper:
                         job_selection(None, Role.HEALER),
                         id="job-selection",
                     ),
+                    dmc.Group(
+                        [
+                            dmc.Button("Analyze rotation", id="player-analyze-button"),
+                            dmc.Text(id="player-analysis-feedback", c="red"),
+                        ],
+                        align="center",
+                    ),
                 ]
             ),
         ],

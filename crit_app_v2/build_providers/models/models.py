@@ -1,13 +1,13 @@
 """Shared provider identifiers, URLs, and role-level build models."""
 
 from enum import StrEnum
-from typing import Literal, Self
+from typing import ClassVar, Literal, Self
 from urllib.parse import urlparse
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict
 from pydantic.functional_validators import model_validator
 
-from crit_app_v2.game_data.roles import Role
+from crit_app_v2.game_data import STAT_INPUTS, Role, Stats
 
 
 class BuildProvider(StrEnum):
@@ -97,6 +97,53 @@ class RoleBuildStatsModel(BaseModel):
     tenacity: int | None
 
 
+class ValidatedRoleBuild(BaseModel):
+    """Complete role build with canonical ranges and Tenacity rules."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    role: Role
+    stats: RoleBuildStatsModel
+
+    @model_validator(mode="after")
+    def validate_stats(self) -> Self:
+        """Check canonical stat ranges and whether Tenacity applies to the role.
+
+        Returns
+        -------
+        Self
+            The validated role build.
+
+        Raises
+        ------
+        ValueError
+            If a stat is outside its canonical range or Tenacity does not match
+            the selected role.
+        """
+        values = {
+            Stats.MAIN_STAT: self.stats.main_stat,
+            Stats.DETERMINATION: self.stats.determination,
+            Stats.SPEED_STAT: self.stats.speed_stat,
+            Stats.CRITICAL_HIT: self.stats.critical_hit,
+            Stats.DIRECT_HIT: self.stats.direct_hit,
+            Stats.WEAPON_DAMAGE: self.stats.weapon_damage,
+        }
+        if self.role is Role.TANK:
+            if self.stats.tenacity is None:
+                raise ValueError("Tanks require a Tenacity value.")
+            values[Stats.TENACITY] = self.stats.tenacity
+        elif self.stats.tenacity is not None:
+            raise ValueError("Non-Tanks must not provide Tenacity.")
+
+        for stat, value in values.items():
+            limits = STAT_INPUTS[stat]
+            if not limits.lower <= value <= limits.upper:
+                raise ValueError(
+                    f"{stat.value} must be between {limits.lower} and {limits.upper}."
+                )
+        return self
+
+
 class InternalBuild(BaseModel):
     """Role-level build selected from the site's internal build manager."""
 
@@ -107,64 +154,3 @@ class InternalBuild(BaseModel):
     build_name: str
 
     build_stats: RoleBuildStatsModel
-
-
-# TODO handle later, isn't needed just yet
-# class JobStatsModel(BaseModel):
-#     """A complete, validated set of user-entered job statistics.
-#
-#     Concrete job selection and party-bonus calculations occur later in the
-#     analysis workflow, so they do not belong to this input model.
-#     """
-#
-#     model_config = ConfigDict(extra="forbid")
-#
-#     role: Role
-#     stats: dict[Stats, int]
-#     build: ProviderStatsModel | None = None
-#
-#     @model_validator(mode="after")
-#     def check_ranges(self) -> "JobStatsModel":
-#         """Ensure every entered stat is within its allowed range.
-#
-#         Returns
-#         -------
-#         JobStatsModel
-#             The validated job-stats model.
-#
-#         Raises
-#         ------
-#         ValueError
-#             If any stat is outside its allowed range.
-#         """
-#         for stat, value in self.stats.items():
-#             r = STAT_INPUTS[stat]
-#             if not r.lower <= value <= r.upper:
-#                 raise ValueError(f"{stat} must be in {r.placeholder_text()}")
-#         return self
-#
-#     @model_validator(mode="after")
-#     def check_required_stats(self) -> "JobStatsModel":
-#         """Ensure stats match the selected role's requirements.
-#
-#         Returns
-#         -------
-#         JobStatsModel
-#             The validated job-stats model.
-#
-#         Raises
-#         ------
-#         ValueError
-#             If required stats are missing or role-incompatible stats exist.
-#         """
-#         expected = set(Stats)
-#         if self.role is not Role.TANK:
-#             expected.discard(Stats.TENACITY)
-#
-#         missing = expected - self.stats.keys()
-#         extra = self.stats.keys() - expected
-#         if missing:
-#             raise ValueError(f"Missing stats: {sorted(missing)}")
-#         if extra:
-#             raise ValueError(f"Stats not valid for {self.role}: {sorted(extra)}")
-#         return self
