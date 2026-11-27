@@ -9,8 +9,9 @@ import plotly.express as px
 from dash import Input, Output, callback, dcc, html
 
 from crit_app.config import DB_URI
-from crit_app.job_data.encounter_data import encounter_information, world_to_region
+from crit_app.job_data.encounter_data import encounter_information
 from crit_app.job_data.roles import abbreviated_job_map
+from crit_app_v2.game_data import WORLD_REGIONS
 
 dash.register_page(
     __name__,
@@ -205,7 +206,7 @@ def analytics_query() -> pd.DataFrame:
     # Read the query into a DataFrame
     df = pd.read_sql_query(query, conn)
     df = df.merge(encounter_information_df, how="left", on="encounter_id")
-    df["region"] = df["region"].replace(world_to_region)
+    df["region"] = df["region"].replace(WORLD_REGIONS)
     df["week_start"] = pd.to_datetime(df["week_start"])
     df["creation_ts"] = pd.to_datetime(df["creation_ts"])
     df["job"] = df["job"].replace(abbreviated_job_map).str.upper()

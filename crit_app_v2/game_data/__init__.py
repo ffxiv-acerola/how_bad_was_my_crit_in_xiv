@@ -1,6 +1,21 @@
-"""Framework-independent job, role, and stat reference data."""
+"""Framework-independent job, role, stat, and patch reference data."""
 
 from .jobs import JOB_SPECS, Job, JobSpec
+from .patches import (
+    BALANCE_PATCH_RANGES,
+    PATCH_CATCH_UP,
+    PATCH_SEQUENCE,
+    PATCH_TIMES_BY_REGION,
+    BalancePatchRange,
+    Patch,
+    PatchLookupError,
+    PatchTimes,
+    get_patch_times,
+    patch_times_cn,
+    patch_times_global,
+    patch_times_ko,
+)
+from .region import WORLD_REGIONS, PatchRegion, Region, ServerRegion, world_to_region
 from .roles import ROLE_SPECS, Role, RoleSpec
 from .stats import (
     MAIN_STAT_SPEC,
@@ -15,19 +30,36 @@ from .stats import (
 )
 
 __all__ = [
+    "BALANCE_PATCH_RANGES",
     "JOB_SPECS",
     "MAIN_STAT_SPEC",
+    "PATCH_CATCH_UP",
+    "PATCH_SEQUENCE",
+    "PATCH_TIMES_BY_REGION",
     "ROLE_SPECS",
     "SPEED_STAT_SPEC",
     "STAT_INPUTS",
+    "WORLD_REGIONS",
+    "BalancePatchRange",
     "Job",
     "JobSpec",
     "MainStatSpec",
     "MainStats",
+    "Patch",
+    "PatchLookupError",
+    "PatchRegion",
+    "PatchTimes",
+    "Region",
     "Role",
     "RoleSpec",
+    "ServerRegion",
     "SpeedStatSpec",
     "SpeedStats",
     "StatInput",
     "Stats",
+    "get_patch_times",
+    "patch_times_cn",
+    "patch_times_global",
+    "patch_times_ko",
+    "world_to_region",
 ]

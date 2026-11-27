@@ -4,8 +4,8 @@ from typing import Any
 
 from dash import html
 
-from crit_app.job_data.encounter_data import patch_times
 from crit_app.job_data.roles import abbreviated_job_map
+from crit_app_v2.game_data import Patch, patch_times_global
 
 
 def rotation_percentile_text_map(rotation_percentile: float) -> str:
@@ -46,11 +46,8 @@ def ad_hoc_job_invalid(job: str, log_time: int) -> bool:
         time (int): Start time of the log, to determine patch number.
     """
 
-    if (
-        (job == "Monk")
-        & (log_time > patch_times[7.0]["start"])
-        & (log_time < patch_times[7.0]["end"])
-    ):
+    patch_7_0 = patch_times_global[Patch.P7_0]
+    if job == "Monk" and patch_7_0.contains(log_time):
         return True
     else:
         return False

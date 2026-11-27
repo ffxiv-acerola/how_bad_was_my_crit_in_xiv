@@ -5,7 +5,8 @@ import pandas as pd
 from ffxiv_stats import Rate
 from ffxiv_stats.jobs import Healer, MagicalRanged, Melee, PhysicalRanged, Tank
 
-from crit_app.job_data.encounter_data import patch_times, patch_times_cn, patch_times_ko
+from crit_app_v2.game_data import JOB_SPECS, Job
+from crit_app_v2.game_data.patches import get_patch_times
 from fflogs_rotation.bard import BardActions
 from fflogs_rotation.base import BuffQuery
 from fflogs_rotation.black_mage import BlackMageActions
@@ -281,7 +282,7 @@ class ActionTable(BuffQuery):
         pass
 
     @staticmethod
-    def _get_report_start_time(fight_info_response) -> str:
+    def _get_report_start_time(fight_info_response) -> int:
         return fight_info_response["startTime"]
 
     @staticmethod
@@ -293,7 +294,7 @@ class ActionTable(BuffQuery):
         return fight_info_response["fights"][0]["encounterID"]
 
     @staticmethod
-    def _get_region(fight_info_response) -> int:
+    def _get_region(fight_info_response) -> str:
         return fight_info_response["region"]["compactName"]
 
     @staticmethod
@@ -301,21 +302,16 @@ class ActionTable(BuffQuery):
         return fight_info_response["fights"][0]["difficulty"]
 
     @staticmethod
-    def _get_patch_number(fight_start_time, region) -> float:
-        # Korean and Chinese servers have different patch cadence.
-        if region == "CN":
-            for k, v in patch_times_cn.items():
-                if (fight_start_time >= v["start"]) & (fight_start_time <= v["end"]):
-                    return k
-        elif region == "KR":
-            for k, v in patch_times_ko.items():
-                if (fight_start_time >= v["start"]) & (fight_start_time <= v["end"]):
-                    return k
-        else:
-            for k, v in patch_times.items():
-                if (fight_start_time >= v["start"]) & (fight_start_time <= v["end"]):
-                    return k
-        return 0.0
+    def _get_patch_number(fight_start_time: int, region: str) -> float:
+        """Resolve an FFLogs fight timestamp to its balance-patch number.
+
+        Raises
+        ------
+        PatchLookupError
+            If the server region is unknown or no patch range covers the fight.
+        """
+        patch_times = get_patch_times(fight_start_time, region)
+        return patch_times.balance_patch.number
 
     @staticmethod
     def _get_has_echo(fight_info_response) -> bool:
@@ -378,14 +374,13 @@ class ActionTable(BuffQuery):
         Returns:
             int: Correct potion strength
         """
-        from crit_app.job_data.roles import role_mapping
         from fflogs_rotation.job_data.tinctures import (
             ad_hoc_job_tincture_map,
             role_tincture_map,
             tincture_strengths,
         )
 
-        role = role_mapping[job]
+        role = JOB_SPECS[Job(job)].role.value
         # Check if the potion type matches the correct role
         # or if it's a job with a special tincture type (e.g. nin/vpr using dex)
         if (role_tincture_map[role] == potion_type) | (
@@ -568,9 +563,7 @@ class ActionTable(BuffQuery):
         medication_amount: int = 0,
         tenacity: int | None = None,
     ) -> int:
-        from crit_app.job_data.roles import role_mapping
-
-        role = role_mapping[job]
+        role = JOB_SPECS[Job(job)].role.value
 
         # Crit/DH/delay/speed have no bearing on direct damage base value.
         base_stats = {

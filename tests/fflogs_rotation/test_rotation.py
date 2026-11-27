@@ -26,6 +26,11 @@ class DummyAction(ActionTable):
         # Extract downtime from the provided response.
         return response["table"]["data"].get("downtime", 0)
 
+    @staticmethod
+    def _get_patch_number(fight_start_time: int, region: str) -> float:
+        """Use a fixed patch because these cases only test fight timing."""
+        return 7.3
+
 
 def create_fight_response(kill: bool, phases: int):
     """Simulate _fetchPhase_start_end_time based on the number phases and whether a kill happened.
@@ -81,7 +86,7 @@ def create_fight_response(kill: bool, phases: int):
                 },
             ]
         },
-        "region": {"compactName": "JA"},
+        "region": {"compactName": "JP"},
     }
 
 
@@ -141,9 +146,7 @@ def test_ast_card_buff(job, ranged_cards, melee_cards, input_card, expected_resu
     instance.melee_cards = melee_cards
     # Call the card buff function.
     result = instance.ast_card_buff(input_card)
-    assert (
-        result == expected_result
-    ), f"For job {job} with card {input_card}, expected {expected_result} but got {result}"
+    assert result == expected_result
 
 
 @pytest.mark.parametrize(
