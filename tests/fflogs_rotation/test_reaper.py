@@ -10,13 +10,15 @@ reaper_id_map = {
     "Gibbet": 24382,
     "Void Reaping": 24395,
     "Plentiful Harvest": 24385,
+    "Executioner's Gibbet": 36970,
+    "Executioner's Gallows": 36971,
     "Enhanced Cross Reaping": 1002591,
     "Enhanced Gallows": 1002589,
     "Enhanced Gibbet": 1002588,
     "Enhanced Void Reaping": 1002590,
     "Immortal Sacrifice": 1002592,
-    "Executioners Gibbet": 0,
-    "Executioners Gallows": 0,
+    "Enhanced Executioner's Gibbet": 1002588,
+    "Enhanced Executioner's Gallows": 1002589,
 }
 
 
@@ -53,21 +55,21 @@ def mock_reaper(monkeypatch):
         # Gallows with Enhanced buff
         (
             1500,
-            reaper_id_map["Gallows"],
+            reaper_id_map["Executioner's Gallows"],
             [[1000, 2000]],
             [
-                str(reaper_id_map["Enhanced Gallows"]),
-                str(reaper_id_map["Executioners Gallows"]),
+                str(reaper_id_map["Enhanced Executioner's Gallows"]),
+                str(reaper_id_map["Executioner's Gallows"]),
             ],
         ),
         # Gibbet with Enhanced buff
         (
             1500,
-            reaper_id_map["Gibbet"],
+            reaper_id_map["Executioner's Gibbet"],
             [[1000, 2000]],
             [
-                str(reaper_id_map["Enhanced Gibbet"]),
-                str(reaper_id_map["Executioners Gibbet"]),
+                str(reaper_id_map["Enhanced Executioner's Gibbet"]),
+                str(reaper_id_map["Executioner's Gibbet"]),
             ],
         ),
         # Void Reaping with Enhanced buff
@@ -88,9 +90,9 @@ def test_apply_enhanced_buffs(timestamp, ability_id, enhanced_times, expected_bu
     # Set the specific enhanced buff times based on the test case
     if ability_id == reaper_id_map["Cross Reaping"]:
         reaper.enhanced_cross_reaping_times = np.array(enhanced_times)
-    elif ability_id == reaper_id_map["Gallows"]:
+    elif ability_id == reaper_id_map["Executioner's Gallows"]:
         reaper.enhanced_gallows_times = np.array(enhanced_times)
-    elif ability_id == reaper_id_map["Gibbet"]:
+    elif ability_id == reaper_id_map["Executioner's Gibbet"]:
         reaper.enhanced_gibbet_times = np.array(enhanced_times)
     elif ability_id == reaper_id_map["Void Reaping"]:
         reaper.enhanced_void_reaping_times = np.array(enhanced_times)
@@ -243,10 +245,10 @@ def test_multiple_abilities_with_different_buffs(monkeypatch, mock_reaper):
 
     # Check each ability has the correct buffs
     assert str(reaper_id_map["Enhanced Gibbet"]) in result.loc[0, "buffs"]
-    assert str(reaper_id_map["Executioners Gibbet"]) in result.loc[0, "buffs"]
+    assert str(reaper_id_map["Executioner's Gibbet"]) in result.loc[0, "buffs"]
 
     assert str(reaper_id_map["Enhanced Gallows"]) in result.loc[1, "buffs"]
-    assert str(reaper_id_map["Executioners Gallows"]) in result.loc[1, "buffs"]
+    assert str(reaper_id_map["Executioner's Gallows"]) in result.loc[1, "buffs"]
 
     assert "immortal_sac_6" in result.loc[2, "buffs"]
     assert "immortal_sac_7" in result.loc[3, "buffs"]
