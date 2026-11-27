@@ -2,11 +2,62 @@
 
 import datetime
 import json
-from collections.abc import Sequence
-from typing import Any
+from typing import Any, ClassVar
+
+from pydantic import BaseModel, ConfigDict
 
 from crit_app_v2.db.connection import get_connection
 from crit_app_v2.game_data import JOB_SPECS, Role
+
+
+class PlayerAnalysisRecord(BaseModel):
+    """Validated report-table data for a completed player analysis."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    analysis_id: str
+    report_id: str
+    fight_id: int
+    phase_id: int
+    encounter_name: str
+    active_dps_time: float
+    job: str
+    player_name: str
+    main_stat_pre_bonus: int
+    main_stat: int
+    main_stat_type: str
+    secondary_stat_pre_bonus: int | None
+    secondary_stat: int | None
+    secondary_stat_type: str | None
+    determination: int
+    speed: int
+    critical_hit: int
+    direct_hit: int
+    weapon_damage: int
+    delay: float
+    medication_amount: int
+    party_bonus: float
+    job_build_id: str | None = None
+    job_build_provider: str | None = None
+    redo_dps_pdf_flag: int = 0
+    redo_rotation_flag: int = 0
+
+    def to_row(self) -> tuple[object, ...]:
+        """Map the validated record to the legacy report table column order."""
+        return tuple(self.model_dump().values())
+
+
+class PlayerAnalysisCreationRecord(BaseModel):
+    """Validated creation timestamp for a completed player analysis."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    analysis_id: str
+    creation_ts: datetime.datetime
+
+    def to_row(self) -> tuple[str, str]:
+        """Map the creation record to its database column order."""
+        return self.analysis_id, self.creation_ts.isoformat()
 
 
 def player_analysis_meta_info(analysis_id: str) -> tuple[str, str, str, float] | None:
@@ -43,23 +94,16 @@ def player_analysis_meta_info(analysis_id: str) -> tuple[str, str, str, float] |
     return meta_info
 
 
-def update_player_analysis_creation_table(
-    db_row: tuple[str, datetime.datetime],
-) -> None:
-    """
-    Insert or replace a record in the creation_player_analysis table.
-
-    Args:
-        db_row (tuple[str, datetime.datetime]): Analysis ID and creation timestamp.
-    """
+def update_player_analysis_creation_table(record: PlayerAnalysisCreationRecord) -> None:
+    """Insert or replace a validated creation timestamp."""
     with get_connection() as con:
         cur = con.cursor()
         cur.execute(
             """
-        insert or replace into creation_player_analysis
+        insert or replace into creation_player_analysis (analysis_id, creation_ts)
         values (?, ?)
         """,
-            db_row,
+            record.to_row(),
         )
 
 
@@ -266,16 +310,16 @@ def retrieve_player_analysis_information(analysis_id: str) -> dict[str, Any] | N
     return result
 
 
-def update_report_table(db_row: Sequence[Any]) -> None:
-    """Add a new record to the report table after a player analysis is completed."""
+def update_report_table(record: PlayerAnalysisRecord) -> None:
+    """Insert a validated player analysis into the report table."""
+    columns = tuple(type(record).model_fields)
+    placeholders = ", ".join("?" for _ in columns)
+    column_sql = ", ".join(columns)
     with get_connection() as con:
         cur = con.cursor()
         cur.execute(
-            """
-        insert or replace into report
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-            db_row,
+            f"INSERT OR REPLACE INTO report ({column_sql}) VALUES ({placeholders})",
+            record.to_row(),
         )
 
 

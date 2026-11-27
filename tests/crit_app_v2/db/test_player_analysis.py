@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from crit_app_v2.db import connection, player_analysis
+from crit_app_v2.db.schema import create_tables
 from crit_app_v2.game_data import JOB_SPECS, Job, Role
 
 
@@ -170,3 +171,44 @@ def test_search_prior_player_analyses_checks_tank_tenacity(monkeypatch: pytest.M
 
     assert mismatch == (None, False)
     assert match == ("tank-analysis", False)
+
+
+def test_update_report_table_maps_typed_record_to_named_columns(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Write a typed player-analysis record using explicit report columns."""
+    database_path = tmp_path / "test.db"
+    monkeypatch.setattr(connection, "DB_URI", database_path)
+    with closing(sqlite3.connect(database_path)) as db_connection:
+        create_tables(db_connection)
+
+    record = player_analysis.PlayerAnalysisRecord(
+        analysis_id="analysis-id",
+        report_id="abcdefghijklmnop",
+        fight_id=7,
+        phase_id=0,
+        encounter_name="Encounter",
+        active_dps_time=100.0,
+        job="Warrior",
+        player_name="Player",
+        main_stat_pre_bonus=4000,
+        main_stat=4040,
+        main_stat_type="strength",
+        secondary_stat_pre_bonus=500,
+        secondary_stat=500,
+        secondary_stat_type="tenacity",
+        determination=1500,
+        speed=400,
+        critical_hit=2000,
+        direct_hit=1000,
+        weapon_damage=100,
+        delay=3.36,
+        medication_amount=-1,
+        party_bonus=1.01,
+    )
+
+    player_analysis.update_report_table(record)
+
+    with closing(sqlite3.connect(database_path)) as db_connection:
+        row = db_connection.execute("select analysis_id, job, main_stat, redo_dps_pdf_flag from report").fetchone()
+    assert row == ("analysis-id", "Warrior", 4040, 0)

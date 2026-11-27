@@ -67,17 +67,18 @@ def test_tank_analysis_stats_keep_flat_derived_accessors() -> None:
     assert stats.delay == JOB_SPECS[Job.WARRIOR].weapon_delay
 
 
-def test_non_tank_analysis_stats_omit_tenacity_and_secondary_stat() -> None:
-    """Non-Tank stats expose no secondary stat or Tenacity."""
+def test_healer_analysis_stats_include_fixed_strength_secondary_stat() -> None:
+    """Healer job calculations retain fixed Strength with party bonus."""
     stats = PlayerAnalysisStats(
         job=Job.WHITE_MAGE,
         build=_validated_build(Role.HEALER),
         party_bonus=1.01,
     )
 
-    assert stats.secondary_stat_pre_bonus is None
-    assert stats.secondary_stat is None
-    assert stats.secondary_stat_type is None
+    assert stats.tenacity is None
+    assert stats.secondary_stat_pre_bonus == 214
+    assert stats.secondary_stat == 216
+    assert stats.secondary_stat_type == "strength"
 
 
 def test_player_analysis_stats_reject_job_from_another_role() -> None:

@@ -1,6 +1,9 @@
 """Player-analysis job-stats workbench."""
 
+import datetime
+import traceback
 from typing import Any
+from uuid import uuid4
 
 import dash
 import dash_mantine_components as dmc
@@ -8,11 +11,18 @@ from dash import Input, Output, State, callback, ctx, no_update
 from dash.exceptions import PreventUpdate
 from pydantic import AnyHttpUrl, ValidationError
 
+from crit_app_v2.analysis.dps_distribution import (
+    PlayerDpsDistribution,
+    get_dps_percentile,
+)
 from crit_app_v2.analysis.models import PlayerAnalysisStats, PreparedPlayerAnalysis
 from crit_app_v2.analysis.player_analysis import (
+    DISCRETIZATION_LEVEL_MAP,
     compute_party_bonus,
     correct_final_phase,
 )
+from crit_app_v2.analysis.rotation_analysis import rotation_analysis
+from crit_app_v2.analysis.rotation_table import build_rotation_table
 from crit_app_v2.build_providers import (
     BuildProvider,
     BuildProviderError,
@@ -26,8 +36,20 @@ from crit_app_v2.build_providers.build_dispatch import (
 
 # Imported for its callback registrations.
 from crit_app_v2.callbacks import gearsets as _gearset_callbacks  # noqa: F401
+from crit_app_v2.db.access import PlayerAnalysisAccess, update_access_table
+from crit_app_v2.db.analysis_blobs import save_player_analysis_blobs
 from crit_app_v2.db.encounter import load_encounter, save_encounter
-from crit_app_v2.db.player_analysis import search_prior_player_analyses
+from crit_app_v2.db.errors import (
+    PlayerAnalysisErrorRecord,
+    insert_error_player_analysis,
+)
+from crit_app_v2.db.player_analysis import (
+    PlayerAnalysisCreationRecord,
+    PlayerAnalysisRecord,
+    search_prior_player_analyses,
+    update_player_analysis_creation_table,
+    update_report_table,
+)
 from crit_app_v2.fflogs_encounters.encounters import fetch_encounter
 from crit_app_v2.fflogs_encounters.errors import FFLogsError
 from crit_app_v2.fflogs_encounters.models import Encounter, EncounterUrl
@@ -545,9 +567,104 @@ def analyze_and_register_rotation(
     if prior_analysis_id is not None and not needs_recalculation:
         return f"/analysis/{prior_analysis_id}", ""
 
-    # Rotation analysis starts after this boundary. All data needed by that
-    # work is resolved and validated from server-side encounter records.
-    return (
-        no_update,
-        "Pre-analysis checks complete; rotation analysis is not implemented yet.",
-    )
+    try:
+        rotation = build_rotation_table(prepared_analysis)
+        job_result = rotation_analysis(
+            prepared_analysis,
+            rotation.rotation_df,
+            rotation.fight_dps_time,
+            action_delta=DISCRETIZATION_LEVEL_MAP[prepared_analysis.encounter_level],
+        )
+        distribution = PlayerDpsDistribution.from_job_analysis(
+            job_result, rotation.fight_dps_time
+        )
+        rotation_dps = float(
+            rotation.actions_df["amount"].sum() / distribution.active_dps_t
+        )
+        percentile = (
+            get_dps_percentile(
+                rotation_dps * distribution.active_dps_t / distribution.analysis_t,
+                distribution.rotation_dps_distribution,
+                distribution.rotation_dps_support,
+            )
+            / 100
+        )
+
+        analysis_id = str(uuid4())
+        analysis_datetime = datetime.datetime.now()
+        record = PlayerAnalysisRecord(
+            analysis_id=analysis_id,
+            report_id=prepared_analysis.encounter.encounter_url.report_id,
+            fight_id=prepared_analysis.encounter.fight_id_resolved,
+            phase_id=prepared_analysis.phase_id,
+            encounter_name=rotation.fight_name,
+            active_dps_time=distribution.active_dps_t,
+            job=JOB_SPECS[prepared_analysis.player.job].fflogs_name,
+            player_name=prepared_analysis.player.player_name,
+            main_stat_pre_bonus=prepared_analysis.stats.main_stat_pre_bonus,
+            main_stat=prepared_analysis.stats.main_stat,
+            main_stat_type=prepared_analysis.stats.main_stat_type,
+            secondary_stat_pre_bonus=prepared_analysis.stats.secondary_stat_pre_bonus,
+            secondary_stat=prepared_analysis.stats.secondary_stat,
+            secondary_stat_type=prepared_analysis.stats.secondary_stat_type,
+            determination=prepared_analysis.stats.determination,
+            speed=prepared_analysis.stats.speed_stat,
+            critical_hit=prepared_analysis.stats.critical_hit,
+            direct_hit=prepared_analysis.stats.direct_hit,
+            weapon_damage=prepared_analysis.stats.weapon_damage,
+            delay=prepared_analysis.stats.delay,
+            medication_amount=-1,
+            party_bonus=prepared_analysis.stats.party_bonus,
+        )
+
+        save_player_analysis_blobs(analysis_id, rotation, distribution)
+        update_report_table(record)
+        update_player_analysis_creation_table(
+            PlayerAnalysisCreationRecord(
+                analysis_id=analysis_id,
+                creation_ts=analysis_datetime,
+            )
+        )
+        update_access_table(
+            PlayerAnalysisAccess(
+                analysis_id=analysis_id,
+                access_datetime=analysis_datetime,
+            )
+        )
+    except Exception as error:
+        error_record = PlayerAnalysisErrorRecord(
+            report_id=prepared_analysis.encounter.encounter_url.report_id,
+            fight_id=prepared_analysis.encounter.fight_id_resolved,
+            player_id=prepared_analysis.player.player_id,
+            encounter_id=prepared_analysis.encounter.encounter_id,
+            encounter_name=prepared_analysis.encounter.encounter_name,
+            phase_id=prepared_analysis.phase_id,
+            job=JOB_SPECS[prepared_analysis.player.job].fflogs_name,
+            player_name=prepared_analysis.player.player_name,
+            main_stat_pre_bonus=prepared_analysis.stats.main_stat_pre_bonus,
+            main_stat=prepared_analysis.stats.main_stat,
+            main_stat_type=prepared_analysis.stats.main_stat_type,
+            secondary_stat_pre_bonus=prepared_analysis.stats.secondary_stat_pre_bonus,
+            secondary_stat=prepared_analysis.stats.secondary_stat,
+            secondary_stat_type=prepared_analysis.stats.secondary_stat_type,
+            determination=prepared_analysis.stats.determination,
+            speed=prepared_analysis.stats.speed_stat,
+            critical_hit=prepared_analysis.stats.critical_hit,
+            direct_hit=prepared_analysis.stats.direct_hit,
+            weapon_damage=prepared_analysis.stats.weapon_damage,
+            delay=prepared_analysis.stats.delay,
+            medication_amount=-1,
+            party_bonus=prepared_analysis.stats.party_bonus,
+            error_message=str(error),
+            traceback=traceback.format_exc(),
+        )
+        try:
+            insert_error_player_analysis(error_record)
+        except Exception as logging_error:
+            return (
+                no_update,
+                f"Player analysis failed: {error}. Error logging failed: {logging_error}",
+            )
+        return no_update, f"Player analysis failed: {error}"
+
+    return f"/analysis/{analysis_id}", f"Analysis complete ({percentile:.1%})."

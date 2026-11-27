@@ -12,6 +12,14 @@ from crit_app_v2.fflogs_encounters.models import FFLogsReport
 _FFLOGS_API_URL = "https://www.fflogs.com/api/v2/client"
 
 
+def fflogs_headers() -> dict[str, str]:
+    """Return authorization headers for FFLogs client API requests."""
+    return {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {FFLOGS_TOKEN}",
+    }
+
+
 def query_report(
     query: str,
     variables: dict[str, object],
@@ -44,10 +52,7 @@ def query_report(
         "variables": variables,
         "operationName": operation_name,
     }
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {FFLOGS_TOKEN}",
-    }
+    headers = fflogs_headers()
 
     try:
         response = requests.post(

@@ -8,6 +8,17 @@ from crit_app_v2.build_providers.models import ValidatedRoleBuild
 from crit_app_v2.fflogs_encounters.models import Encounter, EncounterPersonnel
 from crit_app_v2.game_data import JOB_SPECS, Job, Role
 
+_CASTER_HEALER_STRENGTH = {
+    Job.BLACK_MAGE: 194,
+    Job.SUMMONER: 370,
+    Job.RED_MAGE: 226,
+    Job.PICTOMANCER: 194,
+    Job.WHITE_MAGE: 214,
+    Job.SCHOLAR: 395,
+    Job.ASTROLOGIAN: 219,
+    Job.SAGE: 263,
+}
+
 
 class PlayerAnalysisStats(BaseModel):
     """Analysis metadata composed with a validated role build."""
@@ -78,18 +89,29 @@ class PlayerAnalysisStats(BaseModel):
 
     @property
     def secondary_stat_pre_bonus(self) -> int | None:
-        """Return the entered Tenacity for Tanks, or None for other roles."""
-        return self.build.stats.tenacity
+        """Return the unmodified secondary stat used by the job model."""
+        if self.role is Role.TANK:
+            return self.build.stats.tenacity
+        return _CASTER_HEALER_STRENGTH.get(self.job)
 
     @property
     def secondary_stat(self) -> int | None:
-        """Return the secondary stat used by the current player analysis."""
-        return self.build.stats.tenacity
+        """Return the secondary stat after the party bonus where applicable."""
+        secondary_stat = self.secondary_stat_pre_bonus
+        if secondary_stat is None:
+            return None
+        if self.role in (Role.HEALER, Role.MAGICAL_RANGED):
+            return int(secondary_stat * self.party_bonus)
+        return secondary_stat
 
     @property
     def secondary_stat_type(self) -> str | None:
-        """Return Tenacity for Tanks and None for non-Tank roles."""
-        return "tenacity" if self.build.role is Role.TANK else None
+        """Return the secondary-stat name used by the selected role."""
+        if self.role is Role.TANK:
+            return "tenacity"
+        if self.role in (Role.HEALER, Role.MAGICAL_RANGED):
+            return "strength"
+        return None
 
     @property
     def delay(self) -> float:

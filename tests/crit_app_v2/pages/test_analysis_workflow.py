@@ -1,8 +1,11 @@
 """Tests for the pre-rotation player-analysis callback flow."""
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import dash
+import numpy as np
+import pandas as pd
 import pytest
 from pydantic import AnyHttpUrl
 
@@ -79,10 +82,10 @@ def test_encounter_load_callback_persists_supported_server_response(
     assert result[0] == encounter_to_store(encounter)
 
 
-def test_analysis_callback_uses_server_encounter_and_stops_before_rotation(
+def test_analysis_callback_completes_rotation_and_persists_result(
     monkeypatch,
 ) -> None:
-    """Resolve validated stats and prior lookup before the rotation boundary."""
+    """Run the full analysis flow and persist its result before redirecting."""
     encounter = _encounter()
     monkeypatch.setattr("crit_app_v2.pages.analysis.load_encounter", lambda _report, _fight: encounter)
     prior_searches: list[tuple] = []
@@ -92,16 +95,52 @@ def test_analysis_callback_uses_server_encounter_and_stops_before_rotation(
         return None, False
 
     monkeypatch.setattr("crit_app_v2.pages.analysis.search_prior_player_analyses", search_prior)
+    rotation = SimpleNamespace(
+        rotation_df=pd.DataFrame({"action": ["test"]}),
+        actions_df=pd.DataFrame({"amount": [10000]}),
+        fight_dps_time=100.0,
+        fight_name="Black Cat",
+        fight_start_time=0,
+    )
+    monkeypatch.setattr("crit_app_v2.pages.analysis.build_rotation_table", lambda _prepared: rotation)
+    monkeypatch.setattr(
+        "crit_app_v2.pages.analysis.rotation_analysis",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            t=100.0,
+            rotation_mean=100.0,
+            rotation_variance=1.0,
+            rotation_std=1.0,
+            rotation_skewness=0.0,
+            rotation_dps_distribution=np.array([0.0002, 0.0004, 0.0002]),
+            rotation_dps_support=np.array([1000.0, 1500.0, 2000.0]),
+            unique_actions_distribution={
+                "Test Action": {
+                    "support": np.array([1000.0, 1500.0, 2000.0]),
+                    "dps_distribution": np.array([0.0002, 0.0004, 0.0002]),
+                }
+            },
+        ),
+    )
+    saved_records = []
+    monkeypatch.setattr("crit_app_v2.pages.analysis.save_player_analysis_blobs", lambda *args: None)
+    monkeypatch.setattr("crit_app_v2.pages.analysis.update_report_table", saved_records.append)
+    monkeypatch.setattr("crit_app_v2.pages.analysis.update_player_analysis_creation_table", lambda _record: None)
+    accesses = []
+    monkeypatch.setattr("crit_app_v2.pages.analysis.update_access_table", accesses.append)
+    monkeypatch.setattr("crit_app_v2.pages.analysis.uuid4", lambda: "new-id")
 
     result = _analyze(encounter)
 
     assert result == (
-        dash.no_update,
-        "Pre-analysis checks complete; rotation analysis is not implemented yet.",
+        "/analysis/new-id",
+        "Analysis complete (10.0%).",
     )
     assert len(prior_searches) == 1
     assert prior_searches[0][3:6] == ("Warrior", "Player", 4000)
     assert prior_searches[0][6] == 500
+    assert saved_records[0].analysis_id == "new-id"
+    assert saved_records[0].medication_amount == -1
+    assert accesses[0].analysis_id == "new-id"
 
 
 def test_analysis_callback_redirects_to_existing_analysis(monkeypatch) -> None:

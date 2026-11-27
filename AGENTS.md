@@ -42,27 +42,48 @@ crit_app_v2/
         jobs.py           # Job enum and job reference metadata
         roles.py          # Role enum and role metadata
         stats.py          # Stat enums, metadata, and canonical ranges
+        encounters/       # Encounter metadata, phases, and exclusions
     build_providers/
         models/
             models.py         # Shared provider, URL, stats, and internal-build models
             etro_models.py    # Etro response and loaded-build models
             xivgear_models.py # Loaded XIVGear sheet and set models
+        build_dispatch.py # Provider URL validation and build loading
         etro.py              # Etro API access and response transformation
         xivgear.py           # XIVGear API access and response transformation
-        form_validation.py # Incomplete job-stat form validation
+        errors.py            # Typed provider errors
+        form_validation.py   # Incomplete job-stat form validation
+    fflogs_encounters/
+        models.py         # Validated FFLogs URLs and normalized encounters
+        client.py         # FFLogs GraphQL client
+        encounters.py     # Fetching and normalizing reports and fights
+        errors.py         # Typed FFLogs errors
+    analysis/
+        models.py         # Validated player-analysis inputs and context
+        player_analysis.py # Player-analysis calculations and utilities
     gearsets/
         models.py         # SavedGearset and GearsetLibrary (ID-keyed, strict)
         legacy.py         # Migration from the legacy browser-store format
         storage.py        # Library <-> dcc.Store serialization
         errors.py         # Typed library operation errors
+    db/
+        connection.py     # SQLite connection and transaction management
+        schema.py         # Database schema
+        encounter.py      # Encounter persistence mapping and queries
+        player_analysis.py # Player-analysis persistence and queries
+        party_analysis.py # Party-analysis persistence and queries
+        errors.py         # Analysis error persistence
+        access.py         # Analysis access persistence
+        setup.py          # Database and blob-store initialization
     ui/                   # DMC components and presentation adapters
     callbacks/            # Callback modules imported by pages (e.g. gearsets.py)
     pages/                # Dash pages and callbacks
 ```
 
-`game_data` and provider models should remain framework-independent and usable
-by pages, tests, scripts, and persistence without a Dash app. UI modules may
-depend on these domain packages, but domain code must not depend on UI modules.
+`game_data`, provider and FFLogs models, and `analysis` domain modules should
+remain framework-independent and usable by pages, tests, scripts, and
+persistence without a Dash app. UI modules may depend on these domain packages,
+but domain code must not depend on UI modules.
 
 ## Pydantic Domain Models
 
@@ -101,8 +122,15 @@ limits from it rather than duplicate constants.
 The public provider models are exported from
 `crit_app_v2.build_providers.models` and `crit_app_v2.build_providers`. These
 include `BuildUrl`, `RoleBuildStatsModel`, `InternalBuild`, `LoadedEtroBuild`,
-and `LoadedXivGearBuild`. `BuildUrl` validates a supported provider URL and
-classifies its provider.
+`LoadedXivGearBuild`, and `ValidatedRoleBuild`. `BuildUrl` validates a supported
+provider URL and classifies its provider. `ValidatedRoleBuild` combines a role
+with complete stats and enforces the canonical ranges and role-specific
+Tenacity rules; use it as the reusable per-player build model in player and
+party analysis.
+
+`RoleBuildStatsModel` represents normalized provider stats without range or
+role-specific Tenacity validation. Apply `ValidatedRoleBuild` at a trusted
+analysis boundary, where the role is known.
 
 Loaded provider-build outputs are role-level: a job may be used internally to
 select provider stat fields, but do not expose it as the loaded build's output.
@@ -142,6 +170,11 @@ Tenacity rules are domain invariants:
 - Tanks require Tenacity.
 - Non-tanks must not provide Tenacity.
 
+`analysis.models.PlayerAnalysisStats` composes a `ValidatedRoleBuild` with the
+selected job and party bonus. It exposes flat stat accessors for analysis code;
+keep job/role agreement in this model and keep derived calculations such as
+party bonus and weapon delay in framework-independent analysis code.
+
 Role and stat metadata must be framework-independent and must not contain
 `html.*`, `dbc.*`, or `dmc.*` components. UI adapters resolve metadata and turn
 it into framework-specific labels, tooltips, and controls.
@@ -174,6 +207,29 @@ The legacy `report` table stores build provider and build ID. If a selected
 XIVGear `build_index` must survive persistence, add an explicit schema
 migration and persistence mapping for it; do not silently discard it.
 
+Pydantic-to-row and row-to-Pydantic conversions belong in the corresponding
+`crit_app_v2.db` domain module. Keep those mappings out of Dash callbacks and
+analysis models. Queries should select named columns and convert database
+records into typed models at the persistence boundary.
+
+### Encounter data and player analysis
+
+FFLogs responses are normalized into `fflogs_encounters.models.Encounter` and
+`EncounterPersonnel` on the server. Browser stores are presentation state, not a
+trusted source for encounter roster, job, role, pets, or excluded enemies.
+
+- On a successful player-analyzeable encounter load, persist the validated
+  `Encounter` with `db.encounter.save_encounter`.
+- At analysis submission, compare the current URL with the loaded encounter
+  identifiers, then load the trusted encounter with `db.encounter.load_encounter`.
+  Use that model to validate the selected player and role and derive analysis
+  inputs.
+- Replace a fight's encounter rows atomically when saving its roster, so stale
+  participants do not remain in the database.
+- Prepare player analysis through `analysis.models.PreparedPlayerAnalysis`
+  before rotation analysis. Keep rotation calculations in domain code and row
+  mapping in the persistence layer; callbacks orchestrate these operations.
+
 ## Implementation Practice
 
 - Add a concise module docstring at the top of every Python module in
@@ -204,6 +260,9 @@ migration and persistence mapping for it; do not silently discard it.
   For example, tests for `crit_app_v2/build_providers/models/etro_models.py`
   belong under `tests/crit_app_v2/build_providers/models/`. Do not add test
   modules inside application packages.
+- Keep test module basenames unique across test directories unless those
+  directories are Python packages; pytest can otherwise import the wrong test
+  module during collection.
 
 ### Code Quality Checks
 
