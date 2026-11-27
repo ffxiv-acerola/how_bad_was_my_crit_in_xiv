@@ -17,8 +17,8 @@ class ReaperActions(BuffQuery):
         gallows_id: int = 24383,
         gibbet_id: int = 24382,
         void_reaping_id: int = 24395,
-        executioners_gibbet_id: int = 0,
-        executioners_gallows_id: int = 0,
+        executioners_gibbet_id: int = 36970,
+        executioners_gallows_id: int = 36971,
         plentiful_harvest_id: int = 24385,
         enhanced_cross_reaping_id: int = 1002591,
         enhanced_gallows_id: int = 1002589,
@@ -215,7 +215,9 @@ class ReaperActions(BuffQuery):
         )
 
         enhanced_gallows_condition = disjunction(*enhanced_gallows_betweens) & (
-            actions_df["abilityGameID"] == self.gallows_id
+            actions_df["abilityGameID"].isin(
+                (self.gallows_id, self.executioners_gallows_id)
+            )
         )
 
         # Enhanced gibbet
@@ -225,7 +227,9 @@ class ReaperActions(BuffQuery):
         )
 
         enhanced_gibbet_condition = disjunction(*enhanced_gibbet_betweens) & (
-            actions_df["abilityGameID"] == self.gibbet_id
+            actions_df["abilityGameID"].isin(
+                (self.gibbet_id, self.executioners_gibbet_id)
+            )
         )
 
         # Enhanced harpe
